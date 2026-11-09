@@ -28,34 +28,43 @@
 
   /* ---------- top ---------- */
   .hero { padding: 48px 0 40px; border-bottom: 2px solid var(--ink); }
-  .top { display: flex; align-items: center; justify-content: space-between; gap: 32px; flex-wrap: wrap; }
+  /* Logo with the stats under it on the left; new games on the right,
+     three per row, stacking downward (no sideways scrolling). */
+  .top {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto 1fr;
+    grid-template-areas: "logo new" "stats new";
+    column-gap: 32px; row-gap: 28px;
+  }
   .hero h1 {
+    grid-area: logo; margin-top: 30px;
     font-family: "Archivo Black", sans-serif;
     font-size: clamp(52px, 7.5vw, 96px);
     line-height: .9; letter-spacing: -.03em;
   }
   .hero h1 span { -webkit-text-stroke: 3px var(--ink); color: transparent; }
 
-  .newbar { flex: 1 1 320px; max-width: 100%; min-width: 0; }
+  .newbar { grid-area: new; min-width: 0; }
   .newbar[hidden] { display: none; }
   .newlabel { font: 700 12px "Space Mono", monospace; letter-spacing: .14em; margin-bottom: 4px; text-align: right; }
-  .newlist { display: flex; gap: 12px; overflow-x: auto; padding: 12px 12px 10px 2px; }
-  .newlist > :first-child { margin-left: auto; }
+  .newlist {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 124px)); justify-content: end;
+    gap: 20px 14px; padding: 12px 10px 0 2px;
+  }
   .chip {
-    flex: none; width: 96px; border: 2px solid var(--ink); color: inherit; text-decoration: none; background: var(--bg);
+    border: 2px solid var(--ink); color: inherit; text-decoration: none; background: var(--bg);
     position: relative; transition: transform .15s ease, box-shadow .15s ease;
   }
   .chip:hover { transform: translate(-3px,-3px); box-shadow: 5px 5px 0 var(--ink); }
   .chip img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border-bottom: 2px solid var(--ink); }
-  .chip span { display: block; font: 700 11px "Space Grotesk", sans-serif; padding: 4px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chip span { display: block; font: 700 12px "Space Grotesk", sans-serif; padding: 5px 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   .new {
-    position: absolute; top: -9px; right: -9px; z-index: 2;
+    position: absolute; top: -10px; right: -10px; z-index: 2;
     background: var(--ink); color: var(--bg); font: 700 12px "Space Mono", monospace; letter-spacing: .06em;
     padding: 3px 7px; transform: rotate(6deg); border: 2px solid var(--bg); box-shadow: 0 0 0 2px var(--ink);
   }
 
-  .stats { margin-top: 28px; display: flex; border: 2px solid var(--ink); width: fit-content; }
+  .stats { grid-area: stats; align-self: start; display: flex; border: 2px solid var(--ink); width: fit-content; }
   .stat { padding: 12px 22px; }
   .stat + .stat { border-left: 2px solid var(--ink); }
   .stat b { font-family: "Archivo Black", sans-serif; font-size: 26px; display: flex; align-items: center; gap: 8px; line-height: 1.1; }
@@ -97,12 +106,16 @@
   }
 
   @media (prefers-reduced-motion: reduce) { .card, .chip { transition: none; } .dot { animation: none; } }
+  @media (max-width: 760px) {
+    .top { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-template-areas: "logo" "new" "stats"; }
+    .hero h1 { margin-top: 0; }
+    .newlabel { text-align: left; }
+    .newlist { grid-template-columns: repeat(3, minmax(0, 1fr)); justify-content: stretch; }
+  }
   @media (max-width: 640px) {
     .wrap { padding: 0 16px; }
     .hero { padding: 32px 0 28px; }
     .hero h1 span { -webkit-text-stroke-width: 2px; }
-    .newlabel { text-align: left; }
-    .newlist > :first-child { margin-left: 0; }
     .grid { grid-template-columns: 1fr; gap: 24px; }
   }
 </style>
@@ -117,10 +130,10 @@
         <div class="newlabel">NYE SPIL</div>
         <div class="newlist" id="newList"></div>
       </aside>
-    </div>
-    <div class="stats">
-      <div class="stat"><b id="count">0</b><small>Spil</small></div>
-      <div class="stat"><b><i class="dot"></i><span id="onlineSite">–</span></b><small>Online nu</small></div>
+      <div class="stats">
+        <div class="stat"><b id="count">0</b><small>Spil</small></div>
+        <div class="stat"><b><i class="dot"></i><span id="onlineSite">–</span></b><small>Online nu</small></div>
+      </div>
     </div>
   </div>
 </header>
