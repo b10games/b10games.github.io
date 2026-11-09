@@ -1000,4 +1000,5 @@ tc.addEventListener('touchend',tcEnd,{passive:false});tc.addEventListener('touch
 $('ipc').onclick=()=>{tcOn^=1;$('ipc').textContent='iPad Controls: '+(tcOn?'ON':'OFF')};
 function tcTick(){const show=tcOn&&run&&!paused&&!invOpen&&!chatOpen;tc.style.display=show?'block':'none';if(tcOn&&run&&!paused&&!invOpen)locked=1;const sp=!!spec;if(sp!==sph){sph=sp;['hb','hp','fd','hint'].forEach(i=>{const e=$(i);if(e)e.style.display=sp?'none':''});vscene.visible=!sp}}
 sky.setRGB(.48,.72,1);loop();
-</script></body></html>
+</script><script src="/stats.js" data-game="buttcraft-low-quality" defer></script>
+</body></html>

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>B10GAMES</title>
-<meta name="description" content="B10GAMES – alle mine spil samlet ét sted. Spil gratis direkte i browseren.">
+<meta name="description" content="B10GAMES – gratis spil direkte i browseren.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23000'/%3E%3Ctext x='16' y='22' font-family='Arial,sans-serif' font-weight='900' font-size='14' fill='%23fff' text-anchor='middle'%3EB10%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,6 +14,7 @@
     --bg: #ffffff;
     --ink: #000000;
     --muted: #555555;
+    --live: #16a34a;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -26,52 +27,83 @@
   .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
 
   /* ---------- top ---------- */
-  .hero { padding: 64px 0 48px; border-bottom: 2px solid var(--ink); }
+  .hero { padding: 48px 0 40px; border-bottom: 2px solid var(--ink); }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 32px; flex-wrap: wrap; }
   .hero h1 {
     font-family: "Archivo Black", sans-serif;
-    font-size: clamp(56px, 13vw, 160px);
+    font-size: clamp(52px, 7.5vw, 96px);
     line-height: .9; letter-spacing: -.03em;
-    margin-bottom: 20px;
   }
   .hero h1 span { -webkit-text-stroke: 3px var(--ink); color: transparent; }
-  .hero p { font-size: clamp(17px, 2vw, 21px); max-width: 560px; color: var(--muted); }
-  .stats { margin-top: 32px; display: flex; border: 2px solid var(--ink); width: fit-content; }
+
+  .newbar { flex: 1 1 320px; max-width: 100%; min-width: 0; }
+  .newbar[hidden] { display: none; }
+  .newlabel { font: 700 12px "Space Mono", monospace; letter-spacing: .14em; margin-bottom: 4px; text-align: right; }
+  .newlist { display: flex; gap: 12px; overflow-x: auto; padding: 12px 12px 10px 2px; }
+  .newlist > :first-child { margin-left: auto; }
+  .chip {
+    flex: none; width: 96px; border: 2px solid var(--ink); color: inherit; text-decoration: none; background: var(--bg);
+    position: relative; transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .chip:hover { transform: translate(-3px,-3px); box-shadow: 5px 5px 0 var(--ink); }
+  .chip img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border-bottom: 2px solid var(--ink); }
+  .chip span { display: block; font: 700 11px "Space Grotesk", sans-serif; padding: 4px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .new {
+    position: absolute; top: -9px; right: -9px; z-index: 2;
+    background: var(--ink); color: var(--bg); font: 700 12px "Space Mono", monospace; letter-spacing: .06em;
+    padding: 3px 7px; transform: rotate(6deg); border: 2px solid var(--bg); box-shadow: 0 0 0 2px var(--ink);
+  }
+
+  .stats { margin-top: 28px; display: flex; border: 2px solid var(--ink); width: fit-content; }
   .stat { padding: 12px 22px; }
   .stat + .stat { border-left: 2px solid var(--ink); }
-  .stat b { font-family: "Archivo Black", sans-serif; font-size: 26px; display: block; line-height: 1.1; }
-  .stat small { font-family: "Space Mono", monospace; font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+  .stat b { font-family: "Archivo Black", sans-serif; font-size: 26px; display: flex; align-items: center; gap: 8px; line-height: 1.1; }
+  .stat small { font: 700 11px "Space Mono", monospace; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--live); display: inline-block; flex: none; animation: pulse 1.6s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(22,163,74,.6); } 100% { box-shadow: 0 0 0 8px rgba(22,163,74,0); } }
 
   /* ---------- games ---------- */
   .games { padding: 48px 0 72px; }
   .games h2 { font-family: "Archivo Black", sans-serif; font-size: clamp(30px, 4vw, 44px); line-height: 1; margin-bottom: 28px; }
-  .grid { display: grid; gap: 24px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+  .grid { display: grid; gap: 28px 24px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
   .card {
-    border: 2px solid var(--ink); background: var(--bg);
+    border: 2px solid var(--ink); background: var(--bg); position: relative;
     color: inherit; text-decoration: none;
     display: flex; flex-direction: column;
     transition: transform .15s ease, box-shadow .15s ease;
   }
   .card:hover { transform: translate(-4px,-4px); box-shadow: 8px 8px 0 var(--ink); }
-  .card:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+  .card:focus-visible, .chip:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   .card img {
     display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover;
     border-bottom: 2px solid var(--ink); background: #eee;
   }
+  .card .new { top: -12px; right: -12px; font-size: 15px; padding: 4px 10px; }
   .body { padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
   .body h3 { font-family: "Archivo Black", sans-serif; font-size: 24px; line-height: 1.1; }
   .body p { color: var(--muted); font-size: 15px; flex: 1; }
+  .cstats {
+    display: flex; gap: 14px; flex-wrap: wrap; align-items: center;
+    font: 700 12px "Space Mono", monospace; border-top: 2px solid var(--ink); padding-top: 10px; margin-top: 4px;
+  }
+  .cstats span { display: inline-flex; align-items: center; gap: 6px; }
+  .cstats .dot { width: 8px; height: 8px; }
+  .cstats .off { background: #bbb; animation: none; }
   .play {
-    align-self: flex-start; margin-top: 4px;
+    align-self: flex-start;
     font-family: "Space Mono", monospace; font-weight: 700; font-size: 13px; letter-spacing: .06em;
     background: var(--ink); color: var(--bg); padding: 7px 14px;
   }
 
-  @media (prefers-reduced-motion: reduce) { .card { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { .card, .chip { transition: none; } .dot { animation: none; } }
   @media (max-width: 640px) {
     .wrap { padding: 0 16px; }
-    .hero { padding: 40px 0 32px; }
+    .hero { padding: 32px 0 28px; }
     .hero h1 span { -webkit-text-stroke-width: 2px; }
-    .grid { grid-template-columns: 1fr; gap: 20px; }
+    .newlabel { text-align: left; }
+    .newlist > :first-child { margin-left: 0; }
+    .grid { grid-template-columns: 1fr; gap: 24px; }
   }
 </style>
 </head>
@@ -79,11 +111,16 @@
 
 <header class="hero">
   <div class="wrap">
-    <h1>B10<span>GAMES</span></h1>
-    <p>Alle mine spil samlet ét sted. Klik på et spil og spil direkte i browseren.</p>
+    <div class="top">
+      <h1>B10<span>GAMES</span></h1>
+      <aside class="newbar" id="newbar" hidden>
+        <div class="newlabel">NYE SPIL</div>
+        <div class="newlist" id="newList"></div>
+      </aside>
+    </div>
     <div class="stats">
-      <div class="stat"><b>7</b><small>Spil</small></div>
-      <div class="stat"><b>4</b><small>3D-spil</small></div>
+      <div class="stat"><b id="count">0</b><small>Spil</small></div>
+      <div class="stat"><b><i class="dot"></i><span id="onlineSite">–</span></b><small>Online nu</small></div>
     </div>
   </div>
 </header>
@@ -91,74 +128,91 @@
 <main class="games">
   <div class="wrap">
     <h2>Alle spil</h2>
-    <div class="grid">
-
-      <a class="card" href="games/buttcraft/">
-        <img src="img/buttcraft.jpg" alt="Forsiden af Buttcraft" loading="lazy">
-        <div class="body">
-          <h3>Buttcraft</h3>
-          <p>Voxel-sandkasse i gyldent aftenlys med skygger og vand, der spejler solen. Spil singleplayer eller multiplayer.</p>
-          <span class="play">SPIL ▶</span>
-        </div>
-      </a>
-
-      <a class="card" href="games/buttcraft-low-quality/">
-        <img src="img/buttcraft-low-quality.jpg" alt="Forsiden af Buttcraft Low Quality Version" loading="lazy">
-        <div class="body">
-          <h3>Buttcraft Low Quality Version</h3>
-          <p>Den første, simple udgave af Buttcraft. Byg og grav i din egen blokverden og flyv rundt i Creative.</p>
-          <span class="play">SPIL ▶</span>
-        </div>
-      </a>
-
-      <a class="card" href="games/turbo-royale/">
-        <img src="img/turbo-royale.jpg" alt="Forsiden af Turbo Royale" loading="lazy">
-        <div class="body">
-          <h3>Turbo Royale</h3>
-          <p>Ræs med drift og boost, eller kør frit rundt i Free Drive. Vælg sværhedsgrad: easy, medium eller hard.</p>
-          <span class="play">SPIL ▶</span>
-        </div>
-      </a>
-
-      <a class="card" href="games/nitro-rush/">
-        <img src="img/nitro-rush.jpg" alt="Forsiden af Nitro Rush" loading="lazy">
-        <div class="body">
-          <h3>Nitro Rush</h3>
-          <p>3D-racer med garage, butik og flere baner. Drift i svingene og brug nitro.</p>
-          <span class="play">SPIL ▶</span>
-        </div>
-      </a>
-
-      <a class="card" href="games/yellow-circle-clicker/">
-        <img src="img/yellow-circle-clicker.jpg" alt="Forsiden af Yellow Circle Clicker" loading="lazy">
-        <div class="body">
-          <h3>Yellow Circle Clicker</h3>
-          <p>Klik på cirklen, køb opgraderinger og lav rebirths for en større multiplier.</p>
-          <span class="play">SPIL ▶</span>
-        </div>
-      </a>
-
-      <a class="card" href="games/snake/">
-        <img src="img/snake.jpg" alt="Forsiden af Snake" loading="lazy">
-        <div class="body">
-          <h3>Snake</h3>
-          <p>Den klassiske slange. Spis, bliv længere og undgå væggene.</p>
-          <span class="play">SPIL ▶</span>
-        </div>
-      </a>
-
-      <a class="card" href="games/block-blast/">
-        <img src="img/block-blast.jpg" alt="Forsiden af Block Blast" loading="lazy">
-        <div class="body">
-          <h3>Block Blast</h3>
-          <p>Placér blokkene, fyld rækker og kolonner, og slå din highscore.</p>
-          <span class="play">SPIL ▶</span>
-        </div>
-      </a>
-
-    </div>
+    <div class="grid" id="grid"></div>
   </div>
 </main>
 
+<script src="stats.js"></script>
+<script>
+  // Add a new game here. "added" = the day it came out; it shows as NEW! for 14 days.
+  var GAMES = [
+    { id: 'apex-horizon', title: 'Apex Horizon', added: '2026-11-09',
+      desc: '3D-racer i en kæmpe åben by med 10 baner, AI-modstandere og en garage med opgraderinger.' },
+    { id: 'block-storm', title: 'Block Storm', added: '2026-11-09',
+      desc: 'Træk brikker ind på brættet og ryd rækker. Combos, bomber, drej-brikker og en Blitz-mode på 2 minutter.' },
+    { id: 'super-snake', title: 'Super Snake', added: '2026-11-09',
+      desc: 'Slangen med power-ups, combos, levels, labyrinter og skins du kan låse op.' },
+    { id: 'b10-words', title: 'B10 Words', added: '2026-11-09',
+      desc: 'Gæt det engelske ord på fem bogstaver på seks forsøg. Ét nyt ord hver dag, eller spil frit.' },
+    { id: 'matas-surfers', title: 'Matas Surfers', added: '2026-11-09',
+      desc: 'Løb gennem butikken, hop over soft mud wax, smut under bordet og undvig den kæmpe håndcreme.' },
+    { id: 'buttcraft', title: 'Buttcraft',
+      desc: 'Voxel-sandkasse i gyldent aftenlys med skygger og vand, der spejler solen. Spil singleplayer eller multiplayer.' },
+    { id: 'buttcraft-low-quality', title: 'Buttcraft Low Quality Version',
+      desc: 'Den første, simple udgave af Buttcraft. Byg og grav i din egen blokverden og flyv rundt i Creative.' },
+    { id: 'turbo-royale', title: 'Turbo Royale',
+      desc: 'Ræs med drift og boost, eller kør frit rundt i Free Drive. Vælg sværhedsgrad: easy, medium eller hard.' },
+    { id: 'yellow-circle-clicker', title: 'Yellow Circle Clicker',
+      desc: 'Klik på cirklen, køb opgraderinger og lav rebirths for en større multiplier.' }
+  ];
+  var NEW_DAYS = 14;
+
+  (function () {
+    function isNew(g) {
+      if (!g.added) return false;
+      var p = g.added.split('-');
+      var days = (Date.now() - new Date(+p[0], +p[1] - 1, +p[2]).getTime()) / 86400000;
+      return days >= 0 && days < NEW_DAYS;
+    }
+    function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+    function esc(s) { return s.replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+    var grid = document.getElementById('grid'), newList = document.getElementById('newList');
+    var fresh = GAMES.filter(isNew);
+    document.getElementById('count').textContent = GAMES.length;
+
+    fresh.forEach(function (g) {
+      var a = el('a', 'chip');
+      a.href = 'games/' + g.id + '/';
+      a.innerHTML = '<b class="new">NEW!</b><img src="img/' + g.id + '.jpg" alt=""><span>' + esc(g.title) + '</span>';
+      newList.appendChild(a);
+    });
+    document.getElementById('newbar').hidden = !fresh.length;
+
+    var slots = {};
+    GAMES.forEach(function (g) {
+      var a = el('a', 'card');
+      a.href = 'games/' + g.id + '/';
+      a.innerHTML =
+        (isNew(g) ? '<b class="new">NEW!</b>' : '') +
+        '<img src="img/' + g.id + '.jpg" alt="Forsiden af ' + esc(g.title) + '" loading="lazy">' +
+        '<div class="body"><h3>' + esc(g.title) + '</h3><p>' + esc(g.desc) + '</p>' +
+        '<div class="cstats"><span>▶ <b data-plays>–</b> har spillet</span>' +
+        '<span><i class="dot off" data-dot></i><b data-online>–</b> online</span></div>' +
+        '<span class="play">SPIL ▶</span></div>';
+      grid.appendChild(a);
+      slots[g.id] = { plays: a.querySelector('[data-plays]'), online: a.querySelector('[data-online]'), dot: a.querySelector('[data-dot]') };
+    });
+
+    // ---------- live numbers ----------
+    var S = window.B10Stats;
+    function fmt(n) { return n == null ? '–' : n.toLocaleString('da-DK'); }
+    function refresh() {
+      S.online('site').then(function (n) {
+        document.getElementById('onlineSite').textContent = n == null ? '–' : fmt(Math.max(1, n)); // you are online too
+      });
+      GAMES.forEach(function (g) {
+        var s = slots[g.id];
+        S.plays(g.id).then(function (n) { if (n != null) s.plays.textContent = fmt(n); });
+        S.online(g.id).then(function (n) {
+          if (n == null) return;
+          s.online.textContent = fmt(n);
+          s.dot.classList.toggle('off', n === 0);
+        });
+      });
+    }
+    if (S) { S.startPresence(['site']); refresh(); setInterval(refresh, 60000); }
+  })();
+</script>
 </body>
 </html>
