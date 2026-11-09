@@ -74,7 +74,20 @@
 
   /* ---------- games ---------- */
   .games { padding: 48px 0 72px; }
-  .games h2 { font-family: "Archivo Black", sans-serif; font-size: clamp(30px, 4vw, 44px); line-height: 1; margin-bottom: 28px; }
+  .games-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 28px; }
+  .games h2 { font-family: "Archivo Black", sans-serif; font-size: clamp(30px, 4vw, 44px); line-height: 1; }
+  .search {
+    display: flex; align-items: center; gap: 10px; height: 48px; width: min(340px, 100%);
+    border: 2px solid var(--ink); background: var(--bg); padding: 0 14px; cursor: text;
+    transition: box-shadow .15s ease, transform .15s ease;
+  }
+  .search:focus-within { transform: translate(-2px,-2px); box-shadow: 4px 4px 0 var(--ink); }
+  .search svg { flex: none; }
+  .search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font: 500 16px "Space Grotesk", sans-serif; }
+  .search input::placeholder { color: #888; }
+  .card[hidden] { display: none; }
+  .empty { display: none; font: 700 15px "Space Mono", monospace; padding: 8px 0 24px; }
+  .empty.on { display: block; }
   .grid { display: grid; gap: 28px 24px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
   .card {
     border: 2px solid var(--ink); background: var(--bg); position: relative;
@@ -140,8 +153,15 @@
 
 <main class="games">
   <div class="wrap">
-    <h2>Alle spil</h2>
+    <div class="games-head">
+      <h2>Alle spil</h2>
+      <label class="search">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21" stroke-linecap="square"/></svg>
+        <input id="search" type="search" placeholder="Søg efter spil" autocomplete="off" aria-label="Søg efter spil">
+      </label>
+    </div>
     <div class="grid" id="grid"></div>
+    <p class="empty" id="empty">Ingen spil fundet – prøv et andet ord.</p>
   </div>
 </main>
 
@@ -150,7 +170,7 @@
   // Add a new game here. "added" = the day it came out; it shows as NEW! for 14 days.
   var GAMES = [
     { id: 'apex-horizon', title: 'Apex Horizon', added: '2026-11-09',
-      desc: 'Superhurtig 3D-racer i en kæmpe åben by. Drift rundt og lav et party med en kode, så dine venner kan køre med.' },
+      desc: 'Superhurtig 3D-racer med 10 racerbaner og en kæmpe åben by. Lav et party med en kode, så dine venner kan køre med.' },
     { id: 'block-storm', title: 'Block Storm', added: '2026-11-09',
       desc: 'Træk brikker ind på brættet og ryd rækker. Combos, bomber, drej-brikker og en Blitz-mode på 2 minutter.' },
     { id: 'super-snake', title: 'Super Snake', added: '2026-11-09',
@@ -204,8 +224,34 @@
         '<span><i class="dot off" data-dot></i><b data-online>–</b> online</span></div>' +
         '<span class="play">SPIL ▶</span></div>';
       grid.appendChild(a);
-      slots[g.id] = { plays: a.querySelector('[data-plays]'), online: a.querySelector('[data-online]'), dot: a.querySelector('[data-dot]') };
+      slots[g.id] = { card: a, plays: a.querySelector('[data-plays]'), online: a.querySelector('[data-online]'), dot: a.querySelector('[data-dot]') };
     });
+
+    // ---------- most played first ----------
+    var plays = {};
+    try { plays = JSON.parse(localStorage.getItem('b10-plays')) || {}; } catch (e) {}  // last known numbers, so the order is right at once
+    function sortGames() {
+      var order = GAMES.slice().sort(function (a, b) {
+        return (plays[b.id] || 0) - (plays[a.id] || 0) || GAMES.indexOf(a) - GAMES.indexOf(b);
+      });
+      var now = Array.prototype.map.call(grid.children, function (c) { return c; });
+      var changed = order.some(function (g, i) { return now[i] !== slots[g.id].card; });
+      if (changed) order.forEach(function (g) { grid.appendChild(slots[g.id].card); });
+    }
+    sortGames();
+
+    // ---------- search ----------
+    var search = document.getElementById('search'), empty = document.getElementById('empty');
+    function filter() {
+      var q = search.value.trim().toLowerCase(), shown = 0;
+      GAMES.forEach(function (g) {
+        var hit = !q || (g.title + ' ' + g.desc).toLowerCase().indexOf(q) !== -1;
+        slots[g.id].card.hidden = !hit;
+        if (hit) shown++;
+      });
+      empty.classList.toggle('on', shown === 0);
+    }
+    search.addEventListener('input', filter);
 
     // ---------- live numbers ----------
     var S = window.B10Stats;
@@ -214,9 +260,19 @@
       S.online('site').then(function (n) {
         document.getElementById('onlineSite').textContent = n == null ? '–' : fmt(Math.max(1, n)); // you are online too
       });
+      // Play counts first (they decide the order), then who is online.
+      Promise.all(GAMES.map(function (g) {
+        return S.plays(g.id).then(function (n) {
+          if (n == null) return;
+          plays[g.id] = n;
+          slots[g.id].plays.textContent = fmt(n);
+        });
+      })).then(function () {
+        try { localStorage.setItem('b10-plays', JSON.stringify(plays)); } catch (e) {}
+        sortGames();
+      });
       GAMES.forEach(function (g) {
         var s = slots[g.id];
-        S.plays(g.id).then(function (n) { if (n != null) s.plays.textContent = fmt(n); });
         S.online(g.id).then(function (n) {
           if (n == null) return;
           s.online.textContent = fmt(n);
