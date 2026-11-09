@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B10GAMES</title>
+<meta name="description" content="B10GAMES – alle mine spil samlet ét sted. Spil gratis direkte i browseren.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23000'/%3E%3Ctext x='16' y='22' font-family='Arial,sans-serif' font-weight='900' font-size='14' fill='%23fff' text-anchor='middle'%3EB10%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;700&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #ffffff;
+    --ink: #000000;
+    --muted: #555555;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Space Grotesk", system-ui, sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+
+  /* ---------- top ---------- */
+  .hero { padding: 64px 0 48px; border-bottom: 2px solid var(--ink); }
+  .hero h1 {
+    font-family: "Archivo Black", sans-serif;
+    font-size: clamp(56px, 13vw, 160px);
+    line-height: .9; letter-spacing: -.03em;
+    margin-bottom: 20px;
+  }
+  .hero h1 span { -webkit-text-stroke: 3px var(--ink); color: transparent; }
+  .hero p { font-size: clamp(17px, 2vw, 21px); max-width: 560px; color: var(--muted); }
+  .stats { margin-top: 32px; display: flex; border: 2px solid var(--ink); width: fit-content; }
+  .stat { padding: 12px 22px; }
+  .stat + .stat { border-left: 2px solid var(--ink); }
+  .stat b { font-family: "Archivo Black", sans-serif; font-size: 26px; display: block; line-height: 1.1; }
+  .stat small { font-family: "Space Mono", monospace; font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+
+  /* ---------- games ---------- */
+  .games { padding: 48px 0 72px; }
+  .games h2 { font-family: "Archivo Black", sans-serif; font-size: clamp(30px, 4vw, 44px); line-height: 1; margin-bottom: 28px; }
+  .grid { display: grid; gap: 24px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+  .card {
+    border: 2px solid var(--ink); background: var(--bg);
+    color: inherit; text-decoration: none;
+    display: flex; flex-direction: column;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .card:hover { transform: translate(-4px,-4px); box-shadow: 8px 8px 0 var(--ink); }
+  .card:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+  .card img {
+    display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover;
+    border-bottom: 2px solid var(--ink); background: #eee;
+  }
+  .body { padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+  .body h3 { font-family: "Archivo Black", sans-serif; font-size: 24px; line-height: 1.1; }
+  .body p { color: var(--muted); font-size: 15px; flex: 1; }
+  .play {
+    align-self: flex-start; margin-top: 4px;
+    font-family: "Space Mono", monospace; font-weight: 700; font-size: 13px; letter-spacing: .06em;
+    background: var(--ink); color: var(--bg); padding: 7px 14px;
+  }
+
+  @media (prefers-reduced-motion: reduce) { .card { transition: none; } }
+  @media (max-width: 640px) {
+    .wrap { padding: 0 16px; }
+    .hero { padding: 40px 0 32px; }
+    .hero h1 span { -webkit-text-stroke-width: 2px; }
+    .grid { grid-template-columns: 1fr; gap: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <h1>B10<span>GAMES</span></h1>
+    <p>Alle mine spil samlet ét sted. Klik på et spil og spil direkte i browseren.</p>
+    <div class="stats">
+      <div class="stat"><b>7</b><small>Spil</small></div>
+      <div class="stat"><b>4</b><small>3D-spil</small></div>
+    </div>
+  </div>
+</header>
+
+<main class="games">
+  <div class="wrap">
+    <h2>Alle spil</h2>
+    <div class="grid">
+
+      <a class="card" href="games/buttcraft/">
+        <img src="img/buttcraft.jpg" alt="Forsiden af BUTTCRAFT" loading="lazy">
+        <div class="body">
+          <h3>BUTTCRAFT</h3>
+          <p>Byg og grav i din egen blokverden. Lav flere verdener og flyv rundt i Creative.</p>
+          <span class="play">SPIL ▶</span>
+        </div>
+      </a>
+
+      <a class="card" href="games/emberwood/">
+        <img src="img/emberwood.jpg" alt="Forsiden af Emberwood" loading="lazy">
+        <div class="body">
+          <h3>Emberwood</h3>
+          <p>Voxel-sandkasse i gyldent aftenlys med skygger og vand, der spejler solen.</p>
+          <span class="play">SPIL ▶</span>
+        </div>
+      </a>
+
+      <a class="card" href="games/turbo-royale/">
+        <img src="img/turbo-royale.jpg" alt="Forsiden af Turbo Royale" loading="lazy">
+        <div class="body">
+          <h3>Turbo Royale</h3>
+          <p>Ræs med drift og boost. Vælg bane og sværhedsgrad: easy, medium eller hard.</p>
+          <span class="play">SPIL ▶</span>
+        </div>
+      </a>
+
+      <a class="card" href="games/nitro-rush/">
+        <img src="img/nitro-rush.jpg" alt="Forsiden af Nitro Rush" loading="lazy">
+        <div class="body">
+          <h3>Nitro Rush</h3>
+          <p>3D-racer med garage, butik og flere baner. Drift i svingene og brug nitro.</p>
+          <span class="play">SPIL ▶</span>
+        </div>
+      </a>
+
+      <a class="card" href="games/yellow-circle-clicker/">
+        <img src="img/yellow-circle-clicker.jpg" alt="Forsiden af Yellow Circle Clicker" loading="lazy">
+        <div class="body">
+          <h3>Yellow Circle Clicker</h3>
+          <p>Klik på cirklen, køb opgraderinger og lav rebirths for en større multiplier.</p>
+          <span class="play">SPIL ▶</span>
+        </div>
+      </a>
+
+      <a class="card" href="games/snake/">
+        <img src="img/snake.jpg" alt="Forsiden af Snake" loading="lazy">
+        <div class="body">
+          <h3>Snake</h3>
+          <p>Den klassiske slange. Spis, bliv længere og undgå væggene.</p>
+          <span class="play">SPIL ▶</span>
+        </div>
+      </a>
+
+      <a class="card" href="games/block-blast/">
+        <img src="img/block-blast.jpg" alt="Forsiden af Block Blast" loading="lazy">
+        <div class="body">
+          <h3>Block Blast</h3>
+          <p>Placér blokkene, fyld rækker og kolonner, og slå din highscore.</p>
+          <span class="play">SPIL ▶</span>
+        </div>
+      </a>
+
+    </div>
+  </div>
+</main>
+
+</body>
+</html>

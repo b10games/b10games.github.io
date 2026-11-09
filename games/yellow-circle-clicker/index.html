@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Yellow Circle Clicker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        background: '#0D0D0D',
+                        primary: '#FFD400',
+                        textWhite: '#FFFFFF',
+                        panel: '#151515'
+                    },
+                    boxShadow: {
+                        'glow': '0 0 60px rgba(255, 212, 0, 0.3)',
+                        'glow-active': '0 0 100px rgba(255, 212, 0, 0.7)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Strict global rules to prevent scrolling on body */
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            background-color: #0D0D0D;
+            color: #FFFFFF;
+            font-family: 'Inter', system-ui, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        /* Left Side: Fixed */
+        #left-panel {
+            overflow: hidden;
+        }
+
+        /* Right Side: Scrollable */
+        #right-panel {
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+        }
+
+        /* Custom Scrollbar for Upgrades Panel */
+        #right-panel::-webkit-scrollbar { width: 8px; }
+        #right-panel::-webkit-scrollbar-track { background: #0D0D0D; }
+        #right-panel::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+        #right-panel::-webkit-scrollbar-thumb:hover { background: #FFD400; }
+
+        /* Circle Interaction */
+        .circle-btn {
+            transition: transform 0.05s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.1s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .circle-btn:active {
+            transform: scale(0.92);
+            box-shadow: 0 0 100px rgba(255, 212, 0, 0.8);
+        }
+
+        /* Floating Text on Click */
+        @keyframes floatUpFade {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-100px) scale(1.4); }
+        }
+        .floating-text {
+            position: absolute;
+            pointer-events: none;
+            color: #FFD400;
+            font-weight: 900;
+            font-size: 2rem;
+            text-shadow: 0 4px 15px rgba(255, 212, 0, 0.6);
+            animation: floatUpFade 1s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+            z-index: 50;
+            transform: translate(-50%, -50%);
+        }
+
+        /* Upgrade Buy Animation (Pop & Flash) */
+        @keyframes upgradePop {
+            0% { transform: scale(1); background-color: rgba(255, 212, 0, 0.4); }
+            50% { transform: scale(0.95); background-color: rgba(255, 212, 0, 0.6); }
+            100% { transform: scale(1); background-color: rgba(255, 255, 255, 0.05); }
+        }
+        .animate-buy {
+            animation: upgradePop 0.3s ease-out;
+        }
+
+        /* Massive Rebirth Explosion */
+        @keyframes rebirthExplosion {
+            0% { background-color: transparent; opacity: 0; }
+            10% { background-color: #FFD400; opacity: 1; }
+            30% { background-color: #FFFFFF; opacity: 1; }
+            100% { background-color: #FFD400; opacity: 0; }
+        }
+        .rebirth-flash {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            pointer-events: none;
+            animation: rebirthExplosion 1.5s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+        }
+        
+        /* Disabled Upgrade Styling */
+        .upgrade-disabled {
+            opacity: 0.4;
+            pointer-events: none;
+            filter: grayscale(80%);
+        }
+    </style>
+</head>
+<body class="flex flex-col md:flex-row">
+
+    <!-- Left Panel: Game Area (Strictly Fixed) -->
+    <main id="left-panel" class="w-full h-[45%] md:h-full md:w-1/2 lg:w-[45%] flex flex-col items-center justify-center p-4 relative bg-background border-b md:border-b-0 md:border-r border-white/10 shrink-0 z-10">
+        
+        <!-- Rebirth Stats -->
+        <div class="mb-3 text-center">
+            <p id="rebirth-stats-text" class="text-primary font-light text-xs md:text-sm tracking-widest uppercase opacity-90 drop-shadow-[0_0_8px_rgba(255,212,0,0.5)]">
+                Rebirths: 0 | Multiplier: 1.0x | Speed: 1.0x
+            </p>
+        </div>
+
+        <!-- Main Stats Box -->
+        <div class="text-center mb-8 flex flex-col gap-2 w-full max-w-sm bg-panel p-6 rounded-3xl shadow-2xl border border-white/10 relative">
+            <h1 class="text-5xl md:text-6xl font-black tracking-tight drop-shadow-md">
+                <span id="score-display" class="text-primary tabular-nums">0</span>
+            </h1>
+            <p class="text-sm text-gray-400 font-bold tracking-widest uppercase mt-1">Clicks</p>
+            
+            <div class="flex justify-between mt-6 bg-black/60 p-4 rounded-xl border border-white/5">
+                <div class="flex flex-col items-start">
+                    <span class="text-gray-500 font-bold uppercase tracking-wider text-[10px] md:text-xs mb-1">Per Second</span>
+                    <span id="cps-display" class="text-textWhite font-mono font-bold text-lg tabular-nums">0</span>
+                </div>
+                <div class="flex flex-col items-end">
+                    <span class="text-gray-500 font-bold uppercase tracking-wider text-[10px] md:text-xs mb-1">Click Power</span>
+                    <span id="click-power-display" class="text-textWhite font-mono font-bold text-lg tabular-nums">1</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- The Yellow Circle -->
+        <button id="click-circle" class="circle-btn relative w-48 h-48 md:w-72 md:h-72 rounded-full bg-primary shadow-glow focus:outline-none cursor-pointer flex items-center justify-center group" aria-label="Click for points">
+            <div class="absolute inset-0 rounded-full bg-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
+        </button>
+    </main>
+
+    <!-- Right Panel: Upgrades (Scrollable) -->
+    <aside id="right-panel" class="w-full h-[55%] md:h-full md:flex-1 bg-background relative z-20 flex flex-col">
+        <!-- Header -->
+        <div class="sticky top-0 bg-background/95 backdrop-blur-md p-6 border-b border-white/10 z-30 shadow-md">
+            <h2 class="text-2xl md:text-4xl font-black text-primary uppercase tracking-tight">Upgrades</h2>
+            <p class="text-xs md:text-sm text-gray-400 mt-1 uppercase tracking-wider font-semibold">Boost your click production</p>
+        </div>
+        
+        <!-- Upgrades List -->
+        <div id="upgrades-container" class="p-4 md:p-6 flex flex-col gap-4">
+            <!-- Upgrades injected via JS -->
+        </div>
+
+        <!-- Rebirth Section -->
+        <div id="rebirth-container" class="hidden p-6 border-t border-primary/40 bg-[#1a1400] mt-auto">
+            <button id="rebirth-btn" class="w-full py-5 bg-primary text-background font-black text-xl md:text-2xl rounded-2xl shadow-[0_0_30px_rgba(255,212,0,0.3)] hover:shadow-glow transition-all hover:scale-[1.02] active:scale-95 flex flex-col items-center">
+                <span class="tracking-widest">REBIRTH</span>
+                <span class="text-sm font-semibold opacity-80 mt-1">+0.5x Multiplier & +0.1x Speed</span>
+            </button>
+        </div>
+        
+        <!-- Padding at bottom for better scrolling -->
+        <div class="h-10 shrink-0"></div>
+    </aside>
+
+    <script>
+        // --- GAME STATE ---
+        let score = 0;
+        let baseCps = 0;
+        let rebirths = 0;
+        
+        let lastFrameTime = performance.now();
+
+        // 15 Tiers of upgrades scaling by 10x
+        const generateUpgrades = () => {
+            const names = [
+                "Cursor", "Auto Clicker", "Yellow Farm", "Mine", "Factory", 
+                "Bank", "Temple", "Wizard Tower", "Shipment", "Alchemy Lab", 
+                "Portal", "Time Machine", "Antimatter Condenser", "Prism", "Chancemaker"
+            ];
+            
+            let arr = [];
+            let currentBaseCost = 10;
+            let currentBaseCps = 1;
+
+            for (let i = 0; i < 15; i++) {
+                arr.push({
+                    id: i + 1,
+                    name: `Yellow ${names[i]}`,
+                    baseCost: currentBaseCost,
+                    cost: currentBaseCost,
+                    baseCpsBoost: currentBaseCps,
+                    count: 0
+                });
+                currentBaseCost *= 10;
+                currentBaseCps *= 10;
+            }
+            return arr;
+        };
+
+        let initialUpgrades = generateUpgrades();
+        let upgrades = JSON.parse(JSON.stringify(initialUpgrades));
+
+        // --- DOM ELEMENTS ---
+        const scoreDisplay = document.getElementById('score-display');
+        const cpsDisplay = document.getElementById('cps-display');
+        const clickPowerDisplay = document.getElementById('click-power-display');
+        const clickCircle = document.getElementById('click-circle');
+        const upgradesContainer = document.getElementById('upgrades-container');
+        const rebirthContainer = document.getElementById('rebirth-container');
+        const rebirthBtn = document.getElementById('rebirth-btn');
+        const rebirthStatsText = document.getElementById('rebirth-stats-text');
+        const leftPanel = document.getElementById('left-panel');
+
+        const SUFFIXES = ["", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc", "Ud", "Dd", "Td"];
+        
+        function formatNumber(num) {
+            if (num < 1000) return Math.floor(num).toString();
+            const tier = Math.floor(Math.log10(num) / 3);
+            if (tier === 0) return Math.floor(num).toString();
+            
+            const suffix = SUFFIXES[tier] || "e" + (tier * 3);
+            const scale = Math.pow(10, tier * 3);
+            const scaled = num / scale;
+            
+            // Show up to 2 decimal places if needed
+            return scaled.toFixed(scaled < 10 ? 2 : (scaled < 100 ? 1 : 0)) + suffix;
+        }
+
+        function getRebirthMultiplier() {
+            return 1 + (0.5 * rebirths);
+        }
+
+        function getRebirthSpeed() {
+            return 1 + (0.1 * rebirths);
+        }
+
+        function getClickPower() {
+            // 1 + 25% of base CPS, multiplied by rebirth multiplier
+            const baseClick = 1 + (baseCps * 0.25);
+            return baseClick * getRebirthMultiplier();
+        }
+
+        function getActualCps() {
+            return baseCps * getRebirthMultiplier();
+        }
+
+        function spawnFloatingText(x, y, amount) {
+            const el = document.createElement('div');
+            el.className = 'floating-text';
+            el.innerText = `+${formatNumber(amount)}`;
+            el.style.left = `${x}px`;
+            el.style.top = `${y}px`;
+            leftPanel.appendChild(el);
+            setTimeout(() => el.remove(), 1000);
+        }
+
+        function updateDisplays() {
+            scoreDisplay.innerText = formatNumber(score);
+            cpsDisplay.innerText = formatNumber(getActualCps());
+            clickPowerDisplay.innerText = formatNumber(getClickPower());
+            
+            const mult = getRebirthMultiplier().toFixed(1);
+            const spd = getRebirthSpeed().toFixed(1);
+            rebirthStatsText.innerText = `Rebirths: ${rebirths} | Multiplier: ${mult}x | Speed: ${spd}x`;
+
+            updateUpgradeButtons();
+            checkRebirthUnlock();
+        }
+
+        function renderUpgrades() {
+            upgradesContainer.innerHTML = '';
+            
+            upgrades.forEach(upgrade => {
+                const btn = document.createElement('button');
+                // Made buttons significantly bigger with larger text and padding
+                btn.className = 'upgrade-btn relative w-full flex flex-col p-5 md:p-6 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-left group overflow-hidden';
+                btn.id = `upgrade-${upgrade.id}`;
+                btn.onclick = () => buyUpgrade(upgrade.id, btn);
+                
+                const actualCpsBoost = upgrade.baseCpsBoost * getRebirthMultiplier();
+
+                btn.innerHTML = `
+                    <div class="flex justify-between items-center w-full mb-3">
+                        <span class="text-xl md:text-2xl font-black text-gray-100 group-hover:text-primary transition-colors tracking-tight">${upgrade.name}</span>
+                        <span class="text-xl md:text-2xl font-black text-primary px-4 py-1.5 rounded-xl bg-black/60 border border-primary/30 min-w-[3.5rem] text-center shadow-inner">${upgrade.count}</span>
+                    </div>
+                    <div class="flex justify-between w-full items-end bg-black/30 p-3 rounded-lg border border-white/5">
+                        <span class="text-gray-400 text-sm md:text-base font-bold uppercase tracking-wide">Cost: <span class="font-black text-primary text-lg md:text-xl ml-1">${formatNumber(upgrade.cost)}</span></span>
+                        <span class="text-green-400 text-sm md:text-base font-mono font-bold">+${formatNumber(actualCpsBoost)} CPS</span>
+                    </div>
+                `;
+                upgradesContainer.appendChild(btn);
+            });
+            updateUpgradeButtons();
+        }
+
+        function updateUpgradeButtons() {
+            const currentScore = Math.floor(score);
+            upgrades.forEach(upgrade => {
+                const btn = document.getElementById(`upgrade-${upgrade.id}`);
+                if (btn) {
+                    if (currentScore >= upgrade.cost) {
+                        btn.classList.remove('upgrade-disabled');
+                    } else {
+                        btn.classList.add('upgrade-disabled');
+                    }
+                }
+            });
+        }
+
+        function checkRebirthUnlock() {
+            // Unlocked if you own at least 1 of the last tier (tier 15)
+            const lastUpgrade = upgrades[upgrades.length - 1];
+            if (lastUpgrade.count > 0) {
+                rebirthContainer.classList.remove('hidden');
+            } else {
+                rebirthContainer.classList.add('hidden');
+            }
+        }
+
+        function handleInteraction(e) {
+            e.preventDefault();
+
+            let clientX, clientY;
+            if (e.type === 'touchstart') {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
+            // Fallback
+            if (!clientX) {
+                const rect = clickCircle.getBoundingClientRect();
+                clientX = rect.left + rect.width / 2;
+                clientY = rect.top + rect.height / 2;
+            }
+
+            const clickVal = getClickPower();
+            score += clickVal;
+            
+            spawnFloatingText(clientX, clientY, clickVal);
+            
+            scoreDisplay.innerText = formatNumber(score);
+            updateUpgradeButtons();
+        }
+
+        clickCircle.addEventListener('mousedown', (e) => {
+            if(e.pointerType !== 'touch') handleInteraction(e);
+        });
+        clickCircle.addEventListener('touchstart', handleInteraction, {passive: false});
+
+        function buyUpgrade(id, btnElement) {
+            const upgrade = upgrades.find(u => u.id === id);
+            
+            if (upgrade && Math.floor(score) >= upgrade.cost) {
+                score -= upgrade.cost;
+                baseCps += upgrade.baseCpsBoost;
+                upgrade.count += 1;
+                
+                // Cost scaling: 1.15x per count
+                upgrade.cost = Math.floor(upgrade.baseCost * Math.pow(1.15, upgrade.count));
+                
+                // Visual CSS Animation (No sound)
+                btnElement.classList.remove('animate-buy');
+                void btnElement.offsetWidth; // Force DOM reflow to restart animation
+                btnElement.classList.add('animate-buy');
+
+                // Re-render button to update cost/count text, and check disabled states
+                renderUpgrades();
+                updateDisplays();
+            }
+        }
+
+        rebirthBtn.addEventListener('click', () => {
+            // Rebirth Visual Flash
+            const flash = document.createElement('div');
+            flash.className = 'rebirth-flash';
+            document.body.appendChild(flash);
+            setTimeout(() => flash.remove(), 1600);
+
+            // Hard Reset Stats
+            score = 0;
+            baseCps = 0;
+            upgrades = JSON.parse(JSON.stringify(initialUpgrades));
+            
+            // Increment Rebirths
+            rebirths += 1;
+            
+            // Reset UI
+            rebirthContainer.classList.add('hidden');
+            renderUpgrades();
+            updateDisplays();
+        });
+
+        function gameLoop(currentTime) {
+            const deltaTime = currentTime - lastFrameTime;
+            lastFrameTime = currentTime;
+
+            const currentActualCps = getActualCps();
+            if (currentActualCps > 0) {
+                // Apply speed multiplier to deltaTime
+                const speedMult = getRebirthSpeed();
+                const effectiveDelta = deltaTime * speedMult;
+                
+                score += (currentActualCps * (effectiveDelta / 1000));
+                
+                // Update DOM periodically or when integer changes
+                updateDisplays();
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Initialize Game
+        renderUpgrades();
+        updateDisplays();
+        requestAnimationFrame(gameLoop);
+
+    </script>
+</body>
+</html>
