@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Wobble Dash</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
+</script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+  :root { --y: #ffd23f; --y2: #ffb703; --pink: #ff4d6d; --blue: #3a86ff; --cyan: #2ec4b6; --ink: #1b1036; --glass: rgba(27, 16, 54, .62); --line: rgba(255,255,255,.22); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; background: #2a1460; color: #fff; font-family: "Nunito", system-ui, sans-serif; user-select: none; -webkit-user-select: none; }
+  canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .screen { position: fixed; inset: 0; display: none; pointer-events: none; }
+  .screen.on { display: block; }
+  .screen > * { pointer-events: auto; }
+  .hidden { display: none !important; }
+  .logo { font-family: "Lilita One", sans-serif; font-size: 34px; letter-spacing: .02em; line-height: .9; color: #fff; text-shadow: 0 4px 0 #7a2bd6, 0 8px 18px rgba(0,0,0,.35); }
+  .logo span { color: var(--y); margin-left: 6px; }
+  .logo.big { font-size: clamp(54px, 10vw, 120px); text-align: center; }
+  .glass { background: var(--glass); border: 2px solid var(--line); border-radius: 18px; backdrop-filter: blur(8px); box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+  .btn { font: 400 18px "Lilita One", sans-serif; letter-spacing: .04em; color: #fff; border: 0; border-radius: 14px; padding: 11px 18px; cursor: pointer; transition: transform .12s, filter .12s; box-shadow: 0 5px 0 rgba(0,0,0,.28); }
+  .btn:hover { transform: translateY(-2px) scale(1.02); filter: brightness(1.08); }
+  .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,.28); }
+  .btn.yellow { background: linear-gradient(180deg, #ffe066, var(--y2)); color: #3a2400; box-shadow: 0 5px 0 #b37b00; }
+  .btn.blue { background: linear-gradient(180deg, #5ea2ff, #2563eb); box-shadow: 0 5px 0 #1a3e9e; }
+  .btn.red { background: linear-gradient(180deg, #ff6b81, #e11d48); box-shadow: 0 5px 0 #8f1230; }
+  .btn.ghost { background: rgba(255,255,255,.14); box-shadow: inset 0 0 0 2px var(--line), 0 5px 0 rgba(0,0,0,.2); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+  .mini { font: 400 13px "Lilita One"; background: var(--y); color: #3a2400; border: 0; border-radius: 8px; padding: 5px 9px; cursor: pointer; }
+  .muted { color: rgba(255,255,255,.75); font-size: 13px; font-weight: 700; }
+  .row { display: flex; gap: 10px; }
+
+  /* boot */
+  #boot { background: radial-gradient(circle at 50% 40%, #b05cff, #3b1cff 70%); display: none; place-items: center; }
+  #boot.on { display: grid; }
+  #boot .wrap { text-align: center; }
+  #boot .bar { width: min(420px, 80vw); height: 14px; background: rgba(255,255,255,.2); border-radius: 99px; margin: 26px auto 10px; overflow: hidden; }
+  #boot .bar i { display: block; height: 100%; width: 10%; background: var(--y); border-radius: 99px; transition: width .3s; }
+
+  /* lobby */
+  .top { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 22px; padding: 14px 22px; background: linear-gradient(180deg, rgba(20,8,50,.6), transparent); }
+  .back { color: rgba(255,255,255,.8); text-decoration: none; font-weight: 900; font-size: 13px; }
+  .tabs { display: flex; gap: 6px; margin-left: 12px; }
+  .tabs button { font: 400 20px "Lilita One"; color: rgba(255,255,255,.7); background: none; border: 0; padding: 8px 14px; cursor: pointer; border-radius: 10px; }
+  .tabs button.on, .tabs button:hover { color: #fff; background: rgba(255,255,255,.14); }
+  .me { margin-left: auto; display: flex; align-items: center; gap: 12px; background: var(--glass); border: 2px solid var(--line); border-radius: 16px; padding: 8px 14px 8px 8px; cursor: pointer; }
+  .lvl { width: 46px; height: 46px; border-radius: 12px; background: linear-gradient(135deg, var(--y), #ff8c42); color: #3a2400; display: grid; place-items: center; font: 400 22px "Lilita One"; transform: rotate(-4deg); }
+  .me b { font: 400 20px "Lilita One"; display: block; }
+  .xp { width: 150px; height: 8px; background: rgba(255,255,255,.18); border-radius: 9px; overflow: hidden; margin: 3px 0; }
+  .xp i { display: block; height: 100%; background: var(--y); }
+  .me small { font-size: 11px; font-weight: 800; color: rgba(255,255,255,.7); }
+  .party { position: absolute; left: 22px; top: 96px; width: 290px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .party h3 { font: 400 24px "Lilita One"; display: flex; justify-content: space-between; align-items: baseline; }
+  .party h3 small { font-size: 14px; color: rgba(255,255,255,.7); }
+  .member { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.08); border-radius: 12px; padding: 8px 10px; font-weight: 900; }
+  .member .dot { width: 26px; height: 26px; border-radius: 50%; border: 3px solid rgba(255,255,255,.7); flex: none; }
+  .member em { margin-left: auto; font-style: normal; font-size: 12px; color: var(--y); }
+  .member .kick { margin-left: 6px; background: none; border: 0; color: rgba(255,255,255,.6); cursor: pointer; font-size: 14px; }
+  .member.empty { opacity: .45; font-weight: 700; justify-content: center; border: 2px dashed rgba(255,255,255,.25); background: none; }
+  .code { background: linear-gradient(135deg, rgba(255,210,63,.25), rgba(255,140,66,.2)); border: 2px solid rgba(255,210,63,.6); border-radius: 14px; padding: 10px; text-align: center; }
+  .code small { display: block; font-weight: 900; font-size: 11px; letter-spacing: .14em; color: var(--y); }
+  .code b { display: block; font: 400 42px "Lilita One"; letter-spacing: .14em; line-height: 1.1; }
+  .right { position: absolute; right: 26px; bottom: 26px; display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
+  .mode { text-align: left; color: #fff; padding: 12px 16px; cursor: pointer; width: 330px; position: relative; font-family: inherit; }
+  .mode small { display: block; font-weight: 900; font-size: 11px; letter-spacing: .14em; color: var(--y); }
+  .mode b { display: block; font: 400 28px "Lilita One"; }
+  .mode span { font-weight: 700; font-size: 13px; color: rgba(255,255,255,.8); }
+  .mode i { position: absolute; right: 14px; top: 14px; font-style: normal; font: 400 14px "Lilita One"; color: var(--y); }
+  .play { font: 400 64px "Lilita One"; letter-spacing: .04em; width: 330px; padding: 10px 0 14px; border: 0; border-radius: 20px; color: #3a2400; cursor: pointer;
+    background: linear-gradient(180deg, #fff176, var(--y2)); box-shadow: 0 8px 0 #b37b00, 0 18px 40px rgba(255,183,3,.35); transform: skewX(-6deg); transition: transform .12s; }
+  .play:hover { transform: skewX(-6deg) scale(1.03); }
+  .play:active { transform: skewX(-6deg) translateY(4px); box-shadow: 0 4px 0 #b37b00; }
+  .play:disabled { filter: grayscale(.6); opacity: .6; cursor: not-allowed; }
+  .emotes { position: absolute; left: 22px; bottom: 26px; display: flex; gap: 10px; }
+
+  /* locker */
+  #locker { position: fixed; right: 22px; top: 96px; bottom: 26px; width: 380px; padding: 16px; display: none; flex-direction: column; gap: 12px; z-index: 5; }
+  #locker.on { display: flex; }
+  #locker h2 { font: 400 32px "Lilita One"; }
+  .ltabs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ltabs button { font: 400 15px "Lilita One"; background: rgba(255,255,255,.12); color: #fff; border: 0; border-radius: 10px; padding: 7px 11px; cursor: pointer; }
+  .ltabs button.on { background: var(--y); color: #3a2400; }
+  .swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; overflow: auto; padding: 4px; }
+  .sw { aspect-ratio: 1; border-radius: 14px; border: 3px solid rgba(255,255,255,.25); cursor: pointer; display: grid; place-items: center; font: 400 13px "Lilita One"; color: #fff; text-shadow: 0 2px 2px rgba(0,0,0,.5); background: rgba(255,255,255,.08); }
+  .sw.on { border-color: var(--y); box-shadow: 0 0 0 3px rgba(255,210,63,.4); }
+  .sw .ico { font-size: 28px; display: block; }
+
+  /* modals */
+  .modal { position: fixed; inset: 0; background: rgba(10,4,30,.6); display: none; place-items: center; z-index: 20; padding: 16px; }
+  .modal.on { display: grid; }
+  .box { background: linear-gradient(180deg, #3a1d82, #24104f); border: 2px solid var(--line); border-radius: 22px; padding: 24px; width: min(420px, 100%); text-align: center; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.4); max-height: 92vh; overflow: auto; }
+  .box.wide { width: min(980px, 100%); }
+  .box h2 { font: 400 34px "Lilita One"; }
+  .box h3 { font: 400 20px "Lilita One"; color: var(--y); text-align: left; }
+  .box input[type=text], .box input:not([type]) { font: 400 40px "Lilita One"; letter-spacing: .2em; text-align: center; padding: 10px; border-radius: 14px; border: 3px solid rgba(255,255,255,.3); background: rgba(0,0,0,.25); color: #fff; width: 100%; outline: none; }
+  .box input:focus { border-color: var(--y); }
+  .err { color: #ff8fa3; font-weight: 900; min-height: 20px; font-size: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .grid.maps { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .opt { text-align: left; background: rgba(255,255,255,.08); border: 3px solid rgba(255,255,255,.18); border-radius: 16px; padding: 12px; cursor: pointer; color: #fff; font-family: inherit; transition: transform .12s; }
+  .opt:hover { transform: translateY(-3px); border-color: rgba(255,255,255,.5); }
+  .opt.on { border-color: var(--y); background: rgba(255,210,63,.14); }
+  .opt b { display: block; font: 400 21px "Lilita One"; }
+  .opt span { font-size: 13px; font-weight: 700; color: rgba(255,255,255,.78); }
+  .opt .ico { font-size: 30px; display: block; margin-bottom: 4px; }
+  .set { display: grid; grid-template-columns: 1fr 1.3fr; gap: 10px; align-items: center; text-align: left; font-weight: 900; }
+  .set input[type=range] { width: 100%; accent-color: var(--y); }
+  .set input.name { font: 400 22px "Lilita One"; padding: 8px; border-radius: 10px; border: 2px solid rgba(255,255,255,.3); background: rgba(0,0,0,.25); color: #fff; width: 100%; letter-spacing: 0; text-align: left; }
+  .seg { display: flex; gap: 6px; }
+  .seg button { flex: 1; font: 400 15px "Lilita One"; border: 0; border-radius: 10px; padding: 8px; background: rgba(255,255,255,.12); color: #fff; cursor: pointer; }
+  .seg button.on { background: var(--y); color: #3a2400; }
+
+  /* hud */
+  .hudTop { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; }
+  .pill { background: var(--glass); border: 2px solid var(--line); border-radius: 14px; padding: 7px 14px; font: 400 18px "Lilita One"; white-space: nowrap; }
+  .pill.big { font-size: 26px; color: var(--y); }
+  .progress { position: absolute; top: 70px; left: 50%; transform: translateX(-50%); width: min(520px, 70vw); height: 10px; background: rgba(0,0,0,.3); border-radius: 9px; }
+  .progress i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, var(--cyan), var(--y)); border-radius: 9px; }
+  .progress b { position: absolute; top: -6px; width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 4px solid var(--pink); transform: translateX(-50%); }
+  .dash { position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%); width: 120px; text-align: center; }
+  .dash i { display: block; height: 10px; border-radius: 9px; background: var(--y); box-shadow: 0 0 14px rgba(255,210,63,.8); transition: width .1s; margin: 0 auto 4px; }
+  .dash span { font: 400 14px "Lilita One"; letter-spacing: .14em; text-shadow: 0 2px 3px rgba(0,0,0,.6); }
+  .help { position: absolute; left: 16px; bottom: 14px; font-weight: 900; font-size: 12px; color: rgba(255,255,255,.75); text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+  .spect { position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%); font: 400 20px "Lilita One"; background: var(--glass); padding: 8px 16px; border-radius: 12px; border: 2px solid var(--line); }
+  .banner { position: fixed; left: 0; right: 0; top: 34%; text-align: center; font: 400 clamp(54px, 10vw, 120px) "Lilita One"; letter-spacing: .03em; pointer-events: none; z-index: 15; opacity: 0;
+    -webkit-text-stroke: 3px #1b1036; text-shadow: 0 8px 0 #1b1036, 0 18px 40px rgba(0,0,0,.4); transform: scale(.6); transition: opacity .2s, transform .25s cubic-bezier(.2, 1.6, .4, 1); }
+  .banner.on { opacity: 1; transform: scale(1); }
+  .banner.q { color: #7bf1a8; } .banner.out { color: #ff6b81; } .banner.go { color: var(--y); } .banner.n { color: #fff; }
+  .banner small { display: block; font-size: .3em; -webkit-text-stroke: 0; text-shadow: 0 3px 6px rgba(0,0,0,.6); }
+  .intro { position: fixed; left: 50%; top: 18%; transform: translateX(-50%) translateY(-20px); text-align: center; z-index: 14; pointer-events: none; opacity: 0; transition: opacity .4s, transform .5s; }
+  .intro.on { opacity: 1; transform: translateX(-50%); }
+  .intro small { font: 400 22px "Lilita One"; color: var(--y); letter-spacing: .12em; text-shadow: 0 3px 6px rgba(0,0,0,.5); }
+  .intro h1 { font: 400 clamp(48px, 8vw, 92px) "Lilita One"; -webkit-text-stroke: 3px #1b1036; text-shadow: 0 7px 0 #1b1036; line-height: 1; margin: 6px 0; }
+  .intro p { font-weight: 900; font-size: 18px; text-shadow: 0 2px 4px rgba(0,0,0,.7); }
+  .tag { display: inline-block; margin-top: 10px; font: 400 18px "Lilita One"; background: var(--pink); padding: 5px 14px; border-radius: 10px; letter-spacing: .08em; }
+  .rlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; text-align: left; }
+  .rl { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px; font-weight: 900; background: rgba(255,255,255,.08); }
+  .rl.q { background: rgba(123,241,168,.18); } .rl.out { background: rgba(255,107,129,.16); opacity: .8; } .rl.me { outline: 3px solid var(--y); }
+  .rl .dot { width: 20px; height: 20px; border-radius: 50%; flex: none; border: 2px solid #fff; }
+  .rl em { margin-left: auto; font-style: normal; }
+  #final { background: radial-gradient(circle at 50% 70%, rgba(255,210,63,.25), transparent 60%); }
+  .finalBox { position: absolute; left: 50%; bottom: 8%; transform: translateX(-50%); text-align: center; }
+  .finalBox small { font: 400 26px "Lilita One"; color: var(--y); letter-spacing: .2em; }
+  .finalBox h1 { font: 400 clamp(50px, 9vw, 100px) "Lilita One"; -webkit-text-stroke: 3px #1b1036; text-shadow: 0 7px 0 #1b1036; }
+  .finalBox p { font-weight: 900; font-size: 18px; margin: 6px 0 16px; text-shadow: 0 2px 4px rgba(0,0,0,.6); }
+  #toasts { position: fixed; top: 86px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; align-items: center; z-index: 30; pointer-events: none; }
+  .toast { background: var(--glass); border: 2px solid var(--line); border-radius: 12px; padding: 9px 16px; font-weight: 900; animation: tin .3s cubic-bezier(.2, 1.4, .4, 1); }
+  .toast.good { border-color: #7bf1a8; } .toast.bad { border-color: #ff6b81; }
+  @keyframes tin { from { transform: translateY(-14px) scale(.9); opacity: 0; } }
+  #clickToPlay { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); background: var(--glass); border: 2px solid var(--line); border-radius: 12px; padding: 8px 14px; font-weight: 900; z-index: 12; pointer-events: none; }
+  @media (max-width: 900px) {
+    .party { width: 230px; top: 84px; } .tabs button { font-size: 16px; padding: 6px 8px; } .me .xp { width: 90px; }
+    .play { width: 240px; font-size: 48px; } .mode { width: 240px; } .logo { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="boot" class="screen on"><div class="wrap"><div class="logo big">WOBBLE<span>DASH</span></div><div class="bar"><i id="bootBar"></i></div><p class="muted" id="bootTxt">Indlæser…</p></div></div>
+
+<div id="lobby" class="screen">
+  <header class="top">
+    <a class="back" href="/">← B10GAMES</a>
+    <div class="logo">WOBBLE<span>DASH</span></div>
+    <nav class="tabs"><button data-tab="play" class="on">PLAY</button><button data-tab="locker">LOCKER</button><button data-tab="settings">INDSTILLINGER</button></nav>
+    <div class="me" id="meCard" title="Skift navn"><div class="lvl" id="lvl">1</div><div><b id="meName">Player</b><div class="xp"><i id="xpBar"></i></div><small id="xpTxt"></small></div></div>
+  </header>
+  <aside class="party glass">
+    <h3>PARTY <small id="partyCount">1/8</small></h3>
+    <div id="partyList"></div>
+    <div id="partyCode" class="code hidden"><small>PARTYKODE</small><b id="codeTxt">00000</b><button id="copyCode" class="mini">KOPIÉR KODE</button></div>
+    <div class="row" id="partyBtns"><button id="btnCreate" class="btn blue" style="flex:1">CREATE PARTY</button><button id="btnJoin" class="btn ghost" style="flex:1">JOIN PARTY</button></div>
+    <button id="btnLeave" class="btn ghost hidden">FORLAD PARTY</button>
+    <p id="partyMsg" class="muted"></p>
+  </aside>
+  <div class="right" id="rightCol">
+    <button id="modeCard" class="mode glass"><small>SPILTYPE</small><b id="modeName">SOLO SHOW</b><span id="modeDesc"></span><i>SKIFT ▸</i></button>
+    <button id="btnPlay" class="play">PLAY</button>
+    <p id="playHint" class="muted"></p>
+  </div>
+  <div class="emotes"><button id="btnDance" class="btn ghost">💃 DANS</button><button id="btnLocker2" class="btn ghost">👕 SKIFT FIGUR</button></div>
+</div>
+
+<div id="locker" class="glass">
+  <h2>LOCKER</h2>
+  <div class="ltabs" id="ltabs"></div>
+  <div class="swatches" id="swatches"></div>
+  <button id="lockerDone" class="btn yellow">FÆRDIG</button>
+</div>
+
+<div id="modeModal" class="modal"><div class="box wide">
+  <h2>VÆLG SPILTYPE</h2>
+  <div id="modeGrid" class="grid"></div>
+  <h3>ELLER SPIL EN ENKELT BANE</h3>
+  <div id="mapGrid" class="grid maps"></div>
+  <button class="btn ghost" data-close>LUK</button>
+</div></div>
+
+<div id="joinModal" class="modal"><div class="box">
+  <h2>JOIN PARTY</h2>
+  <p class="muted">Skriv din vens 5-cifrede partykode</p>
+  <input id="joinInput" maxlength="5" inputmode="numeric" autocomplete="off" placeholder="12345">
+  <p id="joinErr" class="err"></p>
+  <div class="row"><button class="btn ghost" data-close style="flex:1">ANNULLER</button><button id="joinGo" class="btn yellow" style="flex:1">JOIN</button></div>
+</div></div>
+
+<div id="settingsModal" class="modal"><div class="box">
+  <h2>INDSTILLINGER</h2>
+  <div class="set"><span>Dit navn</span><input id="setName" class="name" maxlength="14"></div>
+  <div class="set"><span>Musik</span><input type="range" id="setMusic" min="0" max="1" step="0.05"></div>
+  <div class="set"><span>Lydeffekter</span><input type="range" id="setSfx" min="0" max="1" step="0.05"></div>
+  <div class="set"><span>Mus-følsomhed</span><input type="range" id="setSens" min="0.3" max="2.5" step="0.05"></div>
+  <div class="set"><span>Grafik</span><div class="seg" id="setQuality"><button data-q="high">HØJ</button><button data-q="low">LAV</button></div></div>
+  <button class="btn yellow" data-close>GEM</button>
+</div></div>
+
+<div id="hud" class="screen">
+  <div class="hudTop"><div id="hRound" class="pill"></div><div id="hCount" class="pill big"></div><div id="hTime" class="pill"></div></div>
+  <div id="hProgress" class="progress"><i></i><b></b></div>
+  <div id="dash" class="dash"><i></i><span>DASH</span></div>
+  <div class="help">WASD løb · Mus kamera · SPACE hop · SPACE i luften = DASH · R tilbage til checkpoint · ESC menu</div>
+  <div id="spect" class="spect hidden"></div>
+</div>
+<div id="banner" class="banner"></div>
+<div id="intro" class="intro"><small id="iRound"></small><h1 id="iName"></h1><p id="iDesc"></p><div id="iType" class="tag"></div></div>
+<div id="results" class="modal"><div class="box wide"><h2 id="rTitle"></h2><div id="rList" class="rlist"></div><p id="rNext" class="muted"></p></div></div>
+<div id="final" class="screen"><div class="finalBox"><small id="fTitle">VINDER</small><h1 id="fWinner"></h1><p id="fInfo"></p><button id="fBack" class="btn yellow">TILBAGE TIL LOBBY</button></div></div>
+<div id="pause" class="modal"><div class="box"><h2>PAUSE</h2><button id="pResume" class="btn yellow">FORTSÆT</button><button id="pSettings" class="btn ghost">INDSTILLINGER</button><button id="pLeave" class="btn red">FORLAD KAMP</button></div></div>
+<div id="toasts"></div>
+<div id="clickToPlay" class="hidden">Klik i spillet for at styre kameraet med musen</div>
+
+<script type="module" src="js/main.js"></script>
+<script src="/stats.js" data-game="wobble-dash" defer></script>
+</body>
+</html>
