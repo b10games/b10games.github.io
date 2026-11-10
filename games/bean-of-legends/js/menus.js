@@ -1,7 +1,7 @@
 // Menus: the 3D showroom stage (main menu, hero select, collection, victory dances), hero portraits,
 // save data (Bean Coins, unlocked colour styles, settings), the cosmetic shop and the end screen.
 import { THREE, canvasTex, damp, clamp } from './engine.js';
-import { HEROES, HERO, ROLES, ITEM, TEAM_COLOR } from './data.js';
+import { HEROES, HERO, ROLES, ITEM, TEAM_COLOR, abilityAt } from './data.js';
 import { Bean } from './models.js';
 import { FX } from './fx.js';
 import { $, esc, abilityText, fmtT, portrait } from './hud.js';
@@ -144,7 +144,7 @@ export function renderHeroInfo(app, id, collection) {
     ${bar('Range', s.range, 7.5, s.range)}
     ${bar('Speed', s.ms, 7.4, Math.round(s.ms * 50))}
     <h3 style="margin-top:14px;font-size:20px">ABILITIES</h3>
-    ${h.abilities.map(ab => `<div class="abil"><div class="ai">${icon(ab.icon, { badge: h.badge })}<b>${ab.key}</b></div><div><h4>${esc(ab.name)}</h4><p>${abilityText(ab, 1)}</p><div class="meta">${ab.key === 'T' ? 'ULTIMATE · ' : ab.innate ? 'Sprint · ' : ''}Cooldown ${ab.cd.join('/')}s · ${ab.cost[0] ? 'Mana ' + ab.cost[0] : 'Free'}${ab.range ? ' · Range ' + ab.range : ''}${ab.radius ? ' · Area ' + ab.radius : ''}</div></div></div>`).join('')}
+    ${h.abilities.map(ab => `<div class="abil"><div class="ai">${icon(ab.icon, { badge: h.badge })}<b>${ab.key}</b></div><div><h4>${esc(ab.name)}</h4><p>${abilityText(ab, 1)}</p><div class="meta">${ab.key === 'T' ? 'ULTIMATE · ' : ab.innate ? 'Sprint · ' : ''}Cooldown ${ab.cd.join('/')}s · ${ab.cost[0] ? 'Mana ' + ab.cost[0] : 'Free'}${ab.range ? ' · Range ' + ab.range + '→' + abilityAt(ab, ab.key === 'T' ? 3 : 5).range : ''}${ab.radius ? ' · Area ' + ab.radius + '→' + abilityAt(ab, ab.key === 'T' ? 3 : 5).radius : ''}</div></div></div>`).join('')}
     <h3 style="margin-top:14px;font-size:20px">COSTUME COLOURS</h3>
     <div class="chromas">${[h.colors, ...h.chromas].map((c, k) => `<div class="chroma ${k === eq ? 'on' : ''} ${owned.includes(k) ? '' : 'locked'}" data-k="${k}" title="${owned.includes(k) ? 'Equip' : 'Unlock in the Bean Shop'}" style="background:linear-gradient(135deg, ${c[0]} 50%, ${c[1]} 50%)"></div>`).join('')}</div>
     ${collection ? '' : ''}`;

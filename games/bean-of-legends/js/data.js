@@ -247,6 +247,25 @@ export const HEROES = [
 ];
 export const HERO = Object.fromEntries(HEROES.map(h => [h.id, h]));
 
+// ---------- upgrades ----------
+// Every rank after the first: +7% range and area, and 1 second shorter cooldown (Q, W, E, R; never below 2s).
+// Ultimates (T) keep their own, bigger cooldown drops.
+export const RANK_GROW = 0.07;
+for (const h of HEROES) h.abilities.forEach((ab, i) => { if (i < 4) ab.cd = ab.cd.map((_, k) => Math.max(Math.min(2, ab.cd[0]), ab.cd[0] - k)); });
+const SCALED = ['range', 'radius', 'splash', 'bounceR'];
+// the ability as it is at a given rank (range/area grown); rank 1 or unlearned is the base data
+export function abilityAt(ab, rank) {
+  const r = Math.max(1, rank || 1);
+  if (r === 1) return ab;
+  const cache = ab._ranks || (ab._ranks = []);
+  if (!cache[r]) {
+    const o = Object.create(ab), k = 1 + RANK_GROW * (r - 1);
+    for (const f of SCALED) if (ab[f]) o[f] = Math.round(ab[f] * k * 10) / 10;
+    cache[r] = o;
+  }
+  return cache[r];
+}
+
 // ---------- items ----------
 // stats: hp, mana, ad, ap, armor, mr, as (attack speed %), ms (flat), crit, cdr, lifesteal, hpRegen, magicPen, thorns, healPower
 export const ITEMS = [

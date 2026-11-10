@@ -1,7 +1,7 @@
 // The match: spawns everything, runs the simulation (movement, combat, AI for minions, towers and
 // monsters, vision, gold, XP, items, objectives) and keeps the 3D models in sync.
 import { THREE, clamp } from './engine.js';
-import { RULES, QUICK, DIFFICULTY, HEROES, HERO, ITEM, MONSTERS, MINIONS, TOWER, CORE, BUFFS, DRAGON_KINDS, BLUE, RED, NEUTRAL, TEAM_COLOR } from './data.js';
+import { RULES, QUICK, DIFFICULTY, HEROES, HERO, abilityAt, ITEM, MONSTERS, MINIONS, TOWER, CORE, BUFFS, DRAGON_KINDS, BLUE, RED, NEUTRAL, TEAM_COLOR } from './data.js';
 import { Unit } from './units.js';
 import { LANES, TOWERS, CORES, FOUNTAIN, CAMPS, mirror } from './map.js';
 import { Bean, makeMinion, Monster, TowerModel, CoreModel } from './models.js';
@@ -267,7 +267,7 @@ export class Match {
   // x,z = cursor point on the ground, target = unit under the cursor
   cast(u, slot, x, z, target) {
     if (!u.def || u.dash || !u.alive) return false;
-    const ab = u.def.abilities[slot], a = u.abil[slot];
+    const a = u.abil[slot], ab = abilityAt(u.def.abilities[slot], a.rank);
     if (a.rank <= 0) { if (u === this.player) this.emit('toast', { text: 'Level up ' + ab.name + ' first (Shift+' + ab.key + ' or the + button)', kind: 'bad' }); return false; }
     if (a.cd > 0) return false;
     if (!u.canCast) return false;
@@ -611,7 +611,7 @@ export class Match {
       const t = this.closestEnemy(u, u.st.range + 0.6, true);
       if (t) o = { type: 'attack', target: t, auto: true };
     }
-    if (u.pending) { const p = u.pending; if (!p.target.alive || !p.target.targetable) u.pending = null; else if (u.edge(p.target) <= u.def.abilities[p.slot].range) { u.pending = null; this.cast(u, p.slot, p.target.x, p.target.z, p.target); if (u.order && u.order.target === p.target) u.order = { type: 'attack', target: p.target }; return; } }
+    if (u.pending) { const p = u.pending; if (!p.target.alive || !p.target.targetable) u.pending = null; else if (u.edge(p.target) <= abilityAt(u.def.abilities[p.slot], u.abil[p.slot].rank).range) { u.pending = null; this.cast(u, p.slot, p.target.x, p.target.z, p.target); if (u.order && u.order.target === p.target) u.order = { type: 'attack', target: p.target }; return; } }
     if (!o) { u.windup = -1; return; }
     let tgt = null, dest = null;
     if (o.type === 'attack') {

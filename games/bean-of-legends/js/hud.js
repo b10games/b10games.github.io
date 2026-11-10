@@ -1,7 +1,7 @@
 // In-match interface: overlay (health bars, levels, names, damage numbers), bottom HUD, top bar,
 // minimap, kill feed, announcements, toasts, the item shop and the scoreboard.
 import { THREE, clamp } from './engine.js';
-import { ITEMS, ITEM, SHOP_CATS, statText, HERO, ROLES, TEAM_COLOR, BUFFS, DRAGON_KINDS, RULES } from './data.js';
+import { ITEMS, ITEM, SHOP_CATS, statText, HERO, ROLES, TEAM_COLOR, BUFFS, DRAGON_KINDS, RULES, abilityAt, RANK_GROW } from './data.js';
 import { HALF, FOUNTAIN } from './map.js';
 import { icon, iconImage } from './icons.js';
 
@@ -109,9 +109,20 @@ export class HUD {
   showTip(el, fn) { const html = fn(); if (!html) return; this.tip.innerHTML = html; this.tip.style.display = 'block'; const r = el.getBoundingClientRect(); const tw = this.tip.offsetWidth, th = this.tip.offsetHeight; this.tip.style.left = clamp(r.left + r.width / 2 - tw / 2, 6, innerWidth - tw - 6) + 'px'; this.tip.style.top = Math.max(6, r.top - th - 10) + 'px'; }
   hideTip() { this.tip.style.display = 'none'; }
   abilityTip(i) {
-    const p = this.p, ab = p.def.abilities[i], r = p.abil[i].rank;
+    const p = this.p, ab = abilityAt(p.def.abilities[i], p.abil[i].rank), r = p.abil[i].rank;
     const cd = ab.cd[Math.max(0, r - 1)] * (1 - p.st.cdr);
-    return `<h4>${icon(ab.icon, { badge: p.def.badge, cls: 'icl' })} ${esc(ab.name)} <span style="opacity:.6;font-size:13px">[${ab.key}]${r ? ' rank ' + r : ' not learned'}${i === 4 ? ' · ULTIMATE' : ''}</span></h4><div>${abilityText(ab, r || 1)}</div><div style="margin-top:6px;opacity:.8;font-size:12px">Cooldown ${cd.toFixed(1)}s · ${ab.cost[Math.max(0, r - 1)] ? 'Cost ' + ab.cost[Math.max(0, r - 1)] + ' mana' : 'No mana cost'}${ab.range ? ' · Range ' + ab.range : ''}${ab.radius ? ' · Area ' + ab.radius : ''}</div>`;
+    return `<h4>${icon(ab.icon, { badge: p.def.badge, cls: 'icl' })} ${esc(ab.name)} <span style="opacity:.6;font-size:13px">[${ab.key}]${r ? ' rank ' + r : ' not learned'}${i === 4 ? ' · ULTIMATE' : ''}</span></h4><div>${abilityText(ab, r || 1)}</div><div style="margin-top:6px;opacity:.8;font-size:12px">Cooldown ${cd.toFixed(1)}s · ${ab.cost[Math.max(0, r - 1)] ? 'Cost ' + ab.cost[Math.max(0, r - 1)] + ' mana' : 'No mana cost'}${ab.range ? ' · Range ' + ab.range : ''}${ab.radius ? ' · Area ' + ab.radius : ''}</div>${this.nextRankText(p, i)}`;
+  }
+  // what the next upgrade gives
+  nextRankText(p, i) {
+    const base = p.def.abilities[i], r = p.abil[i].rank, max = i === 4 ? 3 : 5;
+    if (r >= max) return '<div style="margin-top:4px;font-size:12px;color:#9fe39a">Max rank</div>';
+    if (!r) return `<div style="margin-top:4px;font-size:12px;opacity:.8">Every upgrade: +${Math.round(RANK_GROW * 100)}% range/area${i < 4 ? ' and 1s shorter cooldown' : ' and a shorter cooldown'}</div>`;
+    const now = abilityAt(base, r), nx = abilityAt(base, r + 1), bits = [];
+    if (base.range) bits.push(`range ${now.range} → <b>${nx.range}</b>`);
+    if (base.radius) bits.push(`area ${now.radius} → <b>${nx.radius}</b>`);
+    if (base.cd[r] < base.cd[r - 1]) bits.push(`cooldown ${base.cd[r - 1]}s → <b>${base.cd[r]}s</b>`);
+    return bits.length ? `<div style="margin-top:4px;font-size:12px;color:#9fe39a">Next upgrade: ${bits.join(', ')}</div>` : '';
   }
   itemTip(id, owned) {
     const it = ITEM[id];

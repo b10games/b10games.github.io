@@ -1,6 +1,6 @@
 // Bean of Legends: boot, menus, the match camera and controls, and the main loop.
 import { THREE, createRenderer, clamp, damp } from './engine.js';
-import { HEROES, HERO, TEAM_COLOR } from './data.js';
+import { HEROES, HERO, TEAM_COLOR, abilityAt } from './data.js';
 import { GameMap, HALF, MAP_THEMES } from './map.js';
 import { icon } from './icons.js';
 import { FX } from './fx.js';
@@ -304,7 +304,7 @@ class Input {
     if (!p.alive) return;
     const gy = (x, z) => m.groundY(x, z) + 0.18;
     if (this.aim >= 0) {
-      const ab = p.def.abilities[this.aim];
+      const ab = abilityAt(p.def.abilities[this.aim], p.abil[this.aim].rank);
       const dx = this.ground.x - p.x, dz = this.ground.z - p.z, l = Math.hypot(dx, dz) || 1;
       if (ab.range) { I.range.visible = true; I.range.position.set(p.x, gy(p.x, p.z), p.z); I.range.scale.setScalar(ab.range + (ab.type === 'unit' ? 1 : 0)); }
       if (ab.type === 'skillshot') { I.line.visible = true; I.line.position.set(p.x, gy(p.x, p.z) + 0.02, p.z); I.line.rotation.y = Math.atan2(dx, dz); I.line.scale.set(ab.width || 1, 1, ab.range); }

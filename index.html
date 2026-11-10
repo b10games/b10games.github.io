@@ -28,41 +28,15 @@
 
   /* ---------- top ---------- */
   .hero { padding: 48px 0 40px; border-bottom: 2px solid var(--ink); }
-  /* Logo with the stats under it on the left; new games on the right,
-     three per row, stacking downward (no sideways scrolling). */
-  .top {
-    display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto 1fr;
-    grid-template-areas: "logo new" "stats new";
-    column-gap: 32px; row-gap: 28px;
-  }
+  /* Logo with the stats under it. */
+  .top { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "logo" "stats"; row-gap: 28px; }
   .hero h1 {
-    grid-area: logo; margin-top: 30px;
+    grid-area: logo;
     font-family: "Archivo Black", sans-serif;
     font-size: clamp(52px, 7.5vw, 96px);
     line-height: .9; letter-spacing: -.03em;
   }
   .hero h1 span { -webkit-text-stroke: 3px var(--ink); color: transparent; }
-
-  .newbar { grid-area: new; min-width: 0; }
-  .newbar[hidden] { display: none; }
-  .newlabel { font: 700 12px "Space Mono", monospace; letter-spacing: .14em; margin-bottom: 4px; text-align: right; }
-  .newlist {
-    display: grid; grid-template-columns: repeat(3, minmax(0, 124px)); justify-content: end;
-    gap: 20px 14px; padding: 12px 10px 0 2px;
-  }
-  .chip {
-    border: 2px solid var(--ink); color: inherit; text-decoration: none; background: var(--bg);
-    position: relative; transition: transform .15s ease, box-shadow .15s ease;
-  }
-  .chip:hover { transform: translate(-3px,-3px); box-shadow: 5px 5px 0 var(--ink); }
-  .chip img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border-bottom: 2px solid var(--ink); }
-  .chip span { display: block; font: 700 12px "Space Grotesk", sans-serif; padding: 5px 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-  .new {
-    position: absolute; top: -10px; right: -10px; z-index: 2;
-    background: var(--ink); color: var(--bg); font: 700 12px "Space Mono", monospace; letter-spacing: .06em;
-    padding: 3px 7px; transform: rotate(6deg); border: 2px solid var(--bg); box-shadow: 0 0 0 2px var(--ink);
-  }
 
   .stats { grid-area: stats; align-self: start; display: flex; border: 2px solid var(--ink); width: fit-content; }
   .stat { padding: 12px 22px; }
@@ -96,12 +70,11 @@
     transition: transform .15s ease, box-shadow .15s ease;
   }
   .card:hover { transform: translate(-4px,-4px); box-shadow: 8px 8px 0 var(--ink); }
-  .card:focus-visible, .chip:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+  .card:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   .card img {
     display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover;
     border-bottom: 2px solid var(--ink); background: #eee;
   }
-  .card .new { top: -12px; right: -12px; font-size: 15px; padding: 4px 10px; }
   .body { padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
   .body h3 { font-family: "Archivo Black", sans-serif; font-size: 24px; line-height: 1.1; }
   .body p { color: var(--muted); font-size: 15px; flex: 1; }
@@ -118,12 +91,9 @@
     background: var(--ink); color: var(--bg); padding: 7px 14px;
   }
 
-  @media (prefers-reduced-motion: reduce) { .card, .chip { transition: none; } .dot { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .card { transition: none; } .dot { animation: none; } }
   @media (max-width: 760px) {
-    .top { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-template-areas: "logo" "new" "stats"; }
     .hero h1 { margin-top: 0; }
-    .newlabel { text-align: left; }
-    .newlist { grid-template-columns: repeat(3, minmax(0, 1fr)); justify-content: stretch; }
   }
   @media (max-width: 640px) {
     .wrap { padding: 0 16px; }
@@ -139,10 +109,6 @@
   <div class="wrap">
     <div class="top">
       <h1>B10<span>GAMES</span></h1>
-      <aside class="newbar" id="newbar" hidden>
-        <div class="newlabel">NYE SPIL</div>
-        <div class="newlist" id="newList"></div>
-      </aside>
       <div class="stats">
         <div class="stat"><b id="count">0</b><small>Spil</small></div>
         <div class="stat"><b><i class="dot"></i><span id="onlineSite">–</span></b><small>Online nu</small></div>
@@ -167,21 +133,21 @@
 
 <script src="stats.js"></script>
 <script>
-  // Add a new game here. "added" = the day it came out; it shows as NEW! for 14 days.
+  // Add a new game here.
   var GAMES = [
-    { id: 'bean-of-legends', title: 'Bean of Legends', added: '2026-11-10',
-      desc: '5 mod 5 bønne-kamp med tre baner, jungle, tårne og minions. Vælg mellem 10 bønner med hver deres fire evner og ødelæg fjendens Bean Core.' },
-    { id: 'wobble-dash', title: 'Wobble Dash', added: '2026-11-09',
+    { id: 'bean-of-legends', title: 'Bean of Legends',
+      desc: '5 mod 5 bønne-kamp med tre baner, jungle, tårne og minions. Vælg mellem 10 bønner med hver deres fem evner, spil på fem forskellige kort og ødelæg fjendens Bean Core.' },
+    { id: 'wobble-dash', title: 'Wobble Dash',
       desc: 'Vaklende 3D-figurer i et forhindringsshow med 10 baner, survival og holdkampe. Lav et party med en kode og spil mod dine venner.' },
-    { id: 'apex-horizon', title: 'Apex Horizon', added: '2026-11-09',
+    { id: 'apex-horizon', title: 'Apex Horizon',
       desc: 'Superhurtig 3D-racer med 10 racerbaner og en kæmpe åben by. Lav et party med en kode, så dine venner kan køre med.' },
-    { id: 'block-storm', title: 'Block Storm', added: '2026-11-09',
+    { id: 'block-storm', title: 'Block Storm',
       desc: 'Træk brikker ind på brættet og ryd rækker. Combos, bomber, drej-brikker og en Blitz-mode på 2 minutter.' },
-    { id: 'super-snake', title: 'Super Snake', added: '2026-11-09',
+    { id: 'super-snake', title: 'Super Snake',
       desc: 'Slangen med power-ups, combos, levels, labyrinter og skins du kan låse op.' },
-    { id: 'b10-words', title: 'B10 Words', added: '2026-11-09',
+    { id: 'b10-words', title: 'B10 Words',
       desc: 'Gæt det engelske ord på fem bogstaver på seks forsøg. Ét nyt ord hver dag, eller spil frit.' },
-    { id: 'matas-surfers', title: 'Matas Surfers', added: '2026-11-09',
+    { id: 'matas-surfers', title: 'Matas Surfers',
       desc: 'Løb gennem butikken, hop over soft mud wax, smut under bordet og undvig den kæmpe håndcreme.' },
     { id: 'buttcraft', title: 'Buttcraft',
       desc: 'Voxel-sandkasse i gyldent aftenlys med skygger og vand, der spejler solen. Spil singleplayer eller multiplayer.' },
@@ -192,36 +158,19 @@
     { id: 'yellow-circle-clicker', title: 'Yellow Circle Clicker',
       desc: 'Klik på cirklen, køb opgraderinger og lav rebirths for en større multiplier.' }
   ];
-  var NEW_DAYS = 14;
 
   (function () {
-    function isNew(g) {
-      if (!g.added) return false;
-      var p = g.added.split('-');
-      var days = (Date.now() - new Date(+p[0], +p[1] - 1, +p[2]).getTime()) / 86400000;
-      return days >= 0 && days < NEW_DAYS;
-    }
     function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
     function esc(s) { return s.replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
-    var grid = document.getElementById('grid'), newList = document.getElementById('newList');
-    var fresh = GAMES.filter(isNew);
+    var grid = document.getElementById('grid');
     document.getElementById('count').textContent = GAMES.length;
-
-    fresh.forEach(function (g) {
-      var a = el('a', 'chip');
-      a.href = 'games/' + g.id + '/';
-      a.innerHTML = '<b class="new">NEW!</b><img src="img/' + g.id + '.jpg" alt=""><span>' + esc(g.title) + '</span>';
-      newList.appendChild(a);
-    });
-    document.getElementById('newbar').hidden = !fresh.length;
 
     var slots = {};
     GAMES.forEach(function (g) {
       var a = el('a', 'card');
       a.href = 'games/' + g.id + '/';
       a.innerHTML =
-        (isNew(g) ? '<b class="new">NEW!</b>' : '') +
         '<img src="img/' + g.id + '.jpg" alt="Forsiden af ' + esc(g.title) + '" loading="lazy">' +
         '<div class="body"><h3>' + esc(g.title) + '</h3><p>' + esc(g.desc) + '</p>' +
         '<div class="cstats"><span>▶ <b data-plays>–</b> har spillet</span>' +

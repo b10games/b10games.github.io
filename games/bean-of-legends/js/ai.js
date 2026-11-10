@@ -1,7 +1,7 @@
 // Bot heroes. Each bot thinks a few times a second: retreat when hurt, fight when it is worth it,
 // otherwise do its job (farm a lane, support the marksman, clear the jungle) or join a team plan
 // (dragon, Mega Bean, defend, late-game push). Easy/normal/hard change reaction time, aim and courage.
-import { RULES, ITEM, TOWER } from './data.js';
+import { RULES, ITEM, TOWER, abilityAt } from './data.js';
 import { LANES, FOUNTAIN, mirror } from './map.js';
 
 const lanePts = (team, lane) => team === 0 ? LANES[lane] : LANES[lane].map(mirror);
@@ -134,7 +134,7 @@ export class Bot {
     const m = this.m, h = this.h, D = m.diff;
     for (const slot of [4, 0, 3, 1, 2]) {
       if (!m.canCastNow(h, slot) || Math.random() > D.abilityUse) continue;
-      const ab = h.def.abilities[slot], d = t.dist(h);
+      const ab = abilityAt(h.def.abilities[slot], h.abil[slot].rank), d = t.dist(h);
       const range = (ab.range || ab.radius || 4) + t.radius;
       let cast = false, x = t.x, z = t.z;
       switch (ab.ai) {
