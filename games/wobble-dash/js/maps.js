@@ -199,7 +199,7 @@ class Course {
     this.floor(o.gap || 5);
     return this;
   }
-  wheels(len, n, o = {}) { this.floor(len); const z0 = this.z - len; for (let i = 0; i < n; i++) O.wheel(this.c, { x: 0, y: this.y + (o.r || 4) + 0.6, z: z0 + (i + 0.5) * len / n, r: o.r || 4, w: this.W - 1, speed: (o.speed || 1.1) * (i % 2 ? -1 : 1), paddles: 4, mat: o.mat }); return this; }
+  wheels(len, n, o = {}) { this.floor(len); const z0 = this.z - len; for (let i = 0; i < n; i++) O.wheel(this.c, { x: 0, y: this.y + (o.r || 4) + 0.6, z: z0 + (i + 0.5) * len / n, r: o.r || 4, w: this.W - 1, speed: (o.speed || 1.0) * (i % 2 ? -1 : 1), mat: o.mat }); return this; }
   cannons(len, n, o = {}) {
     this.floor(len);
     const z0 = this.z - len;
@@ -506,5 +506,5 @@ export function buildMap(id, ctx) {
   BUILD[id](ctx, c);
   const spawns = [];
   for (let i = 0; i < 16; i++) spawns.push({ x: -7 + (i % 8) * 2, y: 0.3, z: -6 + Math.floor(i / 8) * 2.4, yaw: 0 });
-  return { def, theme: THEMES[def.theme], arena: false, spawns, nav: c.nav.sort((a, b) => a.z - b.z), length: ctx.finishZ || c.z, finishZ: ctx.finishZ, snow: !!ctx.snow };
+  return { def, theme: THEMES[def.theme], arena: false, spawns, nav: c.nav.sort((a, b) => a.z - b.z), gates: ctx.gates || [], length: ctx.finishZ || c.z, finishZ: ctx.finishZ, snow: !!ctx.snow };
 }

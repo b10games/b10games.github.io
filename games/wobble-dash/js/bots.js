@@ -30,8 +30,24 @@ export class Bot {
       const n = nav[i];
       if (n.x != null && !n.act && n.z > p.z - 0.3 && n.z < p.z + 11) { tx = n.x + this.offset * 0.12; break; }
     }
+    // paddle wheels: line up on a side that will be open while we cross, wait if none is
+    let wait = false;
+    for (const g of this.map.gates || []) {
+      if (p.z > g.z1 || p.z < g.z0 - 8) continue;
+      if (this.gate !== g) { this.gate = g; this.gateSide = p.x > 0 ? g.sides[1] : g.sides[0]; this.careful = this.r() < 0.55 + this.skill * 0.45; }
+      if (p.z < g.z0) {
+        const v = 8.5, from = Math.max(0, (g.z0 - p.z) / v), to = (g.z1 - p.z) / v + 0.1;
+        const order = Math.abs(p.x - g.sides[0]) < Math.abs(p.x - g.sides[1]) ? [g.sides[0], g.sides[1]] : [g.sides[1], g.sides[0]];
+        const open = !this.careful ? order[0] : order.find(x => g.clear(x, from + Math.abs(p.x - x) / 9, to + Math.abs(p.x - x) / 9));
+        if (open != null) this.gateSide = open;
+        else if (p.z > g.z0 - 1.8) wait = true;
+      }
+      tx = this.gateSide;
+      break;
+    }
     const dx = tx - p.x;
-    inp.z = 1; inp.x = Math.max(-1, Math.min(1, dx * 0.5));
+    inp.z = wait ? 0 : 1; inp.x = Math.max(-1, Math.min(1, dx * 0.5));
+    if (wait) this.stuckT = 0;
 
     // jumps and dashes at the marked spots
     const reach = 0.25 + (1 - this.skill) * 0.55;

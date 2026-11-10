@@ -307,15 +307,38 @@ export function belt(ctx, o) {
 
 // Big wheel spinning across the lane with paddles.
 export function wheel(ctx, o) {
+  // A big paddle wheel. Each paddle covers only half the lane and the halves are a quarter turn
+  // apart, so one side is always open: wait for the paddle on your side to pass, then run through.
   const g = new THREE.Group(); g.position.set(o.x, o.y, o.z); ctx.root.add(g);
-  const r = o.r || 4, w = o.w || 6, n = o.paddles || 4;
+  const r = o.r || 4, w = o.w || 6, n = 4, half = w / 2 - 0.2;
   const hub = sh(new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, w + 1, 16), M('#6c757d', { metal: 0.5 }))); hub.rotation.z = Math.PI / 2; g.add(hub);
+  const matA = o.mat || M('#8d5524'), matB = M('#a1887f', { rough: 0.9 });
+  const paddles = [];
   for (let i = 0; i < n; i++) {
-    const p = new THREE.Group(); p.rotation.x = i * Math.PI * 2 / n; g.add(p);
-    block(ctx, { parent: p, x: 0, y: r / 2 + 0.4, z: 0, w, h: r, d: 0.5, mat: o.mat || M('#8d5524'), hit: o.hit ?? 14, dyn: true });
+    const side = i % 2 ? 1 : -1, phi = i * Math.PI * 2 / n;
+    const p = new THREE.Group(); p.rotation.x = phi; g.add(p);
+    block(ctx, { parent: p, x: side * (w / 4 + 0.1), y: r / 2 + 0.4, z: 0, w: half, h: r, d: 0.5, mat: side < 0 ? matA : matB, hit: o.hit ?? 10, dyn: true });
+    // a stripe on the edge so you can see which half it covers
+    const edge = sh(new THREE.Mesh(new THREE.BoxGeometry(half, 0.3, 0.56), M('#ffd23f'))); edge.position.set(side * (w / 4 + 0.1), r + 0.25, 0); p.add(edge);
+    paddles.push({ side, phi });
   }
-  const sp = (o.speed || 1.2) * speedK(ctx) * (o.dir || 1);
+  const sp = (o.speed || 1.0) * speedK(ctx) * (o.dir || 1);
   ctx.ups.push(t => { g.rotation.x = t * sp; });
+  // Bot hint: is the half at lane x free of low paddles between `from` and `to` seconds from now?
+  const band = 0.9, reach = Math.sin(band) * (r + 0.4) + 0.6;
+  (ctx.gates || (ctx.gates = [])).push({
+    z0: o.z - reach, z1: o.z + reach, sides: [-(w / 4 + 0.1), w / 4 + 0.1],
+    clear(x, from, to) {
+      const side = x > 0 ? 1 : -1;
+      for (let tau = from; tau <= to + 1e-6; tau += 0.05)
+        for (const q of paddles) {
+          if (q.side !== side) continue;
+          const a = (ctx.t + tau) * sp + q.phi - Math.PI, d = Math.atan2(Math.sin(a), Math.cos(a));
+          if (Math.abs(d) < band) return false;
+        }
+      return true;
+    }
+  });
 }
 
 // Water jet that pops up and throws you high.
