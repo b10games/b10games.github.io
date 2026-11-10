@@ -172,8 +172,8 @@ function tickLobby(dt) {
   if (L.confettiT < 0) { L.confettiT = 6 + Math.random() * 6; L.fx.confetti(new THREE.Vector3((Math.random() - 0.5) * 14, 6, -3), 60, 10); }
   L.fx.update(dt);
   const locker = $('locker').classList.contains('on');
-  const tp = locker ? new THREE.Vector3(1.0, 1.7, 3.9) : new THREE.Vector3(Math.sin(L.t * 0.15) * 0.5, 2.15 + Math.sin(L.t * 0.2) * 0.12, 6.4);
-  const tl = locker ? new THREE.Vector3(1.0, 1.05, 0) : new THREE.Vector3(0, 1.3, -0.6);
+  const tp = locker ? new THREE.Vector3(1.0, 1.7, 3.9) : new THREE.Vector3(Math.sin(L.t * 0.15) * 0.45, 1.95 + Math.sin(L.t * 0.2) * 0.1, 5.5);
+  const tl = locker ? new THREE.Vector3(1.0, 1.05, 0) : new THREE.Vector3(0, 1.15, -0.6);
   L.cam.pos.lerp(tp, 1 - Math.exp(-dt * 4)); L.cam.look.lerp(tl, 1 - Math.exp(-dt * 4));
   camera.position.copy(L.cam.pos); camera.lookAt(L.cam.look);
   if (camera.fov !== 50) { camera.fov = 50; camera.updateProjectionMatrix(); }
@@ -280,7 +280,7 @@ $('meCard').onclick = openSettings;
 // ---------- locker ----------
 let lockerTab = 'c1';
 const LTABS = { c1: 'FARVE 1', c2: 'FARVE 2', pattern: 'MØNSTER', hat: 'HAT', eyes: 'ØJNE', random: '🎲 TILFÆLDIG' };
-const ICONS = { none: '∅', cap: '🧢', bunny: '🐰', horns: '😈', halo: '😇', tophat: '🎩', crown: '👑', propeller: '🚁', cat: '🐱', flower: '🌸', round: '👀', happy: '😊', sleepy: '😴', cool: '😎',
+const ICONS = { none: '∅', cap: '🧢', bunny: '🐰', horns: '😈', halo: '😇', tophat: '🎩', crown: '👑', propeller: '🚁', cat: '🐱', flower: '🌸', round: '👀', sparkle: '🤩', happy: '😊', wink: '😉', sleepy: '😴', cool: '😎',
   solid: '⬤', stripes: '▤', dots: '⠿', split: '◐', stars: '★', zigzag: '〰', gradient: '▒', hearts: '♥' };
 function buildLocker() {
   const tabs = $('ltabs'); tabs.innerHTML = '';
