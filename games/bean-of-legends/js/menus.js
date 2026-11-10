@@ -4,7 +4,10 @@ import { THREE, canvasTex, damp, clamp } from './engine.js';
 import { HEROES, HERO, ROLES, ITEM, TEAM_COLOR } from './data.js';
 import { Bean } from './models.js';
 import { FX } from './fx.js';
-import { $, esc, abilityText, fmtT } from './hud.js';
+import { $, esc, abilityText, fmtT, portrait } from './hud.js';
+import { icon } from './icons.js';
+const coin = (n) => icon('coin', { cls: 'icn' }) + ' ' + n;
+const ITEM_BADGE = ['#4a3590', '#1b1036'];
 
 // ---------- save data ----------
 const KEY = 'bol-save';
@@ -132,7 +135,7 @@ export function renderHeroInfo(app, id, collection) {
   $('selInfo').innerHTML = `
     <div style="opacity:.7;font-weight:900;letter-spacing:.12em">${esc(h.name.toUpperCase())}</div>
     <h2>${esc(h.title)}</h2>
-    <div class="row" style="margin:8px 0"><span class="rolebadge" style="background:${role.color}">${role.icon} ${h.role.toUpperCase()}</span><span style="font-weight:900;opacity:.8">Difficulty</span><span class="dots">${[1, 2, 3].map(k => `<i class="${k <= h.difficulty ? 'on' : ''}"></i>`).join('')}</span><span style="opacity:.7;font-weight:800">${h.melee ? 'Melee' : 'Ranged'}</span></div>
+    <div class="row" style="margin:8px 0"><span class="rolebadge" style="background:${role.color}">${icon(role.icon, { cls: 'icn' })} ${h.role.toUpperCase()}</span><span style="font-weight:900;opacity:.8">Difficulty</span><span class="dots">${[1, 2, 3].map(k => `<i class="${k <= h.difficulty ? 'on' : ''}"></i>`).join('')}</span><span style="opacity:.7;font-weight:800">${h.melee ? 'Melee' : 'Ranged'}</span></div>
     <div style="font-weight:700;opacity:.85;margin-bottom:10px">${esc(h.lore)} <i style="opacity:.75">${esc(role.desc)}</i></div>
     ${bar('Health', s.hp[0] + s.hp[1] * 17, 2500, Math.round(s.hp[0]))}
     ${bar('Attack', s.ad[0] + s.ad[1] * 17, 130, Math.round(s.ad[0]))}
@@ -141,7 +144,7 @@ export function renderHeroInfo(app, id, collection) {
     ${bar('Range', s.range, 7.5, s.range)}
     ${bar('Speed', s.ms, 7.4, Math.round(s.ms * 50))}
     <h3 style="margin-top:14px;font-size:20px">ABILITIES</h3>
-    ${h.abilities.map(ab => `<div class="abil"><div class="ai">${ab.icon}<b>${ab.key}</b></div><div><h4>${esc(ab.name)}</h4><p>${abilityText(ab, 1)}</p><div class="meta">Cooldown ${ab.cd.join('/')}s · Mana ${ab.cost[0]}${ab.range ? ' · Range ' + ab.range : ''}</div></div></div>`).join('')}
+    ${h.abilities.map(ab => `<div class="abil"><div class="ai">${icon(ab.icon, { badge: h.badge })}<b>${ab.key}</b></div><div><h4>${esc(ab.name)}</h4><p>${abilityText(ab, 1)}</p><div class="meta">Cooldown ${ab.cd.join('/')}s · Mana ${ab.cost[0]}${ab.range ? ' · Range ' + ab.range : ''}</div></div></div>`).join('')}
     <h3 style="margin-top:14px;font-size:20px">COSTUME COLOURS</h3>
     <div class="chromas">${[h.colors, ...h.chromas].map((c, k) => `<div class="chroma ${k === eq ? 'on' : ''} ${owned.includes(k) ? '' : 'locked'}" data-k="${k}" title="${owned.includes(k) ? 'Equip' : 'Unlock in the Bean Shop'}" style="background:linear-gradient(135deg, ${c[0]} 50%, ${c[1]} 50%)"></div>`).join('')}</div>
     ${collection ? '' : ''}`;
@@ -157,7 +160,7 @@ export function renderHeroGrid(app, onPick) {
   const g = $('heroGrid'); g.innerHTML = '';
   for (const h of HEROES) {
     const el = document.createElement('div'); el.className = 'hcard' + (h.id === app.selHero ? ' on' : ''); el.dataset.id = h.id;
-    el.innerHTML = `<img src="${app.thumbs[h.id]}" alt=""><div class="rl" title="${h.role}">${ROLES[h.role].icon}</div><div class="nm">${esc(h.title.replace('THE ', ''))}</div>`;
+    el.innerHTML = `<img src="${app.thumbs[h.id]}" alt=""><div class="rl" title="${h.role}" style="background:${ROLES[h.role].color}">${icon(ROLES[h.role].icon)}</div><div class="nm">${esc(h.title.replace('THE ', ''))}</div>`;
     el.addEventListener('click', () => onPick(h.id));
     el.addEventListener('mouseenter', () => app.audio.sfx('hover'));
     g.appendChild(el);
@@ -167,11 +170,11 @@ export function renderHeroGrid(app, onPick) {
 // ---------- cosmetic shop ----------
 export function renderCosmeticShop(app) {
   const save = app.save, PRICE = 250;
-  $('cCoins').textContent = '🪙 ' + save.coins;
+  $('cCoins').innerHTML = coin(save.coins);
   $('cGrid').innerHTML = HEROES.map(h => h.chromas.map((c, i) => {
     const k = i + 1, own = (save.owned[h.id] || []).includes(k), eq = (save.equip[h.id] || 0) === k;
     return `<div class="citem"><img src="${app.thumbs[h.id]}"><div style="flex:1"><div class="lilita" style="font-size:16px">${esc(h.title.replace('THE ', ''))}</div><div class="row" style="gap:6px;margin:4px 0"><span class="chroma" style="width:24px;height:24px;background:linear-gradient(135deg, ${c[0]} 50%, ${c[1]} 50%)"></span><span style="font-weight:800;opacity:.8">Style ${k}</span></div>
-      ${own ? `<button class="btn ${eq ? 'ghost' : 'blue'} mini" data-eq="${h.id}:${k}">${eq ? 'EQUIPPED' : 'EQUIP'}</button>` : `<button class="btn mini" data-buy="${h.id}:${k}" ${save.coins < PRICE ? 'disabled' : ''}>🪙 ${PRICE}</button>`}</div></div>`;
+      ${own ? `<button class="btn ${eq ? 'ghost' : 'blue'} mini" data-eq="${h.id}:${k}">${eq ? 'EQUIPPED' : 'EQUIP'}</button>` : `<button class="btn mini" data-buy="${h.id}:${k}" ${save.coins < PRICE ? 'disabled' : ''}>${coin(PRICE)}</button>`}</div></div>`;
   }).join('')).join('');
   $('cGrid').querySelectorAll('[data-buy]').forEach(b => b.addEventListener('click', () => {
     const [id, k] = b.dataset.buy.split(':'); if (save.coins < PRICE) return;
@@ -188,9 +191,9 @@ export function renderEnd(app, m, coins) {
   const win = m.winner === m.pteam;
   $('endTitle').textContent = win ? 'VICTORY!' : 'DEFEAT';
   $('endTitle').style.color = win ? '#ffd23f' : '#ff9aac';
-  $('endSub').innerHTML = `${win ? 'Your team destroyed the enemy Bean Core!' : m.surrendered ? 'Your team surrendered.' : 'Your Bean Core was destroyed.'} · Match time ${fmtT(m.time)} · 🪙 +${coins} Bean Coins`;
-  const row = h => `<tr class="${h.isPlayer ? 'me' : ''}"><td style="font-size:20px">${h.def.abilities[3].icon}</td><td>${esc(h.def.title)}${h.isPlayer ? ' (you)' : ''}</td><td>${h.level}</td><td>${h.stats.kills}</td><td>${h.stats.deaths}</td><td>${h.stats.assists}</td><td>${Math.floor(h.stats.gold + 500)}</td><td>${Math.round(h.stats.heroDmg)}</td><td>${h.stats.cs}</td><td>${h.stats.towers}</td><td>${h.items.map(s => s ? ITEM[s.id].icon : '').join(' ')}</td></tr>`;
-  const team = t => `<tr><th colspan="2" class="${t ? 'tr' : 'tb'}" style="font-size:15px;opacity:1">${t ? '🔴 RED' : '🔵 BLUE'} ${t === m.winner ? '🏆' : ''} · ${m.teams[t].kills} kills · ${m.teams[t].towers} towers</th><th>LVL</th><th>K</th><th>D</th><th>A</th><th>GOLD</th><th>HERO DMG</th><th>MINIONS</th><th>TOWERS</th><th>ITEMS</th></tr>` + m.heroes.filter(h => h.team === t).map(row).join('');
+  $('endSub').innerHTML = `${win ? 'Your team destroyed the enemy Bean Core!' : m.surrendered ? 'Your team surrendered.' : 'Your Bean Core was destroyed.'} · Match time ${fmtT(m.time)} · ${icon('coin', { cls: 'icn' })} +${coins} Bean Coins`;
+  const row = h => `<tr class="${h.isPlayer ? 'me' : ''}"><td>${portrait(app, h, 30)}</td><td>${esc(h.def.title)}${h.isPlayer ? ' (you)' : ''}</td><td>${h.level}</td><td>${h.stats.kills}</td><td>${h.stats.deaths}</td><td>${h.stats.assists}</td><td>${Math.floor(h.stats.gold + 500)}</td><td>${Math.round(h.stats.heroDmg)}</td><td>${h.stats.cs}</td><td>${h.stats.towers}</td><td class="its">${h.items.map(s => s ? icon(ITEM[s.id].icon, { badge: ITEM_BADGE, cls: 'icm' }) : '').join('')}</td></tr>`;
+  const team = t => `<tr><th colspan="2" class="${t ? 'tr' : 'tb'}" style="font-size:15px;opacity:1"><span class="tdot ${t ? 'r' : 'b'}"></span>${t ? 'RED' : 'BLUE'} ${t === m.winner ? icon('trophy', { cls: 'icn' }) : ''} · ${m.teams[t].kills} kills · ${m.teams[t].towers} towers</th><th>LVL</th><th>K</th><th>D</th><th>A</th><th>GOLD</th><th>HERO DMG</th><th>MINIONS</th><th>TOWERS</th><th>ITEMS</th></tr>` + m.heroes.filter(h => h.team === t).map(row).join('');
   $('endStats').innerHTML = `<table>${team(m.pteam)}<tr><td colspan="11" style="height:8px"></td></tr>${team(1 - m.pteam)}</table>`;
   app.show.showWinners(m.heroes.filter(h => h.team === m.winner).map(h => ({ id: h.heroId, colors: h.colors })));
   void TEAM_COLOR; void damp;

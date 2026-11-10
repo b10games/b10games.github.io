@@ -3,6 +3,7 @@
 import { THREE, clamp } from './engine.js';
 import { ITEMS, ITEM, SHOP_CATS, statText, HERO, ROLES, TEAM_COLOR, BUFFS, DRAGON_KINDS, RULES } from './data.js';
 import { HALF, FOUNTAIN } from './map.js';
+import { icon, iconImage } from './icons.js';
 
 export const $ = id => document.getElementById(id);
 export const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -13,7 +14,10 @@ export function abilityText(ab, rank) {
   const list = arr => arr.map((v, i) => i === rank - 1 ? `<b style="color:#fff">${v}</b>` : `<span style="opacity:.75">${v}</span>`).join('/');
   return ab.text.replace('{dmg}', ab.dmg ? list(ab.dmg) + ' ' + RATIO(ab) : '').replace('{shield}', ab.shield ? list(ab.shield) + (ab.ap ? ' ' + RATIO(ab) : '') : '').replace('{heal}', ab.heal ? list(ab.heal) + ' ' + RATIO(ab) : '');
 }
-const BUFF_ICON = { brainfreeze: '🧊', hotsauce: '🌶️', megabean: '👑', shieldup: '🛡️', royal: '👑', giant: '🦕', frenzy: '🍽️', coo: '🐦', smoke: '💨', vanish: '🎩', overdrive: '⚡', potion: '🧪', bunny: '🐰', burn: '🔥', stun: '💫', knockup: '💫', finrush: '🌀', clonesms: '👥', roared: '📣', split: '🍨', forcefast: '🔰' };
+const BUFF_ICON = { brainfreeze: 'snowflake', hotsauce: 'chili', megabean: 'crown', shieldup: 'shieldup', royal: 'crown', giant: 'dinohead', frenzy: 'frenzy', coo: 'bird', smoke: 'smoke', vanish: 'tophat', overdrive: 'bolt', potion: 'potion', bunny: 'bunny', burn: 'flame', stun: 'stun', knockup: 'stun', finrush: 'fin', clonesms: 'clones', roared: 'roar', split: 'split', forcefast: 'hexshield' };
+const ITEM_BADGE = ['#4a3590', '#1b1036'];
+const coin = (n) => icon('coin', { cls: 'icn' }) + ' ' + n;
+export const portrait = (app, h, size = 26) => `<img class="pt" src="${app.thumbs[h.heroId] || ''}" style="width:${size}px;height:${size}px" alt="">`;
 
 export class HUD {
   constructor(app) {
@@ -21,7 +25,7 @@ export class HUD {
     this.floats = []; this.tick = 0; this.mmT = 0; this.cat = 'all'; this.sel = null; this.selSlot = -1; this.announceQ = []; this.annT = 0;
     this.mm = $('minimap'); this.mg = this.mm.getContext('2d');
     this.fogC = document.createElement('canvas'); this.fogC.width = this.fogC.height = 128;
-    this.tip = $('tooltip');
+    this.tip = $('tooltip'); this.statIcons = {};
     this.bindStatic();
   }
   resize(w, h, dpr) { this.ov.width = w * dpr; this.ov.height = h * dpr; this.dpr = dpr; }
@@ -36,7 +40,7 @@ export class HUD {
     const ab = $('abilities'); ab.innerHTML = '';
     p.def.abilities.forEach((a, i) => {
       const el = document.createElement('div'); el.className = 'ab pe' + (i === 3 ? ' ult' : ''); el.dataset.slot = i;
-      el.innerHTML = `<div class="up">+</div><span class="ico">${a.icon}</span><span class="key">${a.key}</span><span class="cost"></span><div class="cd"></div><div class="pips">${(i === 3 ? [0, 1, 2] : [0, 1, 2, 3, 4]).map(() => '<i></i>').join('')}</div>`;
+      el.innerHTML = `<div class="up">+</div><span class="ico">${icon(a.icon, { badge: p.def.badge })}</span><span class="key">${a.key}</span><span class="cost"></span><div class="cd"></div><div class="pips">${(i === 3 ? [0, 1, 2] : [0, 1, 2, 3, 4]).map(() => '<i></i>').join('')}</div>`;
       el.querySelector('.up').addEventListener('mousedown', e => { e.stopPropagation(); this.m.levelAbility(p, i); });
       el.addEventListener('mouseenter', () => this.showTip(el, () => this.abilityTip(i)));
       el.addEventListener('mouseleave', () => this.hideTip());
@@ -67,11 +71,11 @@ export class HUD {
     this.mm.addEventListener('contextmenu', e => e.preventDefault());
     const mmAct = (e, drag) => {
       const r = this.mm.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * HALF * 2 - HALF, z = (e.clientY - r.top) / r.height * HALF * 2 - HALF;
-      if (e.button === 2 && !drag) this.app.input.moveOrder(x, z, true);
-      else if (e.buttons & 1) this.app.cam.lookAt(x, z, true);
+      if (e.button === 0 && !drag) { this.app.input.moveOrder(x, z, true); this.app.input.held = false; }
+      else if (e.buttons & 2) this.app.cam.lookAt(x, z, true);
     };
     this.mm.addEventListener('mousedown', e => { e.stopPropagation(); mmAct(e, false); });
-    this.mm.addEventListener('mousemove', e => { if (e.buttons & 1) mmAct(e, true); });
+    this.mm.addEventListener('mousemove', e => { if (e.buttons & 2) mmAct(e, true); });
   }
   // ---------- events from the match ----------
   onEvent(type, d) {
@@ -93,9 +97,9 @@ export class HUD {
   killFeed(d) {
     const k = d.killer, v = d.victim;
     const kn = k ? (k.hero ? k.def.title : k.kind === 'tower' ? 'Tower' : k.kind === 'minion' ? 'Minions' : k.kind === 'monster' ? k.name : 'Fountain') : 'Fountain';
-    const ki = k && k.hero ? k.def.abilities[3].icon : k && k.kind === 'tower' ? '🗼' : '💥';
+    const ki = k && k.hero ? portrait(this.app, k, 22) : icon(k && k.kind === 'tower' ? 'tower' : 'skull', { cls: 'icn' });
     const el = document.createElement('div'); el.className = 'kf' + (v.team === this.m.pteam ? ' red' : '');
-    el.innerHTML = `<span class="ic">${ki}</span>${esc(kn)}${d.assists.length ? ' <span style="opacity:.6">+' + d.assists.length + '</span>' : ''} <span style="opacity:.7">⚔</span> <span class="ic">${v.def.abilities[3].icon}</span>${esc(v.def.title)}`;
+    el.innerHTML = `<span class="ic">${ki}</span>${esc(kn)}${d.assists.length ? ' <span style="opacity:.6">+' + d.assists.length + '</span>' : ''} <span style="opacity:.8">${icon('swords', { cls: 'icn' })}</span> <span class="ic">${portrait(this.app, v, 22)}</span>${esc(v.def.title)}`;
     const box = $('killfeed'); box.prepend(el); while (box.children.length > 5) box.lastChild.remove();
     setTimeout(() => el.remove(), 7000);
     if (v === this.p) this.toast('You were slain' + (k && k.hero ? ' by ' + k.def.title : ''), 'bad');
@@ -106,11 +110,11 @@ export class HUD {
   abilityTip(i) {
     const p = this.p, ab = p.def.abilities[i], r = p.abil[i].rank;
     const cd = ab.cd[Math.max(0, r - 1)] * (1 - p.st.cdr);
-    return `<h4>${ab.icon} ${esc(ab.name)} <span style="opacity:.6;font-size:13px">[${ab.key}]${r ? ' rank ' + r : ' not learned'}</span></h4><div>${abilityText(ab, r || 1)}</div><div style="margin-top:6px;opacity:.8;font-size:12px">Cooldown ${cd.toFixed(1)}s · Cost ${ab.cost[Math.max(0, r - 1)]} mana${ab.range ? ' · Range ' + ab.range : ''}</div>`;
+    return `<h4>${icon(ab.icon, { badge: p.def.badge, cls: 'icl' })} ${esc(ab.name)} <span style="opacity:.6;font-size:13px">[${ab.key}]${r ? ' rank ' + r : ' not learned'}</span></h4><div>${abilityText(ab, r || 1)}</div><div style="margin-top:6px;opacity:.8;font-size:12px">Cooldown ${cd.toFixed(1)}s · Cost ${ab.cost[Math.max(0, r - 1)]} mana${ab.range ? ' · Range ' + ab.range : ''}</div>`;
   }
   itemTip(id, owned) {
     const it = ITEM[id];
-    return `<h4>${it.icon} ${esc(it.name)}</h4>${Object.entries(it.stats).map(([k, v]) => `<div class="stat">${statText(k, v)}</div>`).join('')}${it.text ? `<div style="margin-top:4px">${esc(it.text)}</div>` : ''}<div style="margin-top:6px;opacity:.75;font-size:12px">${owned ? 'Sells for ' + Math.floor(it.cost * 0.7) + ' gold (right-click in base)' : 'Cost ' + it.cost}</div>`;
+    return `<h4>${icon(it.icon, { badge: ITEM_BADGE, cls: 'icl' })} ${esc(it.name)}</h4>${Object.entries(it.stats).map(([k, v]) => `<div class="stat">${statText(k, v)}</div>`).join('')}${it.text ? `<div style="margin-top:4px">${esc(it.text)}</div>` : ''}<div style="margin-top:6px;opacity:.75;font-size:12px">${owned ? 'Sells for ' + Math.floor(it.cost * 0.7) + ' gold (right-click in base)' : 'Cost ' + it.cost}</div>`;
   }
   // ---------- per frame ----------
   update(dt) {
@@ -129,12 +133,12 @@ export class HUD {
     // top
     const left = m.pteam === 0 ? 0 : 1;
     $('kBlue').textContent = m.teams[0].kills; $('kRed').textContent = m.teams[1].kills; $('clock').textContent = fmtT(m.time);
-    const side = t => `🏰 ${m.teams[t].towers} ${m.teams[t].dragons.map(k => `<span class="drg" style="background:${DRAGON_KINDS.find(d => d.id === k).color}"></span>`).join('')}`;
+    const side = t => `${icon('tower', { cls: 'icn' })} ${m.teams[t].towers} ${m.teams[t].dragons.map(k => `<span class="drg" style="background:${DRAGON_KINDS.find(d => d.id === k).color}"></span>`).join('')}`;
     $('sideBlue').innerHTML = side(0); $('sideRed').innerHTML = side(1);
     void left;
     const obj = [];
     for (const c of m.camps) if (c.def.epic) {
-      const ic = c.def.id === 'dragon' ? '🐉 ' + (c.alive ? (m.dragonKind ? m.dragonKind.name : '') + ' Dragon' : 'Dragon') : '👑 Mega Bean';
+      const ic = c.def.id === 'dragon' ? icon('dragon', { cls: 'icn' }) + ' ' + (c.alive ? (m.dragonKind ? m.dragonKind.name : '') + ' Dragon' : 'Dragon') : icon('crown', { cls: 'icn' }) + ' Mega Bean';
       obj.push(`<span>${ic}: ${c.alive ? '<b style="color:#7bd389">ALIVE</b>' : fmtT(c.next - m.time)}</span>`);
     }
     $('objTimers').innerHTML = obj.join('');
@@ -159,13 +163,12 @@ export class HUD {
       [...el.querySelectorAll('.pips i')].forEach((pi, k) => pi.classList.toggle('on', k < a.rank));
     });
     // stats
-    $('statsBox').innerHTML = [['⚔️', Math.round(st.ad)], ['🔮', Math.round(st.ap)], ['🛡️', Math.round(st.armor)], ['🫧', Math.round(st.mr)], ['⚡', st.as.toFixed(2)], ['🎯', Math.round(st.crit * 100) + '%'], ['👟', Math.round(st.ms * 50)], ['⏳', Math.round(st.cdr * 100) + '%']].map(([k, v]) => `<div title="">${k} ${v}</div>`).join('');
-    $('gold').textContent = '🪙 ' + Math.floor(p.gold);
-    $('shopGold').textContent = '🪙 ' + Math.floor(p.gold);
+    $('statsBox').innerHTML = [['sword', Math.round(st.ad), 'Attack damage'], ['orb', Math.round(st.ap), 'Ability power'], ['shield', Math.round(st.armor), 'Armor'], ['bubble', Math.round(st.mr), 'Magic resist'], ['bolt', st.as.toFixed(2), 'Attack speed'], ['target', Math.round(st.crit * 100) + '%', 'Critical strike'], ['boot', Math.round(st.ms * 50), 'Move speed'], ['hourglass', Math.round(st.cdr * 100) + '%', 'Cooldown reduction']].map(([k, v, t]) => `<div title="${t}">${this.statIcons[k] || (this.statIcons[k] = icon(k, { cls: 'icn' }))} ${v}</div>`).join('');
+    const gtxt = Math.floor(p.gold); if (this._g !== gtxt) { this._g = gtxt; $('gold').innerHTML = coin(gtxt); $('shopGold').innerHTML = coin(gtxt); }
     // buffs
     $('buffs').innerHTML = p.buffs.filter(b => BUFF_ICON[b.id] || BUFF_ICON[(b.id || '').replace(/\d+$/, '')] || b.slow).slice(0, 8).map(b => {
-      const ic = BUFF_ICON[b.id] || (b.slow ? '🐌' : '✨'), col = b.color || (b.stun || b.knockup || b.slow || b.bunny ? '#ff6b6b' : '#7bd389');
-      return `<div class="buff" style="border-color:${col}" title="${esc(b.name || b.id)}">${ic}<span style="position:absolute;margin-top:30px;font-size:10px">${b.t < 99 ? Math.ceil(b.t) : ''}</span></div>`;
+      const ic = BUFF_ICON[b.id] || (b.slow ? 'snail' : 'sparkles'), col = b.color || (b.stun || b.knockup || b.slow || b.bunny ? '#ff6b6b' : '#7bd389');
+      return `<div class="buff" style="border-color:${col}" title="${esc(b.name || b.id)}">${icon(ic)}<span style="position:absolute;margin-top:30px;font-size:10px">${b.t < 99 ? Math.ceil(b.t) : ''}</span></div>`;
     }).join('');
     // death + recall
     $('death').classList.toggle('hidden', p.alive);
@@ -178,7 +181,7 @@ export class HUD {
   }
   refreshItems() {
     const p = this.p; if (!p) return;
-    this.itemEls.forEach((s, i) => { const it = p.items[i]; s.innerHTML = it ? `${ITEM[it.id].icon}${it.count > 1 ? `<b>${it.count}</b>` : ''}<span class="k">${i + 1}</span>` : `<span class="k">${i + 1}</span>`; });
+    this.itemEls.forEach((s, i) => { const it = p.items[i]; s.innerHTML = it ? `${icon(ITEM[it.id].icon, { badge: ITEM_BADGE })}${it.count > 1 ? `<b>${it.count}</b>` : ''}<span class="k">${i + 1}</span>` : `<span class="k">${i + 1}</span>`; });
   }
   // ---------- overlay: bars and numbers ----------
   project(x, y, z) {
@@ -225,7 +228,7 @@ export class HUD {
         if (u.recallT >= 0) { g.fillStyle = 'rgba(10,6,24,.85)'; g.fillRect(x0, y0 + h + 7, w, 5); g.fillStyle = '#8fc0ff'; g.fillRect(x0, y0 + h + 7, w * (1 - u.recallT / u.recallMax), 5); }
       } else if (k === 'tower' || k === 'core' || (k === 'monster' && (u.mdef.epic || u === hov))) {
         g.font = '400 13px "Lilita One"'; g.textAlign = 'center'; g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.8)';
-        const nm = k === 'monster' ? u.name : u.protectedNow ? '🛡️ Protected' : '';
+        const nm = k === 'monster' ? u.name : u.protectedNow ? 'PROTECTED' : '';
         if (nm) { g.strokeText(nm, sx, y0 - 6); g.fillStyle = '#fff'; g.fillText(nm, sx, y0 - 6); }
       }
       if (u === hov && u.team !== pt) { g.strokeStyle = '#ffd23f'; g.lineWidth = 2; g.strokeRect(x0 - 3, y0 - 3, w + 6, h + 6 + (k === 'hero' ? 5 : 0)); }
@@ -242,6 +245,7 @@ export class HUD {
     }
     if (this.floats.length > 80) this.floats.splice(0, this.floats.length - 80);
   }
+  thumbImg(id) { this._th = this._th || {}; if (!this._th[id]) { const im = new Image(); im.src = this.app.thumbs[id] || ''; this._th[id] = im; } return this._th[id]; }
   // ---------- minimap ----------
   w2m(x, z) { return [(x + HALF) / (HALF * 2) * 240, (z + HALF) / (HALF * 2) * 240]; }
   drawMinimap() {
@@ -254,7 +258,7 @@ export class HUD {
     // camps
     for (const c of m.camps) {
       const [x, y] = this.w2m(c.def.x, c.def.z);
-      if (c.def.epic) { g.font = '16px sans-serif'; g.textAlign = 'center'; g.globalAlpha = c.alive ? 1 : 0.45; g.fillText(c.def.id === 'dragon' ? '🐉' : '👑', x, y + 6); g.globalAlpha = 1; }
+      if (c.def.epic) { g.globalAlpha = c.alive ? 1 : 0.45; g.drawImage(iconImage(c.def.id === 'dragon' ? 'dragon' : 'crown'), x - 10, y - 10, 20, 20); g.globalAlpha = 1; }
       else if (c.alive) { g.fillStyle = '#ffb703'; g.beginPath(); g.arc(x, y, 3.2, 0, 7); g.fill(); g.strokeStyle = '#3d2b00'; g.lineWidth = 1; g.stroke(); }
     }
     for (const u of m.units) {
@@ -274,7 +278,7 @@ export class HUD {
       const [x, y] = this.w2m(h.x, h.z);
       g.beginPath(); g.arc(x, y, h === this.p ? 8 : 7, 0, 7); g.fillStyle = h.team === pt ? '#1f4fa8' : '#a3203a'; g.fill();
       g.lineWidth = 2.5; g.strokeStyle = h === this.p ? '#ffd23f' : TEAM_COLOR[h.team]; g.stroke();
-      g.font = '10px sans-serif'; g.textAlign = 'center'; g.fillText(h.def.abilities[3].icon, x, y + 4);
+      const im = this.thumbImg(h.heroId); if (im.complete) { g.save(); g.beginPath(); g.arc(x, y, h === this.p ? 6.5 : 5.5, 0, 7); g.clip(); g.drawImage(im, x - 9, y - 7, 18, 18); g.restore(); }
     }
     // camera view
     const corners = this.app.cam.groundCorners();
@@ -293,12 +297,12 @@ export class HUD {
   renderShop() {
     const p = this.p, grid = $('shopGrid');
     [...$('shopCats').children].forEach(b => b.classList.toggle('on', b.dataset.c === this.cat));
-    const itm = id => { const it = ITEM[id], { price } = this.m.priceFor(p, id); return `<div class="itm ${id === this.sel ? 'on' : ''} ${p.gold < price ? 'cant' : ''} ${p.hasItem(id) ? 'own' : ''}" data-id="${id}"><div class="i">${it.icon}</div><div style="font-size:10.5px;font-weight:800;line-height:1.1;height:24px;overflow:hidden">${esc(it.name)}</div><div class="p">${price}</div></div>`; };
+    const itm = id => { const it = ITEM[id], { price } = this.m.priceFor(p, id); return `<div class="itm ${id === this.sel ? 'on' : ''} ${p.gold < price ? 'cant' : ''} ${p.hasItem(id) ? 'own' : ''}" data-id="${id}"><div class="i">${icon(it.icon, { badge: ITEM_BADGE })}</div><div style="font-size:10.5px;font-weight:800;line-height:1.1;height:24px;overflow:hidden">${esc(it.name)}</div><div class="p">${price}</div></div>`; };
     const filter = it => this.cat === 'all' || it.cat.includes(this.cat);
     const rec = p.def.items.filter(id => filter(ITEM[id]));
     const parts = ITEMS.filter(it => !it.from && filter(it)).map(it => it.id);
     const full = ITEMS.filter(it => it.from && filter(it)).map(it => it.id);
-    grid.innerHTML = (rec.length ? `<div class="igroup"><h4>⭐ Recommended for ${esc(p.def.title)}</h4><div class="iflow">${rec.map(itm).join('')}</div></div>` : '') +
+    grid.innerHTML = (rec.length ? `<div class="igroup"><h4>${icon('star', { cls: 'icn' })} Recommended for ${esc(p.def.title)}</h4><div class="iflow">${rec.map(itm).join('')}</div></div>` : '') +
       `<div class="igroup"><h4>Starter items and parts</h4><div class="iflow">${parts.map(itm).join('')}</div></div>` +
       `<div class="igroup"><h4>Finished items</h4><div class="iflow">${full.map(itm).join('')}</div></div>`;
     grid.querySelectorAll('.itm').forEach(el => {
@@ -313,8 +317,8 @@ export class HUD {
     const p = this.p, id = this.sel, it = ITEM[id]; if (!it) return;
     const { price } = this.m.priceFor(p, id), inBase = this.m.inShop(p);
     const into = ITEMS.filter(x => x.from && x.from.includes(id));
-    const small = cid => `<div class="itm ${p.hasItem(cid) ? 'own' : ''}" data-id="${cid}"><div class="i">${ITEM[cid].icon}</div><div class="p">${ITEM[cid].cost}</div></div>`;
-    $('shopDetail').innerHTML = `<h3>${it.icon} ${esc(it.name)}</h3>
+    const small = cid => `<div class="itm ${p.hasItem(cid) ? 'own' : ''}" data-id="${cid}"><div class="i">${icon(ITEM[cid].icon, { badge: ITEM_BADGE })}</div><div class="p">${ITEM[cid].cost}</div></div>`;
+    $('shopDetail').innerHTML = `<h3>${icon(it.icon, { badge: ITEM_BADGE, cls: 'icb' })} ${esc(it.name)}</h3>
       ${Object.entries(it.stats).map(([k, v]) => `<div class="stat">${statText(k, v)}</div>`).join('')}
       ${it.text ? `<div style="margin-top:6px;font-weight:800">${esc(it.text)}</div>` : ''}
       ${it.from ? `<div style="margin-top:12px;font-weight:900;opacity:.75">BUILDS FROM</div><div class="tree">${it.from.map(small).join('<span>+</span>')}<span>+ ${it.cost - it.from.reduce((s, c) => s + ITEM[c].cost, 0)}g</span></div>` : ''}
@@ -328,7 +332,7 @@ export class HUD {
   }
   renderInv() {
     const p = this.p;
-    $('shopInv').innerHTML = `<b style="opacity:.8">YOUR ITEMS</b>` + p.items.map((s, i) => `<div class="slot ${i === this.selSlot ? 'on' : ''}" data-i="${i}" style="${i === this.selSlot ? 'border-color:var(--gold)' : ''}">${s ? ITEM[s.id].icon + (s.count > 1 ? `<b>${s.count}</b>` : '') : ''}</div>`).join('') +
+    $('shopInv').innerHTML = `<b style="opacity:.8">YOUR ITEMS</b>` + p.items.map((s, i) => `<div class="slot ${i === this.selSlot ? 'on' : ''}" data-i="${i}" style="${i === this.selSlot ? 'border-color:var(--gold)' : ''}">${s ? icon(ITEM[s.id].icon, { badge: ITEM_BADGE }) + (s.count > 1 ? `<b>${s.count}</b>` : '') : ''}</div>`).join('') +
       (this.selSlot >= 0 && p.items[this.selSlot] ? `<button class="btn ghost mini" id="sellBtn">SELL ${esc(ITEM[p.items[this.selSlot].id].name)} for ${Math.floor(ITEM[p.items[this.selSlot].id].cost * 0.7)}g</button>` : '<span style="opacity:.6;font-weight:800">Click one of your items to sell it.</span>');
     $('shopInv').querySelectorAll('.slot').forEach(el => el.addEventListener('click', () => { const i = +el.dataset.i; this.selSlot = p.items[i] ? i : -1; if (p.items[i]) this.sel = p.items[i].id; this.renderShop(); }));
     const sb = $('sellBtn'); if (sb) sb.addEventListener('click', () => { this.m.sell(p, this.selSlot); this.selSlot = -1; this.renderShop(); });
@@ -336,8 +340,8 @@ export class HUD {
   // ---------- scoreboard ----------
   renderScore() {
     const m = this.m;
-    const rows = team => m.heroes.filter(h => h.team === team).map(h => `<tr class="${h === this.p ? 'me' : ''}"><td style="font-size:20px">${h.def.abilities[3].icon}</td><td>${esc(h.def.title)}${h === this.p ? ' (you)' : ''}<div style="font-size:11px;opacity:.6">${h.def.name} · ${h.def.role}</div></td><td>${h.level}</td><td>${h.stats.kills} / ${h.stats.deaths} / ${h.stats.assists}</td><td>${h.stats.cs}</td><td>${Math.floor(h.stats.gold + 500)}</td><td>${h.items.map(s => s ? ITEM[s.id].icon : '').join(' ')}</td><td>${h.alive ? '' : '💀 ' + Math.ceil(h.respawnT)}</td></tr>`).join('');
-    const head = team => `<tr><th colspan="2" class="${team ? 'tr' : 'tb'}" style="font-size:16px;opacity:1">${team ? '🔴 RED TEAM' : '🔵 BLUE TEAM'} — ${m.teams[team].kills} kills · ${m.teams[team].towers} towers · ${m.teams[team].dragons.length} dragons</th><th>LVL</th><th>K / D / A</th><th>CS</th><th>GOLD</th><th>ITEMS</th><th></th></tr>`;
+    const rows = team => m.heroes.filter(h => h.team === team).map(h => `<tr class="${h === this.p ? 'me' : ''}"><td>${portrait(this.app, h, 30)}</td><td>${esc(h.def.title)}${h === this.p ? ' (you)' : ''}<div style="font-size:11px;opacity:.6">${h.def.name} · ${h.def.role}</div></td><td>${h.level}</td><td>${h.stats.kills} / ${h.stats.deaths} / ${h.stats.assists}</td><td>${h.stats.cs}</td><td>${Math.floor(h.stats.gold + 500)}</td><td class="its">${h.items.map(s => s ? icon(ITEM[s.id].icon, { badge: ITEM_BADGE, cls: 'icm' }) : '').join('')}</td><td>${h.alive ? '' : icon('skull', { cls: 'icn' }) + ' ' + Math.ceil(h.respawnT)}</td></tr>`).join('');
+    const head = team => `<tr><th colspan="2" class="${team ? 'tr' : 'tb'}" style="font-size:16px;opacity:1"><span class="tdot ${team ? 'r' : 'b'}"></span>${team ? 'RED TEAM' : 'BLUE TEAM'} — ${m.teams[team].kills} kills · ${m.teams[team].towers} towers · ${m.teams[team].dragons.length} dragons</th><th>LVL</th><th>K / D / A</th><th>CS</th><th>GOLD</th><th>ITEMS</th><th></th></tr>`;
     $('scoreBox').innerHTML = `<h2 style="font-size:26px;color:var(--gold);margin-bottom:8px">SCOREBOARD · ${fmtT(m.time)}</h2><table>${head(0)}${rows(0)}<tr><td colspan="8" style="height:10px"></td></tr>${head(1)}${rows(1)}</table>`;
   }
 }

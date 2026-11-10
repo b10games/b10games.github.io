@@ -1,7 +1,8 @@
 // Bean of Legends: boot, menus, the match camera and controls, and the main loop.
 import { THREE, createRenderer, clamp, damp } from './engine.js';
 import { HEROES, HERO, TEAM_COLOR } from './data.js';
-import { GameMap, HALF } from './map.js';
+import { GameMap, HALF, MAP_THEMES } from './map.js';
+import { icon } from './icons.js';
 import { FX } from './fx.js';
 import { Audio, MUSIC } from './audio.js';
 import { Match } from './match.js';
@@ -11,9 +12,10 @@ import { Showroom, loadSave, writeSave, heroColors, renderHeroGrid, renderHeroIn
 const canvas = $('gl');
 const app = window.BOL_APP = {
   state: 'boot', paused: false, save: loadSave(), audio: new Audio(), thumbs: {}, pickChroma: {},
-  opts: { difficulty: 'normal', team: 0, quick: false }, selHero: 'knight', selMode: 'play'
+  opts: { difficulty: 'normal', team: 0, quick: false, theme: 'candy' }, selHero: 'knight', selMode: 'play'
 };
 app.settings = app.save.settings;
+app.opts.theme = app.settings.theme || 'candy';
 app.audio.vol = { music: app.settings.music, sfx: app.settings.sfx };
 
 // ---------- renderer ----------
@@ -38,7 +40,7 @@ addEventListener('resize', resize);
 const SCREENS = ['boot', 'menu', 'modes', 'select', 'cshop', 'end'];
 function screen(id) { for (const s of SCREENS) $(s).classList.toggle('on', s === id); }
 function modal(id, on) { $(id).classList.toggle('on', on); }
-app.refreshCoins = () => { $('coins').textContent = '🪙 ' + app.save.coins; $('menuStats').textContent = app.save.played ? `${app.save.played} matches played · ${app.save.wins} wins` : 'Welcome, bean!'; };
+app.refreshCoins = () => { $('coins').innerHTML = icon('coin', { cls: 'icn' }) + ' ' + app.save.coins; $('menuStats').textContent = app.save.played ? `${app.save.played} matches played · ${app.save.wins} wins` : 'Welcome, bean!'; };
 function goMenu() {
   app.state = 'menu'; screen('menu'); app.show.showMenu(app.save); app.refreshCoins();
   app.audio.play(MUSIC.menu);
@@ -60,24 +62,91 @@ function pickHero(id) {
 }
 
 // ---------- the battlefield (built once) ----------
-function buildGame() {
-  if (app.gameScene && app.mapQuality === app.settings.quality) return;
-  if (app.gameScene) { app.gameScene.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+function buildGame(themeId = app.mapTheme || 'candy') {
+  if (!MAP_THEMES[themeId]) themeId = 'candy';
+  if (app.gameScene && app.mapQuality === app.settings.quality && app.mapTheme === themeId) return;
+  if (app.gameScene) disposeScene(app.gameScene);
+  const T = MAP_THEMES[themeId];
   const scene = app.gameScene = new THREE.Scene();
-  scene.background = new THREE.Color('#79c9f0');
-  scene.add(new THREE.HemisphereLight('#eef7ff', '#56803f', 1.3));
-  const sun = app.sun = new THREE.DirectionalLight('#fff1d6', 2.7);
+  scene.background = new THREE.Color(T.sky);
+  scene.add(new THREE.HemisphereLight(T.hemi[0], T.hemi[1], T.hemi[2]));
+  const sun = app.sun = new THREE.DirectionalLight(T.sun[0], T.sun[1]);
   sun.castShadow = app.settings.quality !== 'low';
   sun.shadow.mapSize.set(app.settings.quality === 'high' ? 2048 : 1024, app.settings.quality === 'high' ? 2048 : 1024);
   Object.assign(sun.shadow.camera, { left: -46, right: 46, top: 46, bottom: -46, near: 1, far: 220 });
   sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.05;
   scene.add(sun, sun.target);
   app.map = app.map || new GameMap();
-  app.mapObjs = app.map.build(scene, app.settings.quality);
-  app.mapQuality = app.settings.quality;
+  app.mapObjs = app.map.build(scene, app.settings.quality, themeId);
+  app.mapQuality = app.settings.quality; app.mapTheme = themeId;
   app.fx = new FX(scene);
+  app.fx.initLights({ low: 0, medium: 2, high: 4 }[app.settings.quality] ?? 2);
+  app.ambient = new Ambient(scene, T, app.settings.quality);
   buildIndicators(scene);
   applyQuality();
+}
+function disposeScene(scene) {
+  const seen = new Set();
+  scene.traverse(o => {
+    if (o.geometry && !seen.has(o.geometry)) { seen.add(o.geometry); o.geometry.dispose(); }
+    for (const mt of [].concat(o.material || [])) {
+      if (seen.has(mt)) continue; seen.add(mt);
+      for (const k in mt) { const v = mt[k]; if (v && v.isTexture && !seen.has(v)) { seen.add(v); v.dispose(); } }
+      mt.dispose();
+    }
+  });
+  if (app.match) { app.match.dispose(); app.match = null; }
+}
+// floating weather around the camera: petals, snow, embers, sand or fireflies depending on the map
+class Ambient {
+  constructor(scene, T, quality) {
+    const kind = this.kind = T.ambient, n = this.n = { low: 120, medium: 260, high: 420 }[quality] || 260;
+    const glow = kind === 'embers' || kind === 'fireflies';
+    const cols = { petals: ['#ffb3c6', '#ffffff', '#ffd6e0', '#ff9ebb'], snow: ['#ffffff', '#eaf6ff'], embers: ['#ffb347', '#ff6a00', '#ffd23f'], dust: ['#f3dcae', '#e6c48a'], fireflies: ['#d8ff7a', '#7df9ff', '#fff3a0'] }[kind] || ['#ffffff'];
+    const pos = new Float32Array(n * 3), col = new Float32Array(n * 3), c = new THREE.Color();
+    this.v = new Float32Array(n * 3); this.ph = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      pos[i * 3] = (Math.random() - 0.5) * 90; pos[i * 3 + 1] = Math.random() * 22; pos[i * 3 + 2] = (Math.random() - 0.5) * 90;
+      c.set(cols[i % cols.length]); col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+      this.ph[i] = Math.random() * 100; this.resetVel(i);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const cv = document.createElement('canvas'); cv.width = cv.height = 64; const x = cv.getContext('2d');
+    if (kind === 'petals') { x.fillStyle = '#fff'; x.beginPath(); x.ellipse(32, 32, 26, 14, 0.6, 0, 7); x.fill(); }
+    else { const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(glow ? 0.25 : 0.55, 'rgba(255,255,255,.85)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64); }
+    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+    const size = { petals: 0.55, snow: 0.42, embers: 0.38, dust: 0.22, fireflies: 0.6 }[kind] || 0.4;
+    this.pts = new THREE.Points(g, new THREE.PointsMaterial({ size, map: tex, vertexColors: true, transparent: true, opacity: kind === 'dust' ? 0.55 : 0.9, depthWrite: false, blending: glow ? THREE.AdditiveBlending : THREE.NormalBlending }));
+    this.pts.frustumCulled = false; this.pts.renderOrder = 6; scene.add(this.pts);
+    this.t = 0;
+  }
+  resetVel(i) {
+    const v = this.v, k = this.kind, r = Math.random;
+    if (k === 'snow') { v[i * 3] = (r() - 0.5) * 1.2; v[i * 3 + 1] = -2.2 - r() * 1.6; v[i * 3 + 2] = (r() - 0.5) * 1.2; }
+    else if (k === 'petals') { v[i * 3] = 1.2 + r() * 1.2; v[i * 3 + 1] = -1 - r() * 0.8; v[i * 3 + 2] = (r() - 0.5) * 1.2; }
+    else if (k === 'embers') { v[i * 3] = (r() - 0.5) * 1.4; v[i * 3 + 1] = 1.4 + r() * 2.4; v[i * 3 + 2] = (r() - 0.5) * 1.4; }
+    else if (k === 'dust') { v[i * 3] = 5 + r() * 4; v[i * 3 + 1] = (r() - 0.5) * 0.6; v[i * 3 + 2] = 1 + r() * 2; }
+    else { v[i * 3] = (r() - 0.5) * 1.6; v[i * 3 + 1] = (r() - 0.5) * 0.8; v[i * 3 + 2] = (r() - 0.5) * 1.6; }
+  }
+  update(dt, cx, cz) {
+    this.t += dt;
+    const a = this.pts.geometry.attributes.position, p = a.array, v = this.v, n = this.n, k = this.kind, t = this.t;
+    for (let i = 0; i < n; i++) {
+      const j = i * 3, w = Math.sin(t * 1.3 + this.ph[i]);
+      p[j] += (v[j] + (k === 'petals' || k === 'snow' ? w * 0.8 : k === 'fireflies' ? w * 0.9 : 0)) * dt;
+      p[j + 1] += (v[j + 1] + (k === 'fireflies' ? Math.cos(t * 1.7 + this.ph[i]) * 0.6 : 0)) * dt;
+      p[j + 2] += (v[j + 2] + (k === 'fireflies' ? Math.cos(t * 1.1 + this.ph[i] * 2) * 0.9 : 0)) * dt;
+      let dx = p[j] - cx, dz = p[j + 2] - cz;
+      if (dx > 45) p[j] -= 90; else if (dx < -45) p[j] += 90;
+      if (dz > 45) p[j + 2] -= 90; else if (dz < -45) p[j + 2] += 90;
+      if (p[j + 1] < 0) { p[j + 1] = 18 + Math.random() * 4; this.resetVel(i); }
+      else if (p[j + 1] > 22) { p[j + 1] = k === 'embers' ? Math.random() * 2 : 0.5 + Math.random() * 3; this.resetVel(i); }
+      if (k === 'fireflies' && (p[j + 1] > 6 || p[j + 1] < 0.4)) v[j + 1] = -v[j + 1] || 0.2;
+    }
+    a.needsUpdate = true;
+    if (k === 'fireflies') this.pts.material.opacity = 0.65 + Math.sin(t * 3) * 0.25;
+  }
 }
 function buildIndicators(scene) {
   const mat = (c, o) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, depthWrite: false, side: THREE.DoubleSide });
@@ -89,7 +158,11 @@ function buildIndicators(scene) {
 
 // ---------- camera ----------
 class Cam {
-  constructor() { this.x = 0; this.z = 0; this.dist = 34; this.want = 34; this.pitch = 0.98; this.locked = true; this.ray = new THREE.Raycaster(); }
+  constructor() { this.x = 0; this.z = 0; this.dist = 34; this.want = 34; this.pitch = 0.98; this.locked = true; this.ray = new THREE.Raycaster(); this.shakeA = 0; this.shakeT = 0; }
+  shake(x, z, power) {
+    const d = Math.hypot(x - this.x, z - this.z), k = clamp(1.15 - d / 38, 0, 1);
+    if (k > 0) this.shakeA = Math.min(1.4, Math.max(this.shakeA, power * k));
+  }
   lookAt(x, z, unlock) { this.x = x; this.z = z; if (unlock) this.locked = false; }
   update(dt) {
     const p = app.match && app.match.player, keys = app.input.keys, ms = app.input.mouse;
@@ -106,6 +179,11 @@ class Cam {
     const gy = app.map ? Math.max(0, app.map.heightAt(this.x, this.z)) * 0.4 : 0;
     camera.position.set(this.x, gy + this.dist * Math.sin(this.pitch), this.z + this.dist * Math.cos(this.pitch));
     camera.lookAt(this.x, gy, this.z);
+    if (this.shakeA > 0.01 && !app.paused) {
+      this.shakeT += dt * 38; const a = this.shakeA * 0.55;
+      camera.position.x += Math.sin(this.shakeT * 1.13) * a; camera.position.y += Math.sin(this.shakeT * 1.71 + 1) * a * 0.6; camera.position.z += Math.cos(this.shakeT * 0.93) * a * 0.5;
+      this.shakeA *= Math.exp(-dt * 6);
+    } else this.shakeA = 0;
     if (app.sun) { app.sun.position.set(this.x + 30, 70, this.z + 25); app.sun.target.position.set(this.x, 0, this.z - 4); }
   }
   groundCorners() {
@@ -120,16 +198,16 @@ app.cam = new Cam();
 class Input {
   constructor() {
     this.keys = {}; this.mouse = { x: innerWidth / 2, y: innerHeight / 2, inside: false }; this.ground = { x: 0, z: 0 }; this.hover = null;
-    this.aim = -1; this.aArmed = false; this.rightHeld = false; this.repeatT = 0; this.ray = new THREE.Raycaster(); this.v = new THREE.Vector3();
+    this.aim = -1; this.aArmed = false; this.held = false; this.repeatT = 0; this.ray = new THREE.Raycaster(); this.v = new THREE.Vector3();
     canvas.addEventListener('contextmenu', e => e.preventDefault());
     addEventListener('mousemove', e => { this.mouse.x = e.clientX; this.mouse.y = e.clientY; this.mouse.inside = true; });
     document.addEventListener('mouseleave', () => { this.mouse.inside = false; });
     canvas.addEventListener('mousedown', e => this.down(e));
-    addEventListener('mouseup', e => { if (e.button === 2) this.rightHeld = false; });
+    addEventListener('mouseup', e => { if (e.button === 0 || e.button === 2) this.held = false; });
     canvas.addEventListener('wheel', e => { if (app.state === 'game') { app.cam.want = clamp(app.cam.want + Math.sign(e.deltaY) * 4, 22, 64); e.preventDefault(); } }, { passive: false });
     addEventListener('keydown', e => this.key(e, true));
     addEventListener('keyup', e => this.key(e, false));
-    addEventListener('blur', () => { this.keys = {}; this.rightHeld = false; this.aim = -1; $('scoreModal').classList.remove('on'); });
+    addEventListener('blur', () => { this.keys = {}; this.held = false; this.aim = -1; $('scoreModal').classList.remove('on'); });
   }
   get m() { return app.match; }
   get p() { return app.match && app.match.player; }
@@ -140,15 +218,18 @@ class Input {
     let h = 0;
     for (let i = 0; i < 3; i++) { const pl = new THREE.Plane(new THREE.Vector3(0, 1, 0), -h); if (!this.ray.ray.intersectPlane(pl, this.v)) return; h = m.map.heightAt(this.v.x, this.v.z); }
     this.ground.x = clamp(this.v.x, -HALF + 2, HALF - 2); this.ground.z = clamp(this.v.z, -HALF + 2, HALF - 2);
-    // hover: the unit closest to the cursor on screen
-    let best = null, bd = 1e9; const v = new THREE.Vector3();
+    // hover: generous hitboxes, both around the body on screen and around the feet on the ground
+    let best = null, bd = 1e9; const v = new THREE.Vector3(), zoom = 40 / app.cam.dist;
     for (const u of m.units) {
       if (!u.alive || !(u.team === m.pteam || u.vis[m.pteam]) || u === this.p || !u.targetable) continue;
       const big = u.kind === 'tower' ? 4 : u.kind === 'core' ? 4 : u.kind === 'monster' ? (u.mdef.size || 1) * 0.9 : u.hero ? 1.3 * (u.st.size || 1) : 0.7;
       v.set(u.x, m.groundY(u.x, u.z) + big, u.z).project(camera);
       const sx = (v.x + 1) / 2 * innerWidth, sy = (1 - v.y) / 2 * innerHeight;
-      const r = (u.kind === 'tower' || u.kind === 'core' ? 60 : u.hero ? 38 : u.kind === 'monster' ? 30 * (u.mdef.size || 1) : 24) * (40 / app.cam.dist);
-      const d = Math.hypot(sx - this.mouse.x, sy - this.mouse.y) - (u.team !== m.pteam ? 6 : 0);
+      const r = (u.kind === 'tower' || u.kind === 'core' ? 100 : u.hero ? 66 : u.kind === 'monster' ? 52 * (u.mdef.size || 1) : 42) * zoom;
+      let d = Math.hypot(sx - this.mouse.x, sy - this.mouse.y);
+      const dw = Math.hypot(this.ground.x - u.x, this.ground.z - u.z) - u.radius;
+      if (dw < (u.hero ? 1.6 : 1.1)) d = Math.min(d, Math.max(0, dw) * 12 * zoom);
+      d -= (u.team !== m.pteam ? 14 : 0) + (u.hero ? 8 : 0);
       if (d < r && d < bd) { bd = d; best = u; }
     }
     this.hover = best;
@@ -159,17 +240,16 @@ class Input {
     app.audio.unlock();
     const m = this.m, p = this.p; if (!m || !p) return;
     if (app.hud.shopOpen) return;
-    if (e.button === 2) {
-      if (this.aim >= 0) { this.aim = -1; return; }
-      this.aArmed = false;
-      const h = this.hover;
-      if (h && h.team !== m.pteam && !(h.kind === 'core' && h.protectedNow && false)) { m.orderAttack(p, h); app.fx.ring(new THREE.Vector3(h.x, m.groundY(h.x, h.z), h.z), '#ff4d6d', 1.6, 0.6, 0.35); }
-      else this.moveOrder(this.ground.x, this.ground.z);
-      this.rightHeld = true; this.repeatT = 0.18;
-    } else if (e.button === 0) {
-      if (this.aim >= 0) { this.castAim(); return; }
-      if (this.aArmed) { this.aArmed = false; if (this.hover && this.hover.team !== m.pteam) m.orderAttack(p, this.hover); else m.orderAttackMove(p, this.ground.x, this.ground.z); app.fx.ring(new THREE.Vector3(this.ground.x, m.groundY(this.ground.x, this.ground.z), this.ground.z), '#ff9aac', 1.4, 0.4, 0.35); }
-    }
+    this.mouse.x = e.clientX; this.mouse.y = e.clientY; this.mouse.inside = true; this.pick();
+    // left-click: move / attack (hold to keep walking). While aiming, left-click casts and right-click cancels.
+    if (e.button === 2 && (this.aim >= 0 || this.aArmed)) { this.aim = -1; this.aArmed = false; return; }
+    if (e.button !== 0 && e.button !== 2) return;
+    if (e.button === 0 && this.aim >= 0) { this.castAim(); return; }
+    if (e.button === 0 && this.aArmed) { this.aArmed = false; if (this.hover && this.hover.team !== m.pteam) m.orderAttack(p, this.hover); else m.orderAttackMove(p, this.ground.x, this.ground.z); app.fx.ring(new THREE.Vector3(this.ground.x, m.groundY(this.ground.x, this.ground.z), this.ground.z), '#ff9aac', 1.4, 0.4, 0.35); return; }
+    const h = this.hover;
+    if (h && h.team !== m.pteam) { m.orderAttack(p, h); app.fx.ring(new THREE.Vector3(h.x, m.groundY(h.x, h.z), h.z), '#ff4d6d', h.radius + 1, 0.6, 0.35); }
+    else this.moveOrder(this.ground.x, this.ground.z);
+    this.held = true; this.repeatT = 0.18;
   }
   moveOrder(x, z, quiet) {
     const m = this.m, p = this.p; if (!m || !p) return;
@@ -217,7 +297,7 @@ class Input {
   update(dt) {
     this.pick();
     const m = this.m, p = this.p; if (!m || !p) return;
-    if (this.rightHeld && !app.paused) { this.repeatT -= dt; if (this.repeatT <= 0) { this.repeatT = 0.15; const o = p.order; if (!o || o.type === 'move') m.orderMove(p, this.ground.x, this.ground.z); } }
+    if (this.held && !app.paused && !app.hud.shopOpen) { this.repeatT -= dt; if (this.repeatT <= 0) { this.repeatT = 0.15; const o = p.order; if (!o || o.type === 'move') m.orderMove(p, this.ground.x, this.ground.z); } }
     // indicators
     const I = app.ind; for (const k in I) I[k].visible = false;
     if (!p.alive) return;
@@ -245,12 +325,15 @@ class Input {
 function startMatch() {
   screen('boot'); $('bootTxt').textContent = 'Preparing the battlefield…'; $('bootBar').style.width = '60%';
   app.state = 'loading';
+  const ids = Object.keys(MAP_THEMES), theme = app.opts.theme === 'random' ? ids[Math.floor(Math.random() * ids.length)] : app.opts.theme;
+  if (theme !== app.mapTheme) $('bootTxt').textContent = 'Building ' + MAP_THEMES[theme].name + '…';
   setTimeout(() => {
-    buildGame();
-    if (app.match) app.match.dispose();
+    if (app.match) { app.match.dispose(); app.match = null; }
+    buildGame(theme);
+    app.fx.clearTemps();
     const chroma = heroColors(app.save, app.selHero);
     const m = app.match = new Match({ scene: app.gameScene, map: app.map, fx: app.fx, audio: app.audio, heroId: app.selHero, team: app.opts.team, difficulty: app.opts.difficulty, quick: app.opts.quick, chroma });
-    m.on((type) => { if (type === 'end') onEnd(); });
+    m.on((type, d) => { if (type === 'end') onEnd(); else if (type === 'shake') app.cam.shake(d.x, d.z, d.power); else if (type === 'ultCast' && d) app.cam.shake(d.x, d.z, 0.35); });
     m.updateVision();
     app.hud.start(m);
     app.cam.locked = app.settings.cam !== 'free'; app.cam.x = m.player.x; app.cam.z = m.player.z; app.cam.want = app.cam.dist = 34;
@@ -258,7 +341,7 @@ function startMatch() {
     screen(null); app.state = 'game';
     app.audio.play(MUSIC.match); app.lateMusic = false;
     $('gl').style.filter = '';
-    m.emit('announce', { text: 'WELCOME TO THE BEAN ARENA', sub: 'Minions spawn in ' + Math.round(m.nextWave) + ' seconds · buy items with P', color: '#ffd23f' });
+    m.emit('announce', { text: 'WELCOME TO ' + MAP_THEMES[app.mapTheme].name.toUpperCase(), sub: 'Minions spawn in ' + Math.round(m.nextWave) + ' seconds · buy items with P', color: '#ffd23f' });
   }, 40);
 }
 function onEnd() {
@@ -305,6 +388,14 @@ function openSettings() {
   modal('settings', true);
 }
 
+// map picker on the game mode screen
+function renderThemes() {
+  const el = $('optTheme'), list = [...Object.entries(MAP_THEMES), ['random', { name: 'Random', desc: 'A surprise map every match.', swatch: ['#ff6fd8', '#3a86ff', '#ffd23f'] }]];
+  el.innerHTML = list.map(([id, t]) => `<button data-v="${id}" class="${id === app.opts.theme ? 'on' : ''}"><span class="sw" style="background:linear-gradient(135deg, ${t.swatch[0]} 0 45%, ${t.swatch[1]} 45% 75%, ${t.swatch[2]} 75%)">${id === 'random' ? icon('dice') : ''}</span>${t.name}</button>`).join('');
+  const desc = () => { const t = MAP_THEMES[app.opts.theme]; $('themeDesc').textContent = t ? t.desc + ' Same map layout, new look.' : 'A random map every match. Same layout every time.'; };
+  [...el.children].forEach(b => { b.onclick = () => { app.opts.theme = b.dataset.v; app.settings.theme = b.dataset.v; writeSave(app.save); [...el.children].forEach(x => x.classList.toggle('on', x === b)); desc(); app.audio.sfx('click'); }; b.addEventListener('mouseenter', () => app.audio.sfx('hover')); });
+  desc();
+}
 // ---------- wiring ----------
 function wire() {
   $('mPlay').onclick = () => { app.audio.unlock(); app.audio.sfx('click'); goModes(); };
@@ -316,6 +407,7 @@ function wire() {
   seg('optDiff', app.opts.difficulty, v => { app.opts.difficulty = v; });
   seg('optTeam', app.opts.team, v => { app.opts.team = +v; });
   seg('optQuick', app.opts.quick ? 1 : 0, v => { app.opts.quick = v === '1'; });
+  renderThemes();
   $('modeBack').onclick = () => { app.audio.sfx('click'); goMenu(); };
   $('modeGo').onclick = () => { app.audio.sfx('click'); goSelect('play'); };
   $('selBack').onclick = () => { app.audio.sfx('click'); if (app.selMode === 'collection') goMenu(); else goModes(); };
@@ -350,7 +442,7 @@ function step(dt) {
     m.listener.x = app.cam.x; m.listener.z = app.cam.z;
     // soft footsteps for your own bean
     const pl = m.player; if (pl && pl.alive && pl.moving && !app.paused) { app.stepT = (app.stepT || 0) - dt; if (app.stepT <= 0) { app.stepT = 0.3; app.audio.sfx('step', 0.5); } }
-    if (!app.paused) app.fx.update(dt);
+    if (!app.paused) { app.fx.update(dt); if (app.ambient) app.ambient.update(dt, app.cam.x, app.cam.z); }
     app.hud.update(dt);
     if (!app.lateMusic && m.time > (m.quick ? 600 : 900)) { app.lateMusic = true; app.audio.play(MUSIC.late); }
     renderer.render(app.gameScene, camera);
@@ -369,6 +461,7 @@ function frame(now) {
 async function boot() {
   $('bootBar').style.width = '15%';
   await document.fonts.ready.catch(() => {});
+  document.querySelectorAll('i[data-ic]').forEach(el => { el.innerHTML = icon(el.dataset.ic); });
   app.hud = new HUD(app); app.input = new Input();
   resize();
   app.show = new Showroom(renderer);
@@ -377,7 +470,7 @@ async function boot() {
   app.thumbs = app.show.thumbnails();
   $('bootBar').style.width = '60%'; $('bootTxt').textContent = 'Growing the jungle…';
   await new Promise(r => setTimeout(r, 30));
-  buildGame();
+  buildGame(MAP_THEMES[app.opts.theme] ? app.opts.theme : 'candy');
   $('bootBar').style.width = '100%';
   wire();
   applyQuality();

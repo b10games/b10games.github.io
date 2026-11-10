@@ -219,12 +219,13 @@ export class Match {
     return false;
   }
   // ---------- projectiles, zones, timers ----------
-  homing(o) { // { src, tgt, speed, color, size, onHit, feather }
-    const m = new THREE.Mesh(new THREE.SphereGeometry(o.size || 0.3, 10, 8), new THREE.MeshBasicMaterial({ color: o.color || '#ffffff' }));
+  homing(o) { // { src, tgt, speed, color, size, onHit, feather, shape }
+    const m = projMesh(o.shape || (o.feather ? 'feather' : 'orb'), o.color || '#ffffff', o.size || 0.3);
     const y0 = this.groundY(o.src.x, o.src.z) + (o.y0 || 1.6);
     m.position.set(o.src.x, y0, o.src.z); this.scene.add(m);
     this.projectiles.push({ kind: 'homing', ...o, m, x: o.src.x, y: y0, z: o.src.z });
   }
+  shake(x, z, power) { this.emit('shake', { x, z, power }); }
   skillshot(o) { // { src, x, z, dx, dz, speed, range, width, pierce, onHit(u, p), onEnd(x,z), color, size, mesh }
     const m = o.mesh || new THREE.Mesh(new THREE.SphereGeometry(o.size || 0.4, 12, 10), new THREE.MeshBasicMaterial({ color: o.color || '#ffffff' }));
     const l = Math.hypot(o.dx, o.dz) || 1;
@@ -299,10 +300,24 @@ export class Match {
     else if (ab.type !== 'self') u.facing = Math.atan2(x - u.x, z - u.z);
     const fn = CAST[u.heroId + ':' + slot];
     if (fn) fn(this, u, ab, a.rank, x, z, target);
+    this.castFx(u, slot);
     u.stats.casts = (u.stats.casts || 0) + 1;
     return true;
   }
 
+  // every ability gets a little flourish; ultimates get a big one
+  castFx(u, slot) {
+    const col = u.def.hitColor, gy = this.groundY(u.x, u.z), sz = u.st.size || 1;
+    const feet = new THREE.Vector3(u.x, gy, u.z), chest = new THREE.Vector3(u.x, gy + 1.4 * sz, u.z);
+    this.fx.ring(feet, col, 0.4, 2.4 * sz, 0.35, 0.8);
+    this.fx.sparks(chest, col, 12); this.fx.flash(chest, col, 1.1, 0.16);
+    if (slot === 3) {
+      this.fx.rays(feet, col, 12, 8, 0.75); this.fx.light(feet, col, 45, 0.7, 20); this.fx.flash(chest, '#ffffff', 2.6, 0.32);
+      this.fx.ring(feet, '#ffffff', 0.5, 6, 0.6, 0.7); this.fx.burst(chest, col, 30, 8, 0.25, 6, 0.8);
+      this.shake(u.x, u.z, 0.45);
+      if (u === this.player || u.team === this.pteam || u.vis[this.pteam]) this.emit('ultCast', u);
+    }
+  }
   // ---------- items ----------
   // price after counting the components we already own
   priceFor(u, id) {
@@ -385,7 +400,7 @@ export class Match {
     const kh = killer && killer.hero ? killer : null;
     const pos = _v.set(v.x, this.groundY(v.x, v.z), v.z).clone();
     if (v.hero) {
-      v.stats.deaths++; v.respawnT = RULES.respawn(v.level) * (this.quick ? 0.75 : 1); v.stats.streak = 0; v.stats.deathStreak++;
+      v.stats.deaths++; v.respawnT = RULES.respawn(v.level); v.stats.streak = 0; v.stats.deathStreak++;
       // credit: the killer, or the last enemy hero that hit them
       let credit = kh && kh.team !== v.team ? kh : null;
       if (!credit) { let best = 0; for (const [id, t] of v.hitBy) if (this.time - t < 10 && t > best) { const h = this.heroes.find(x => x.id === id); if (h && h.team !== v.team) { best = t; credit = h; } } }
@@ -402,9 +417,12 @@ export class Match {
         else if (credit.stats.streak === 3) this.emit('announce', { text: 'ON A ROLL!', sub: credit.def.title + ' has 3 kills in a row', color: TEAM_COLOR[credit.team] });
       }
       for (const a of assists) { this.addGold(a, RULES.assistGold / Math.max(1, assists.length), true); a.stats.assists++; }
-      this.shareXp(v.x, v.z, 1 - v.team, 120 + 35 * v.level);
+      this.shareXp(v.x, v.z, 1 - v.team, 160 + 45 * v.level);
       v.hitBy.clear();
       this.emit('kill', { killer: credit || killer, victim: v, assists });
+      this.fx.burst(pos.clone().setY(pos.y + 1.2), v.colors[0], 26, 7, 0.28, 5, 0.7); this.fx.burst(pos.clone().setY(pos.y + 1.2), v.colors[1], 14, 5, 0.22, 6, 0.7);
+      this.fx.flash(pos.clone().setY(pos.y + 1), '#ffffff', 2.2, 0.3); this.fx.ring(pos, TEAM_COLOR[v.team], 0.4, 4, 0.5);
+      if (v === this.player || credit === this.player) this.shake(v.x, v.z, 0.5);
       this.sound(credit === this.player ? 'kill' : 'death', v.x, v.z, v === this.player ? 1.2 : 0.8);
       if (v === this.player) this.emit('playerDied', v);
     } else if (v.kind === 'minion') {
@@ -570,6 +588,7 @@ export class Match {
       const moved = this.tryMove(u, nx, nz);
       u.facing = Math.atan2(d.tx - d.sx, d.tz - d.sz);
       if (d.onStep) d.onStep(u, d);
+      if ((u.hero || u.kind === 'clone') && u.colors !== undefined) { const gy = this.groundY(u.x, u.z); this.fx.trail(_v.set(u.x, gy + 0.9 + (Math.random() - 0.5), u.z), u.colors[0], 0.38); this.fx.trail(_v.set(u.x, gy + 0.3, u.z), '#ffffff', 0.22); if (Math.random() < 0.3) this.fx.dust(_v.set(u.x, gy, u.z), 2, '#e8e1d6'); }
       if (k >= 1 || !moved || u.distTo(d.tx, d.tz) < 0.05) { u.dash = null; if (d.onArrive) d.onArrive(u); }
     } else if (u.recallT >= 0) {
       if (!u.canAct) this.cancelRecall(u);
@@ -673,13 +692,18 @@ export class Match {
       // towers heat up on the same hero
       if (tgt.hero) { u.heat = u.heatTarget === tgt ? Math.min(3, u.heat + 1) : 0; u.heatTarget = tgt; } else { u.heat = 0; u.heatTarget = null; }
       const dmg = (u.st.ad + 6 * this.time / 60) * (1 + 0.3 * u.heat) * (tgt.kind === 'minion' ? (tgt.mtype === 'siege' ? 0.75 : 1.75) : 1);
-      this.homing({ src: u, tgt, speed: 26, color: TEAM_COLOR[u.team], size: 0.55, y0: 7.4, onHit: () => { this.damage(u, tgt, dmg, 'phys', {}); this.fx.sparks(_v.set(tgt.x, this.groundY(tgt.x, tgt.z) + 1.2, tgt.z), TEAM_COLOR[u.team], 10); } });
+      this.fx.flash(_v.set(u.x, this.groundY(u.x, u.z) + 7.4, u.z), TEAM_COLOR[u.team], 1.6, 0.2);
+      this.homing({ src: u, tgt, speed: 26, color: TEAM_COLOR[u.team], size: 0.6, y0: 7.4, onHit: () => { this.damage(u, tgt, dmg, 'phys', {}); this.fx.impact(_v.set(tgt.x, this.groundY(tgt.x, tgt.z) + 1.2, tgt.z), TEAM_COLOR[u.team], 1.2, tgt.hero); if (tgt === this.player) this.shake(tgt.x, tgt.z, 0.35); } });
       this.sound('tower', u.x, u.z, 0.7);
       u.firing = 0.3;
       return;
     }
-    if (u.melee || !u.proj) this.basicHit(u, tgt);
-    else this.homing({ src: u, tgt, speed: u.proj.speed || 24, color: u.proj.color, size: u.proj.size, onHit: () => this.basicHit(u, tgt) });
+    if (u.melee || !u.proj) { this.basicHit(u, tgt); this.meleeFx(u, tgt); }
+    else {
+      const sty = ATK_STYLE[u.heroId] || {};
+      if (u.hero) this.fx.flash(_v.set(u.x + Math.sin(u.facing) * 0.9, this.groundY(u.x, u.z) + 1.6, u.z + Math.cos(u.facing) * 0.9), u.proj.color, 0.6, 0.12);
+      this.homing({ src: u, tgt, speed: u.proj.speed || 24, color: u.proj.color, size: u.proj.size * (u.hero ? 1.1 : 1), shape: sty.shape, spin: sty.spin, onHit: () => { this.basicHit(u, tgt); if (u.hero) this.fx.impact(_v.set(tgt.x, this.groundY(tgt.x, tgt.z) + 1.2 * (tgt.st.size || 1), tgt.z), u.proj.color, 0.9); if (sty.splat) this.fx.decal(_v.set(tgt.x, this.groundY(tgt.x, tgt.z), tgt.z), sty.splat, 1.1, 1.5, 0.6); } });
+    }
   }
   basicHit(u, tgt) {
     if (!tgt.alive) return;
@@ -695,7 +719,23 @@ export class Match {
     if (u.kind === 'minion' && this.megaNear(u)) dmg *= 1.5;
     this.damage(u, tgt, dmg, 'phys', { basic: true, crit });
     if (extra.after) extra.after();
-    if (u.hero || u.kind === 'clone') { const c = u.def ? u.def.hitColor : '#c77dff'; this.fx.sparks(_v.set(tgt.x, this.groundY(tgt.x, tgt.z) + 1.2 * (tgt.st.size || 1), tgt.z), crit ? '#ff9d00' : c, crit ? 14 : 7); this.sound(crit ? 'crit' : 'hit', tgt.x, tgt.z, 0.6); }
+    if (u.hero || u.kind === 'clone') {
+      const c = u.def ? u.def.hitColor : '#c77dff', p = _v.set(tgt.x, this.groundY(tgt.x, tgt.z) + 1.2 * (tgt.st.size || 1), tgt.z);
+      this.fx.sparks(p, crit ? '#ff9d00' : c, crit ? 16 : 8);
+      if (crit) { this.fx.impact(p, '#ffd23f', 1.3, true); if (u === this.player || tgt === this.player) this.shake(tgt.x, tgt.z, 0.3); }
+      this.sound(crit ? 'crit' : 'hit', tgt.x, tgt.z, 0.6);
+    }
+  }
+  // swing arcs, bites and claw marks for melee attackers
+  meleeFx(u, tgt) {
+    if (!(u.hero || u.kind === 'clone')) { if (u.kind === 'minion' && Math.random() < 0.5) this.fx.sparks(_v.set(tgt.x, this.groundY(tgt.x, tgt.z) + 1, tgt.z), '#ffffff', 3); return; }
+    const sty = ATK_STYLE[u.kind === 'clone' ? 'ninja' : u.heroId] || { slash: '#ffffff' };
+    const sz = u.st.size || 1, y = this.groundY(u.x, u.z) + 1.1 * sz;
+    const pos = _v.set(u.x + Math.sin(u.facing) * 0.8 * sz, y, u.z + Math.cos(u.facing) * 0.8 * sz).clone();
+    u.swingFlip = !u.swingFlip;
+    if (sty.bite) { const tp = _v.set(tgt.x, this.groundY(tgt.x, tgt.z) + 1.1, tgt.z).clone(); this.fx.slash(tp, u.facing + Math.PI / 2, sty.slash, 1.1 * sz, 2.6, 1.4, 0.18, false); this.fx.slash(tp, u.facing + Math.PI / 2, sty.slash, 1.1 * sz, 2.6, -1.4, 0.18, true); }
+    else { this.fx.slash(pos, u.facing, sty.slash, (sty.r || 2.2) * sz, sty.arc || 2.3, sty.tilt ?? 0.35, 0.2, u.swingFlip); if (sty.double) this.after(0.08, () => this.fx.slash(pos, u.facing, '#ffffff', 1.8 * sz, 2.0, -0.4, 0.16, !u.swingFlip)); }
+    this.fx.impact(_v.set(tgt.x, this.groundY(tgt.x, tgt.z) + 1.1 * (tgt.st.size || 1), tgt.z), sty.slash, 0.9);
   }
   megaNear(u) { for (const h of this.heroes) if (h.alive && h.team === u.team && h.flag('megabean') && h.dist(u) < 12) return true; return false; }
 
@@ -826,9 +866,10 @@ export class Match {
         const dx = t.x - p.x, dy = ty - p.y, dz = t.z - p.z, l = Math.hypot(dx, dy, dz), step = p.speed * dt;
         if (l <= step + 0.3) { p.m.removeFromParent(); this.projectiles.splice(i, 1); if (p.onHit) p.onHit(); continue; }
         p.x += dx / l * step; p.y += dy / l * step; p.z += dz / l * step;
-        p.m.position.set(p.x, p.y, p.z);
-        if (p.feather) p.m.rotation.z += dt * 10;
-        if (Math.random() < 0.5) this.fx.trail(p.m.position, p.color, (p.size || 0.3) * 0.7);
+        p.m.position.set(p.x, p.y, p.z); p.m.lookAt(t.x, ty, t.z);
+        if (p.spin) p.m.rotateZ(dt * p.spin);
+        this.fx.trail(p.m.position, p.color, (p.size || 0.3) * 0.8);
+        if (Math.random() < 0.5) this.fx.trail(p.m.position, '#ffffff', (p.size || 0.3) * 0.45);
       } else {
         const step = p.speed * dt;
         const ax = p.x, az = p.z;
@@ -842,6 +883,7 @@ export class Match {
           if (segDist(e.x, e.z, ax, az, p.x, p.z) > p.width / 2 + e.radius) continue;
           p.hit.add(e.id);
           if (p.onHit) p.onHit(e, p);
+          this.fx.impact(_v.set(e.x, this.groundY(e.x, e.z) + 1.2 * (e.st.size || 1), e.z), p.color || '#ffffff', 1.1);
           if (!p.pierce) { done = true; break; }
         }
         if (done) { p.m.removeFromParent(); this.projectiles.splice(i, 1); if (p.onEnd) p.onEnd(p.x, p.z, p); }
@@ -945,3 +987,25 @@ function segDist(px, pz, ax, az, bx, bz) {
   return Math.hypot(px - ax - vx * t, pz - az - vz * t);
 }
 export { segDist };
+
+// how each hero's basic attack looks
+const ATK_STYLE = {
+  knight: { slash: '#e9ecef', r: 2.5, arc: 2.6 }, ninja: { slash: '#c77dff', double: true, r: 2.1 }, dino: { slash: '#9be38f', bite: true },
+  shark: { slash: '#9fd8ff', bite: true }, astro: { shape: 'laser' }, hotdog: { shape: 'blob', splat: '#e53935' }, pigeon: { shape: 'feather', spin: 12 },
+  banana: { shape: 'banana', spin: 14 }, wizard: { shape: 'star', spin: 10 }, robot: { shape: 'laser' }
+};
+const PROJ_GEO = { orb: new THREE.SphereGeometry(1, 12, 10), glow: new THREE.SphereGeometry(1, 10, 8), laser: new THREE.CapsuleGeometry(0.5, 2.6, 4, 8).rotateX(Math.PI / 2), feather: new THREE.SphereGeometry(1, 8, 6).scale(0.35, 0.12, 1.2), star: new THREE.OctahedronGeometry(1.1), banana: new THREE.TorusGeometry(0.9, 0.35, 6, 12, Math.PI * 1.1), blob: new THREE.IcosahedronGeometry(1, 1) };
+const PROJ_MATS = new Map();
+function projMat(color, glow) {
+  const k = color + (glow ? 'g' : '');
+  if (!PROJ_MATS.has(k)) PROJ_MATS.set(k, glow ? new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending }) : new THREE.MeshBasicMaterial({ color }));
+  return PROJ_MATS.get(k);
+}
+function projMesh(shape, color, size) {
+  const g = new THREE.Group();
+  const core = new THREE.Mesh(PROJ_GEO[shape] || PROJ_GEO.orb, projMat(shape === 'feather' ? '#f8f9fa' : shape === 'banana' ? '#ffe14d' : color));
+  core.scale.setScalar(size); g.add(core);
+  const glow = new THREE.Mesh(PROJ_GEO.glow, projMat(color, true));
+  glow.scale.setScalar(size * (shape === 'laser' ? 1.8 : 2.2)); if (shape === 'laser') glow.scale.z = size * 3.2; g.add(glow);
+  return g;
+}
