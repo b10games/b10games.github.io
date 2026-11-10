@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bean of Legends</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }</script>
+<style>
+  :root { --gold: #ffd23f; --gold2: #f4a900; --blue: #3a86ff; --red: #ff4d6d; --ink: #170f2e; --glass: rgba(18, 12, 40, .82); --line: rgba(255, 210, 63, .45); --text: #fff8e7; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0d0820; color: var(--text); font-family: Nunito, sans-serif; user-select: none; -webkit-user-select: none; }
+  canvas#gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  canvas#overlay { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
+  .hidden { display: none !important; }
+  h1, h2, h3, .lilita { font-family: "Lilita One", sans-serif; font-weight: 400; letter-spacing: .02em; margin: 0; }
+  button { font-family: "Lilita One", sans-serif; cursor: pointer; border: none; }
+  .screen { position: fixed; inset: 0; z-index: 10; display: none; }
+  .screen.on { display: block; }
+  .modal { position: fixed; inset: 0; z-index: 40; display: none; align-items: center; justify-content: center; background: rgba(8, 4, 20, .55); }
+  .modal.on { display: flex; }
+  .panel { background: linear-gradient(180deg, rgba(36, 24, 74, .96), rgba(20, 13, 44, .97)); border: 2px solid var(--line); border-radius: 18px; box-shadow: 0 20px 60px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.08); }
+  .btn { font-size: 20px; color: #2b1a00; background: linear-gradient(180deg, #ffe680, var(--gold) 45%, var(--gold2)); padding: 12px 26px; border-radius: 14px; box-shadow: 0 5px 0 #a86b00, 0 10px 22px rgba(0,0,0,.35); transition: transform .08s, filter .15s; text-shadow: 0 1px 0 rgba(255,255,255,.5); }
+  .btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+  .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #a86b00; }
+  .btn.ghost { background: rgba(255,255,255,.08); color: var(--text); box-shadow: inset 0 0 0 2px rgba(255,255,255,.18); text-shadow: none; }
+  .btn.blue { background: linear-gradient(180deg, #8fc0ff, #3a86ff 50%, #2563d6); color: #fff; box-shadow: 0 5px 0 #1d4aa3, 0 10px 22px rgba(0,0,0,.35); text-shadow: 0 1px 2px rgba(0,0,0,.3); }
+  .btn:disabled { filter: grayscale(.8) brightness(.7); cursor: default; transform: none; }
+  .seg { display: inline-flex; background: rgba(255,255,255,.06); border-radius: 12px; padding: 4px; gap: 4px; }
+  .seg button { font-size: 16px; padding: 8px 16px; border-radius: 9px; background: transparent; color: var(--text); }
+  .seg button.on { background: var(--gold); color: #2b1a00; }
+  /* ---------- boot ---------- */
+  #boot.on { display: flex; }
+  #boot { align-items: center; justify-content: center; flex-direction: column; gap: 18px; background: radial-gradient(circle at 50% 40%, #3b1d7a, #0d0820 70%); z-index: 60; }
+  #boot .logo { font-size: 64px; }
+  .logo { font-family: "Lilita One"; color: var(--gold); text-shadow: 0 4px 0 #a86b00, 0 0 30px rgba(255,210,63,.4); -webkit-text-stroke: 2px #2b1a00; line-height: .95; }
+  .logo small { display: block; font-size: .42em; color: #fff; -webkit-text-stroke: 0; text-shadow: 0 2px 6px rgba(0,0,0,.6); letter-spacing: .18em; }
+  .bar { width: 320px; height: 12px; border-radius: 8px; background: rgba(255,255,255,.1); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--gold), #ff8c42); transition: width .2s; }
+  /* ---------- main menu ---------- */
+  #menu .left { position: absolute; left: 6vw; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 14px; width: min(420px, 90vw); }
+  #menu .logo { font-size: clamp(54px, 7vw, 92px); margin-bottom: 18px; }
+  #menu .left .btn { text-align: left; font-size: 24px; padding: 14px 24px; }
+  #menu .left .btn.ghost { font-size: 20px; padding: 11px 22px; }
+  .coins { position: absolute; right: 24px; top: 20px; background: var(--glass); border: 2px solid var(--line); border-radius: 30px; padding: 8px 18px; font-family: "Lilita One"; font-size: 20px; }
+  #menu .foot { position: absolute; left: 6vw; bottom: 22px; opacity: .7; font-weight: 800; }
+  #menu .back { position: absolute; left: 20px; top: 18px; }
+  /* ---------- mode select ---------- */
+  #modes .wrap, #cshop .wrap { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(820px, 94vw); padding: 28px; display: flex; flex-direction: column; gap: 18px; }
+  .card { display: flex; gap: 20px; align-items: center; padding: 18px; border-radius: 16px; background: linear-gradient(135deg, rgba(58,134,255,.25), rgba(255,77,109,.25)); border: 2px solid var(--gold); }
+  .card .big { font-size: 64px; }
+  .row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .lbl { width: 120px; font-weight: 900; opacity: .85; }
+  /* ---------- hero select ---------- */
+  #select .head { position: absolute; top: 18px; left: 0; right: 0; text-align: center; }
+  #select .head h1 { font-size: 40px; color: var(--gold); text-shadow: 0 3px 0 #6b3d00; }
+  #heroGrid { position: absolute; left: 20px; top: 90px; bottom: 20px; width: min(330px, 30vw); overflow-y: auto; display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; align-content: start; padding: 6px; }
+  .hcard { position: relative; border-radius: 14px; overflow: hidden; cursor: pointer; border: 3px solid transparent; background: rgba(255,255,255,.06); transition: transform .1s, border-color .1s; }
+  .hcard img { width: 100%; display: block; aspect-ratio: 1; }
+  .hcard .nm { position: absolute; left: 0; right: 0; bottom: 0; padding: 4px 8px; font-family: "Lilita One"; font-size: 15px; background: linear-gradient(0deg, rgba(0,0,0,.75), transparent); }
+  .hcard .rl { position: absolute; right: 6px; top: 6px; font-size: 18px; }
+  .hcard:hover { transform: translateY(-2px); border-color: rgba(255,255,255,.4); }
+  .hcard.on { border-color: var(--gold); box-shadow: 0 0 18px rgba(255,210,63,.6); }
+  .hcard.taken { opacity: .45; }
+  #selPreview { position: absolute; left: calc(min(330px, 30vw) + 40px); right: min(440px, 36vw); top: 80px; bottom: 100px; cursor: grab; }
+  #selPreview .tip { position: absolute; top: 0; left: 0; right: 0; text-align: center; opacity: .6; font-weight: 800; }
+  #selInfo { position: absolute; right: 20px; top: 80px; bottom: 20px; width: min(420px, 34vw); padding: 20px; overflow-y: auto; }
+  #selInfo h2 { font-size: 34px; color: var(--gold); }
+  .rolebadge { display: inline-flex; gap: 6px; align-items: center; padding: 4px 12px; border-radius: 20px; font-weight: 900; font-size: 14px; color: #170f2e; }
+  .dots i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: rgba(255,255,255,.2); margin-right: 3px; }
+  .dots i.on { background: var(--gold); }
+  .statrow { display: grid; grid-template-columns: 90px 1fr 46px; gap: 8px; align-items: center; font-size: 13px; font-weight: 800; margin: 3px 0; }
+  .statrow .sb { height: 8px; border-radius: 5px; background: rgba(255,255,255,.1); overflow: hidden; }
+  .statrow .sb i { display: block; height: 100%; background: linear-gradient(90deg, #7bd389, var(--gold)); }
+  .abil { display: grid; grid-template-columns: 46px 1fr; gap: 10px; padding: 9px; border-radius: 12px; background: rgba(255,255,255,.05); margin: 7px 0; }
+  .abil .ai { width: 46px; height: 46px; border-radius: 10px; display: grid; place-items: center; font-size: 26px; background: linear-gradient(135deg, #3d2a7a, #241650); border: 2px solid var(--line); position: relative; }
+  .abil .ai b { position: absolute; left: -5px; top: -6px; background: var(--gold); color: #2b1a00; border-radius: 6px; font-size: 11px; padding: 0 5px; font-family: "Lilita One"; }
+  .abil h4 { margin: 0; font-family: "Lilita One"; font-weight: 400; font-size: 16px; }
+  .abil p { margin: 2px 0 0; font-size: 12.5px; line-height: 1.35; opacity: .9; }
+  .abil .meta { font-size: 11.5px; opacity: .65; margin-top: 3px; }
+  .chromas { display: flex; gap: 8px; margin-top: 8px; }
+  .chroma { width: 34px; height: 34px; border-radius: 50%; border: 3px solid rgba(255,255,255,.25); cursor: pointer; position: relative; }
+  .chroma.on { border-color: var(--gold); }
+  .chroma.locked::after { content: '🔒'; position: absolute; inset: 0; display: grid; place-items: center; font-size: 14px; }
+  #select .actions { position: absolute; bottom: 22px; left: calc(min(330px, 30vw) + 30px); right: calc(min(420px, 34vw) + 30px); display: flex; justify-content: center; align-items: center; gap: 10px; white-space: nowrap; }
+  #select .actions .ghost { font-size: 16px; padding: 10px 14px; background: rgba(20, 12, 44, .82); }
+  #lockIn { font-size: 26px; padding: 13px 34px; }
+  /* ---------- cosmetic shop ---------- */
+  .cgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; max-height: 60vh; overflow-y: auto; }
+  .citem { padding: 12px; border-radius: 14px; background: rgba(255,255,255,.06); display: flex; gap: 10px; align-items: center; }
+  .citem img { width: 64px; height: 64px; border-radius: 10px; }
+  /* ---------- HUD ---------- */
+  #hud { position: fixed; inset: 0; z-index: 5; pointer-events: none; display: none; }
+  #hud.on { display: block; }
+  #hud .pe { pointer-events: auto; }
+  #topbar { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 6px 18px; background: var(--glass); border: 2px solid var(--line); border-radius: 0 0 16px 16px; border-top: none; font-family: "Lilita One"; font-size: 22px; }
+  #topbar .k { min-width: 34px; text-align: center; }
+  #kBlue { color: #8fc0ff; } #kRed { color: #ff9aac; }
+  #clock { font-size: 18px; color: #fff; opacity: .9; min-width: 60px; text-align: center; }
+  #topbar .side { display: flex; gap: 6px; align-items: center; font-size: 13px; font-family: Nunito; font-weight: 900; opacity: .9; }
+  .drg { width: 14px; height: 14px; border-radius: 50%; display: inline-block; border: 2px solid rgba(255,255,255,.6); }
+  #objTimers { position: absolute; top: 56px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; font-weight: 900; font-size: 13px; }
+  #objTimers span { background: var(--glass); padding: 3px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,.12); }
+  #killfeed { position: absolute; right: 12px; top: 60px; display: flex; flex-direction: column; gap: 5px; align-items: flex-end; }
+  .kf { background: var(--glass); border-radius: 10px; padding: 4px 10px; font-weight: 900; font-size: 13px; display: flex; gap: 6px; align-items: center; animation: kfIn .25s ease-out; border-left: 4px solid var(--blue); }
+  .kf.red { border-left-color: var(--red); }
+  .kf .ic { font-size: 16px; }
+  @keyframes kfIn { from { transform: translateX(40px); opacity: 0; } }
+  #announce { position: absolute; top: 11%; left: 0; right: 0; text-align: center; opacity: 0; transition: opacity .3s, transform .3s; transform: scale(.9); }
+  #announce.on { opacity: 1; transform: scale(1); }
+  #announce h1 { font-size: clamp(26px, 3.2vw, 42px); -webkit-text-stroke: 2px #170f2e; text-shadow: 0 4px 0 #170f2e; }
+  #announce p { margin: 4px 0 0; font-weight: 900; font-size: 16px; text-shadow: 0 2px 4px #000; }
+  #toasts { position: absolute; bottom: 210px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; align-items: center; }
+  .toast { background: var(--glass); border: 2px solid rgba(255,255,255,.2); border-radius: 12px; padding: 7px 16px; font-weight: 900; font-size: 15px; animation: kfIn .2s; }
+  .toast.bad { border-color: #ff6b6b; } .toast.good { border-color: #7bd389; }
+  #bottom { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); display: flex; align-items: flex-end; gap: 10px; }
+  #portrait { position: relative; width: 104px; height: 104px; }
+  #pIcon { position: absolute; inset: 8px; border-radius: 50%; display: grid; place-items: center; font-size: 46px; border: 4px solid var(--gold); overflow: hidden; background-size: cover; background-position: center; }
+  #pLevel { position: absolute; right: 2px; bottom: 2px; width: 34px; height: 34px; border-radius: 50%; background: #170f2e; border: 3px solid var(--gold); display: grid; place-items: center; font-family: "Lilita One"; font-size: 17px; }
+  #xpRing { position: absolute; inset: 0; }
+  #center { background: var(--glass); border: 2px solid var(--line); border-radius: 16px; padding: 10px 12px 8px; display: flex; flex-direction: column; gap: 6px; }
+  #abilities { display: flex; gap: 8px; }
+  .ab { position: relative; width: 62px; height: 62px; border-radius: 12px; background: linear-gradient(135deg, #3d2a7a, #241650); border: 2px solid var(--line); display: grid; place-items: center; font-size: 30px; cursor: pointer; }
+  .ab .key { position: absolute; left: 3px; top: 1px; font-family: "Lilita One"; font-size: 13px; color: var(--gold); text-shadow: 0 1px 2px #000; }
+  .ab .cost { position: absolute; right: 3px; bottom: 1px; font-size: 11px; font-weight: 900; color: #8fc0ff; text-shadow: 0 1px 2px #000; }
+  .ab .cd { position: absolute; inset: 0; border-radius: 10px; display: grid; place-items: center; font-family: "Lilita One"; font-size: 22px; color: #fff; text-shadow: 0 2px 3px #000; }
+  .ab.off { filter: grayscale(.85) brightness(.55); }
+  .ab.nomana .ico { filter: grayscale(.4) brightness(.7) sepia(1) hue-rotate(180deg); }
+  .ab .pips { position: absolute; bottom: -8px; left: 0; right: 0; display: flex; justify-content: center; gap: 3px; }
+  .ab .pips i { width: 7px; height: 5px; border-radius: 2px; background: rgba(255,255,255,.18); }
+  .ab .pips i.on { background: var(--gold); }
+  .ab .up { position: absolute; top: -26px; left: 50%; transform: translateX(-50%); width: 26px; height: 22px; border-radius: 7px; background: linear-gradient(180deg, #ffe680, var(--gold)); color: #2b1a00; font-family: "Lilita One"; font-size: 18px; line-height: 22px; text-align: center; box-shadow: 0 2px 0 #a86b00; animation: bob .8s ease-in-out infinite; display: none; }
+  .ab.can .up { display: block; }
+  .ab.ult { border-color: #ff9d00; }
+  @keyframes bob { 50% { transform: translateX(-50%) translateY(-3px); } }
+  .bars { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
+  .hbar { position: relative; height: 18px; border-radius: 6px; background: #2a1d3d; overflow: hidden; border: 1px solid rgba(0,0,0,.6); }
+  .hbar i { position: absolute; left: 0; top: 0; bottom: 0; }
+  #hpFill { background: linear-gradient(180deg, #8ef08b, #3fb24a); }
+  #shFill { background: rgba(255,255,255,.85); }
+  #mpFill { background: linear-gradient(180deg, #8fc0ff, #2f6fd6); }
+  .hbar span { position: absolute; inset: 0; text-align: center; font-size: 12px; font-weight: 900; line-height: 18px; text-shadow: 0 1px 2px #000; }
+  #mpBar { height: 13px; } #mpBar span { line-height: 13px; font-size: 10.5px; }
+  #rightPanel { background: var(--glass); border: 2px solid var(--line); border-radius: 16px; padding: 8px; display: grid; grid-template-columns: auto auto; gap: 8px; }
+  #statsBox { display: grid; grid-template-columns: repeat(2, 64px); gap: 1px 8px; font-size: 12px; font-weight: 900; align-content: center; }
+  #statsBox div { white-space: nowrap; }
+  #items { display: grid; grid-template-columns: repeat(3, 40px); gap: 5px; }
+  .slot { width: 40px; height: 40px; border-radius: 9px; background: rgba(0,0,0,.35); border: 2px solid rgba(255,255,255,.12); display: grid; place-items: center; font-size: 22px; position: relative; cursor: pointer; }
+  .slot b { position: absolute; right: 1px; bottom: -2px; font-size: 11px; text-shadow: 0 1px 2px #000; }
+  .slot .k { position: absolute; left: 2px; top: -1px; font-size: 9px; opacity: .6; }
+  #goldRow { grid-column: 1 / span 2; display: flex; gap: 6px; align-items: center; justify-content: space-between; }
+  #gold { font-family: "Lilita One"; font-size: 20px; color: var(--gold); }
+  .mini { font-size: 14px; padding: 5px 10px; border-radius: 9px; }
+  #minimap { position: absolute; right: 10px; bottom: 10px; width: 240px; height: 240px; border-radius: 12px; border: 3px solid var(--line); box-shadow: 0 8px 26px rgba(0,0,0,.5); cursor: crosshair; background: #102010; }
+  #buffs { position: absolute; bottom: 150px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; }
+  .buff { width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; font-size: 13px; font-weight: 900; border: 2px solid; background: var(--glass); text-shadow: 0 1px 2px #000; }
+  #death { position: absolute; top: 34%; left: 0; right: 0; text-align: center; }
+  #death h2 { font-size: 46px; color: #ff9aac; text-shadow: 0 3px 0 #000; }
+  #death p { font-weight: 900; font-size: 18px; }
+  #recallBar { position: absolute; bottom: 175px; left: 50%; transform: translateX(-50%); width: 260px; text-align: center; font-weight: 900; }
+  #recallBar .bar { width: 260px; margin-top: 4px; }
+  #recallBar .bar i { background: linear-gradient(90deg, #8fc0ff, #ffffff); }
+  #help { position: absolute; left: 10px; top: 10px; font-size: 11.5px; font-weight: 800; opacity: .6; background: var(--glass); padding: 6px 10px; border-radius: 10px; max-width: 290px; line-height: 1.45; }
+  #tooltip { position: fixed; z-index: 80; max-width: 320px; padding: 10px 12px; pointer-events: none; display: none; font-size: 13px; line-height: 1.4; }
+  #tooltip h4 { margin: 0 0 4px; font-family: "Lilita One"; font-weight: 400; font-size: 17px; color: var(--gold); }
+  .stat { color: #9fe39a; font-weight: 900; }
+  /* ---------- shop ---------- */
+  #shopBox { width: min(980px, 96vw); height: min(640px, 92vh); display: grid; grid-template-columns: 170px 1fr 290px; grid-template-rows: auto 1fr auto; gap: 12px; padding: 16px; }
+  #shopBox .top { grid-column: 1 / span 3; display: flex; justify-content: space-between; align-items: center; }
+  #shopCats { display: flex; flex-direction: column; gap: 6px; }
+  #shopCats button { text-align: left; font-size: 15px; padding: 8px 12px; border-radius: 10px; background: rgba(255,255,255,.06); color: var(--text); }
+  #shopCats button.on { background: var(--gold); color: #2b1a00; }
+  #shopGrid { overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+  .igroup h4 { margin: 4px 0 6px; font-family: "Lilita One"; font-weight: 400; opacity: .8; }
+  .iflow { display: flex; flex-wrap: wrap; gap: 8px; }
+  .itm { width: 74px; padding: 6px 4px; border-radius: 12px; background: rgba(255,255,255,.06); text-align: center; cursor: pointer; border: 2px solid transparent; }
+  .itm .i { font-size: 28px; }
+  .itm .p { font-size: 12px; font-weight: 900; color: var(--gold); }
+  .itm.on { border-color: var(--gold); }
+  .itm.cant .p { color: #ff9aac; }
+  .itm.own { box-shadow: inset 0 0 0 2px #7bd389; }
+  #shopDetail { overflow-y: auto; padding: 4px; }
+  #shopDetail h3 { font-size: 24px; color: var(--gold); }
+  .tree { display: flex; gap: 6px; align-items: center; margin: 10px 0; flex-wrap: wrap; }
+  .tree .itm { width: 58px; }
+  #shopInv { grid-column: 1 / span 3; display: flex; align-items: center; gap: 10px; }
+  #shopInv .slot { width: 50px; height: 50px; font-size: 26px; }
+  /* ---------- scoreboard ---------- */
+  #scoreBox { width: min(1000px, 96vw); padding: 16px; }
+  table { width: 100%; border-collapse: collapse; font-weight: 800; font-size: 14px; }
+  td, th { padding: 6px 8px; text-align: left; }
+  th { opacity: .6; font-size: 12px; }
+  tr.me { background: rgba(255,210,63,.15); }
+  .tb { color: #8fc0ff; } .tr { color: #ff9aac; }
+  /* ---------- end screen ---------- */
+  #end .title { position: absolute; top: 6%; left: 0; right: 0; text-align: center; }
+  #end .title h1 { font-size: clamp(60px, 9vw, 120px); -webkit-text-stroke: 3px #170f2e; text-shadow: 0 6px 0 #170f2e; }
+  #end .stats { position: absolute; left: 50%; bottom: 84px; transform: translateX(-50%); width: min(1000px, 96vw); padding: 12px 14px; max-height: 40vh; overflow-y: auto; }
+  #end table { font-size: 13px; } #end td, #end th { padding: 4px 8px; }
+  #end .btns { position: absolute; bottom: 22px; left: 0; right: 0; display: flex; justify-content: center; gap: 14px; }
+  .settings-grid { display: grid; grid-template-columns: 180px 1fr; gap: 14px 18px; align-items: center; }
+  input[type=range] { width: 100%; accent-color: var(--gold); }
+  .howto { max-width: 720px; max-height: 80vh; overflow-y: auto; padding: 24px; line-height: 1.5; }
+  .howto kbd { background: rgba(255,255,255,.15); padding: 1px 7px; border-radius: 5px; font-weight: 900; }
+  .x { position: absolute; right: 12px; top: 10px; font-size: 22px; background: none; color: var(--text); }
+  @media (max-width: 1100px) { #statsBox { display: none; } #minimap { width: 180px; height: 180px; } .ab { width: 52px; height: 52px; font-size: 25px; } }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<canvas id="overlay"></canvas>
+
+<div id="boot" class="screen on"><div class="logo">BEAN<br>OF LEGENDS<small>A BEAN BATTLE ARENA</small></div><div class="bar"><i id="bootBar"></i></div><div id="bootTxt" style="opacity:.7;font-weight:800">Building the battlefield…</div></div>
+
+<div id="menu" class="screen">
+  <div class="left">
+    <div class="logo">BEAN<br>OF LEGENDS<small>5 VS 5 BEAN BATTLE ARENA</small></div>
+    <button class="btn" id="mPlay">▶ PLAY</button>
+    <button class="btn ghost" id="mCollection">🫘 CHARACTER COLLECTION</button>
+    <button class="btn ghost" id="mShop">🛍️ SHOP</button>
+    <button class="btn ghost" id="mSettings">⚙️ SETTINGS</button>
+    <button class="btn ghost" id="mHow">❓ HOW TO PLAY</button>
+  </div>
+  <div class="coins" id="coins">🪙 0</div>
+  <div class="foot" id="menuStats"></div>
+  <a href="/" class="btn ghost mini" style="position:absolute;right:24px;bottom:22px;text-decoration:none">← B10GAMES</a>
+</div>
+
+<div id="modes" class="screen">
+  <div class="wrap panel">
+    <h1 style="font-size:36px;color:var(--gold)">CHOOSE A GAME MODE</h1>
+    <div class="card"><div class="big">⚔️</div><div><h2 style="font-size:28px">5 VS 5 CLASSIC</h2><div style="opacity:.85;font-weight:800">Three lanes, a jungle, towers and minions. Destroy the enemy BEAN CORE to win. You and 4 bot teammates against 5 bots.</div></div></div>
+    <div class="row"><div class="lbl">Difficulty</div><div class="seg" id="optDiff"><button data-v="easy">Easy</button><button data-v="normal" class="on">Normal</button><button data-v="hard">Hard</button></div></div>
+    <div class="row"><div class="lbl">Your team</div><div class="seg" id="optTeam"><button data-v="0" class="on">🔵 Blue</button><button data-v="1">🔴 Red</button></div></div>
+    <div class="row"><div class="lbl">Match length</div><div class="seg" id="optQuick"><button data-v="0" class="on">Normal (20-30 min)</button><button data-v="1">Quick (12-20 min)</button></div></div>
+    <div class="row" style="justify-content:space-between;margin-top:6px"><button class="btn ghost" id="modeBack">← Back</button><button class="btn" id="modeGo">CHOOSE YOUR BEAN →</button></div>
+  </div>
+</div>
+
+<div id="select" class="screen">
+  <div class="head"><h1 id="selHead">CHOOSE YOUR BEAN</h1></div>
+  <div id="heroGrid" class="panel"></div>
+  <div id="selPreview"><div class="tip">Drag to spin · scroll to zoom</div></div>
+  <div id="selInfo" class="panel"></div>
+  <div class="actions"><button class="btn ghost" id="selBack">← Back</button><button class="btn ghost" id="selRandom">🎲 Random</button><button class="btn" id="lockIn">LOCK IN</button></div>
+</div>
+
+<div id="cshop" class="screen">
+  <div class="wrap panel">
+    <div class="row" style="justify-content:space-between"><h1 style="font-size:34px;color:var(--gold)">BEAN SHOP</h1><div class="lilita" id="cCoins" style="font-size:22px">🪙 0</div></div>
+    <div style="opacity:.85;font-weight:800">Earn Bean Coins by playing matches (more for winning) and unlock new colour styles for your beans. Equip them in the Character Collection or when choosing your bean.</div>
+    <div class="cgrid" id="cGrid"></div>
+    <div class="row"><button class="btn ghost" id="cBack">← Back</button></div>
+  </div>
+</div>
+
+<div id="end" class="screen">
+  <div class="title"><h1 id="endTitle">VICTORY</h1><div id="endSub" style="font-weight:900;font-size:20px;text-shadow:0 2px 4px #000"></div></div>
+  <div class="stats panel" id="endStats"></div>
+  <div class="btns"><button class="btn ghost" id="endMenu">MAIN MENU</button><button class="btn" id="endAgain">PLAY AGAIN</button></div>
+</div>
+
+<div id="hud">
+  <div id="topbar"><div class="side" id="sideBlue"></div><div class="k" id="kBlue">0</div><div id="clock">0:00</div><div class="k" id="kRed">0</div><div class="side" id="sideRed"></div></div>
+  <div id="objTimers"></div>
+  <div id="killfeed"></div>
+  <div id="announce"><h1></h1><p></p></div>
+  <div id="buffs"></div>
+  <div id="recallBar" class="hidden">Recalling…<div class="bar"><i></i></div></div>
+  <div id="toasts"></div>
+  <div id="death" class="hidden"><h2>YOU WERE SLAIN</h2><p>Respawning in <span id="deathT">0</span>s · you can still shop (P)</p></div>
+  <div id="bottom">
+    <div id="portrait"><svg id="xpRing" viewBox="0 0 104 104"><circle cx="52" cy="52" r="48" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="6"/><circle id="xpArc" cx="52" cy="52" r="48" fill="none" stroke="#c77dff" stroke-width="6" stroke-linecap="round" stroke-dasharray="301.6" stroke-dashoffset="301.6" transform="rotate(-90 52 52)"/></svg><div id="pIcon"></div><div id="pLevel">1</div></div>
+    <div id="center">
+      <div id="abilities"></div>
+      <div class="bars"><div class="hbar" id="hpBar"><i id="hpFill"></i><i id="shFill"></i><span id="hpText"></span></div><div class="hbar" id="mpBar"><i id="mpFill"></i><span id="mpText"></span></div></div>
+    </div>
+    <div id="rightPanel" class="pe">
+      <div id="statsBox"></div>
+      <div id="items"></div>
+      <div id="goldRow"><div id="gold">🪙 500</div><button class="btn mini" id="shopBtn">SHOP (P)</button><button class="btn ghost mini" id="recallBtn" title="Return to base (B)">🏠 B</button></div>
+    </div>
+  </div>
+  <canvas id="minimap" class="pe" width="240" height="240"></canvas>
+  <div id="help">Right-click: move / attack · Q W E R: abilities · Shift+Q/W/E/R: level up · A: attack-move · S: stop · B: recall · P: shop · Tab: scores · Space: camera · Y: lock camera · Esc: menu</div>
+</div>
+
+<div id="shopModal" class="modal"><div id="shopBox" class="panel">
+  <div class="top"><h2 style="font-size:30px;color:var(--gold)">ITEM SHOP</h2><div class="row"><div class="lilita" id="shopGold" style="font-size:22px;color:var(--gold)">🪙 0</div><button class="btn ghost mini" id="shopClose">Close (P)</button></div></div>
+  <div id="shopCats"></div>
+  <div id="shopGrid"></div>
+  <div id="shopDetail"></div>
+  <div id="shopInv"></div>
+</div></div>
+
+<div id="scoreModal" class="modal"><div id="scoreBox" class="panel"></div></div>
+
+<div id="pause" class="modal"><div class="panel" style="padding:26px;display:flex;flex-direction:column;gap:12px;min-width:300px">
+  <h2 style="font-size:32px;color:var(--gold);text-align:center">PAUSED</h2>
+  <button class="btn" id="pResume">RESUME</button>
+  <button class="btn ghost" id="pSettings">SETTINGS</button>
+  <button class="btn ghost" id="pHow">HOW TO PLAY</button>
+  <button class="btn ghost" id="pSurrender">SURRENDER</button>
+  <button class="btn ghost" id="pQuit">QUIT TO MENU</button>
+</div></div>
+
+<div id="settings" class="modal"><div class="panel" style="padding:24px;width:min(560px,94vw);position:relative">
+  <button class="x" id="setClose">✕</button>
+  <h2 style="font-size:30px;color:var(--gold);margin-bottom:14px">SETTINGS</h2>
+  <div class="settings-grid">
+    <div>Music volume</div><input type="range" id="setMusic" min="0" max="1" step="0.05">
+    <div>Sound effects</div><input type="range" id="setSfx" min="0" max="1" step="0.05">
+    <div>Graphics</div><div class="seg" id="setQuality"><button data-v="low">Low</button><button data-v="medium">Medium</button><button data-v="high">High</button></div>
+    <div>Ability casting</div><div class="seg" id="setCast"><button data-v="indicator">Hold to aim</button><button data-v="quick">Instant</button></div>
+    <div>Camera</div><div class="seg" id="setCam"><button data-v="locked">Follow hero</button><button data-v="free">Free (edge scroll)</button></div>
+    <div>Edge scrolling</div><div class="seg" id="setEdge"><button data-v="1">On</button><button data-v="0">Off</button></div>
+    <div>Damage numbers</div><div class="seg" id="setNums"><button data-v="1">Show</button><button data-v="0">Hide</button></div>
+  </div>
+</div></div>
+
+<div id="howtoModal" class="modal"><div class="panel howto" style="position:relative">
+  <button class="x" id="howClose">✕</button>
+  <h2 style="font-size:30px;color:var(--gold)">HOW TO PLAY</h2>
+  <p><b>Goal:</b> destroy the enemy <b>BEAN CORE</b> in their base. Towers protect each lane: you must destroy the outer tower before the inner one, then the base tower. When a base tower falls, the two guard towers next to the core can be attacked, and when both guards are gone the core is open.</p>
+  <p><b>Moving and attacking:</b> <kbd>Right-click</kbd> the ground to walk, <kbd>right-click</kbd> an enemy to attack it. <kbd>A</kbd> + click = attack-move, <kbd>S</kbd> = stop.</p>
+  <p><b>Abilities:</b> <kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd> aim at your mouse. Every level gives an ability point: press <kbd>Shift</kbd>+<kbd>Q/W/E/R</kbd> or click the yellow <b>+</b>. The ultimate (R) unlocks at level 6, 11 and 16.</p>
+  <p><b>Gold:</b> land the last hit on minions and monsters, defeat enemy heroes and towers. Press <kbd>P</kbd> in your base to buy items. Cheap parts combine into stronger items. Press <kbd>B</kbd> to recall to base and heal.</p>
+  <p><b>Jungle:</b> monsters between the lanes give gold and XP. The <b>Brainfreeze Yeti</b> and <b>Chili Golem</b> give buffs. The <b>Sugar Dragon</b> gives your whole team a permanent bonus. The <b>Mega Bean</b> gives a strong team buff — bring friends!</p>
+  <p><b>Bushes:</b> standing in a bush hides you from enemies outside it. Areas without allies nearby are covered in fog.</p>
+  <p><b>Camera:</b> mouse wheel zooms, <kbd>Space</kbd> centres on your bean, <kbd>Y</kbd> locks/unlocks the camera, click the minimap to look around. <kbd>Tab</kbd> shows the scoreboard.</p>
+</div></div>
+
+<div id="tooltip" class="panel"></div>
+
+<script type="module" src="js/main.js"></script>
+<script src="/stats.js" data-game="bean-of-legends" defer></script>
+</body>
+</html>
