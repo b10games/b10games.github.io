@@ -5,7 +5,7 @@ import { RULES, QUICK, DIFFICULTY, HEROES, HERO, ITEM, MONSTERS, MINIONS, TOWER,
 import { Unit } from './units.js';
 import { LANES, TOWERS, CORES, FOUNTAIN, CAMPS, mirror } from './map.js';
 import { Bean, makeMinion, Monster, TowerModel, CoreModel } from './models.js';
-import { CAST, basicHitExtras } from './abilities.js';
+import { CAST, KINDS, basicHitExtras } from './abilities.js';
 import { Bot } from './ai.js';
 
 const LANE_PREFS = { knight: ['top', 'sup', 'jungle'], ninja: ['jungle', 'mid'], dino: ['jungle', 'top'], shark: ['top', 'jungle'], astro: ['mid', 'sup'], hotdog: ['bot', 'mid'], pigeon: ['bot', 'mid'], banana: ['sup', 'mid'], wizard: ['mid', 'sup'], robot: ['sup', 'top'] };
@@ -220,7 +220,7 @@ export class Match {
   }
   // ---------- projectiles, zones, timers ----------
   homing(o) { // { src, tgt, speed, color, size, onHit, feather, shape }
-    const m = projMesh(o.shape || (o.feather ? 'feather' : 'orb'), o.color || '#ffffff', o.size || 0.3);
+    const m = o.mesh || projMesh(o.shape || (o.feather ? 'feather' : 'orb'), o.color || '#ffffff', o.size || 0.3);
     const y0 = this.groundY(o.src.x, o.src.z) + (o.y0 || 1.6);
     m.position.set(o.src.x, y0, o.src.z); this.scene.add(m);
     this.projectiles.push({ kind: 'homing', ...o, m, x: o.src.x, y: y0, z: o.src.z });
@@ -298,7 +298,7 @@ export class Match {
     u.castAnim = 0; u.windup = -1; u.revealT = Math.max(u.revealT, 1.5);
     if (target) u.facing = Math.atan2(target.x - u.x, target.z - u.z);
     else if (ab.type !== 'self') u.facing = Math.atan2(x - u.x, z - u.z);
-    const fn = CAST[u.heroId + ':' + slot];
+    const fn = CAST[u.heroId + ':' + slot] || KINDS[ab.kind];
     if (fn) fn(this, u, ab, a.rank, x, z, target);
     this.castFx(u, slot);
     u.stats.casts = (u.stats.casts || 0) + 1;
@@ -311,7 +311,7 @@ export class Match {
     const feet = new THREE.Vector3(u.x, gy, u.z), chest = new THREE.Vector3(u.x, gy + 1.4 * sz, u.z);
     this.fx.ring(feet, col, 0.4, 2.4 * sz, 0.35, 0.8);
     this.fx.sparks(chest, col, 12); this.fx.flash(chest, col, 1.1, 0.16);
-    if (slot === 3) {
+    if (slot === 4) {
       this.fx.rays(feet, col, 12, 8, 0.75); this.fx.light(feet, col, 45, 0.7, 20); this.fx.flash(chest, '#ffffff', 2.6, 0.32);
       this.fx.ring(feet, '#ffffff', 0.5, 6, 0.6, 0.7); this.fx.burst(chest, col, 30, 8, 0.25, 6, 0.8);
       this.shake(u.x, u.z, 0.45);
@@ -945,6 +945,7 @@ export class Match {
       if (u.forced) y += 0.8;
       if (u.flag('knockup')) y += 0.6;
       const air = u.flag('airborne'); if (air && !u.dash) y += 5;
+      if (u.flag('burrow')) y -= 2.6;
       u.obj.position.set(u.x, y, u.z);
       if (u.kind !== 'tower' && u.kind !== 'core') u.obj.rotation.y = turn(u.obj.rotation.y, u.facing, dt * 12);
       const base = u.hero ? 1.65 : u.kind === 'monster' ? (u.mdef.size || 1) : u.kind === 'clone' ? 1.3 : null;

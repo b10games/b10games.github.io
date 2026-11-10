@@ -37,12 +37,13 @@ export class Bot {
   get laneName() { return this.lane === 'sup' ? 'bot' : this.lane === 'jungle' ? 'mid' : this.lane; }
   get pts() { return lanePts(this.h.team, this.laneName); }
   autoLevel() {
-    const h = this.h, pri = h.def.role === 'Support' ? [1, 0, 2] : h.def.role === 'Tank' ? [0, 2, 1] : [0, 2, 1];
+    // Q/W/R take points (E sprint ranks up by itself, T is the ultimate)
+    const h = this.h, pri = h.def.role === 'Support' ? [1, 3, 0] : h.def.role === 'Tank' ? [1, 0, 3] : [0, 1, 3];
     let guard = 20;
     while (h.points > 0 && guard-- > 0) {
-      if (this.m.levelAbility(h, 3)) continue;
+      if (this.m.levelAbility(h, 4)) continue;
       // keep at least one rank in every basic ability early
-      const missing = [0, 1, 2].find(s => h.abil[s].rank === 0 && h.canLevel(s));
+      const missing = [0, 1, 3].find(s => h.abil[s].rank === 0 && h.canLevel(s));
       if (missing !== undefined && h.level <= 3) { this.m.levelAbility(h, missing); continue; }
       let done = false;
       for (const s of pri) if (this.m.levelAbility(h, s)) { done = true; break; }
@@ -59,6 +60,8 @@ export class Bot {
   moveTo(x, z) {
     const o = this.h.order;
     if (o && o.type === 'move' && Math.hypot(o.x - x, o.z - z) < 2) return;
+    // long walks: use the sprint (E)
+    if (this.h.distTo(x, z) > 30 && this.m.canCastNow(this.h, 2) && this.h.def.abilities[2].kind === 'sprint' && Math.random() < 0.5) this.m.cast(this.h, 2, x, z, null);
     this.m.orderMove(this.h, x, z);
   }
   attack(t) { const o = this.h.order; if (o && o.type === 'attack' && o.target === t) return; this.m.orderAttack(this.h, t); }
@@ -129,7 +132,7 @@ export class Bot {
   }
   useAbilities(t, enemies) {
     const m = this.m, h = this.h, D = m.diff;
-    for (const slot of [3, 0, 2, 1]) {
+    for (const slot of [4, 0, 3, 1, 2]) {
       if (!m.canCastNow(h, slot) || Math.random() > D.abilityUse) continue;
       const ab = h.def.abilities[slot], d = t.dist(h);
       const range = (ab.range || ab.radius || 4) + t.radius;
@@ -148,6 +151,7 @@ export class Bot {
           if (hits >= 2 || t.hp / t.st.maxHp < 0.55) { x = p.x; z = p.z; cast = true; }
           break;
         }
+        case 'sprint': if (d > h.st.range + 2.5 && d < 15 && (t.hp / t.st.maxHp < 0.6 || h.melee)) cast = true; break;
         case 'escape': if (h.def.role === 'Assassin' && d > h.st.range + 1 && d < (ab.range || 5) + 2 && t.hp / t.st.maxHp < 0.5) { x = t.x; z = t.z; cast = true; } break;
         case 'heal': case 'shield': if (h.hp / h.st.maxHp < 0.6) { cast = m.cast(h, slot, h.x, h.z, h); if (cast) return; } break;
       }
@@ -156,7 +160,7 @@ export class Bot {
   }
   supportAbilities(allies) {
     const m = this.m, h = this.h;
-    for (const slot of [1, 3]) {
+    for (const slot of [1, 3, 4]) {
       const ab = h.def.abilities[slot];
       if (!(ab.ai === 'heal' || ab.ai === 'shield') || !m.canCastNow(h, slot)) continue;
       const hurt = [h, ...allies].filter(a => a.dist(h) <= (ab.range || 6) && a.hp / a.st.maxHp < (ab.ai === 'heal' ? 0.6 : 0.5) && (a.combatT > 0 || ab.ai === 'heal')).sort((a, b) => a.hp / a.st.maxHp - b.hp / b.st.maxHp)[0];
@@ -165,8 +169,9 @@ export class Bot {
   }
   useEscape(f) {
     const m = this.m, h = this.h;
-    for (let slot = 0; slot < 4; slot++) {
+    for (let slot = 0; slot < 5; slot++) {
       const ab = h.def.abilities[slot];
+      if (ab.ai === 'sprint' && m.canCastNow(h, slot)) { if (m.cast(h, slot, h.x, h.z, null)) return; continue; }
       if (ab.ai !== 'escape' || !m.canCastNow(h, slot)) continue;
       const dx = f.x - h.x, dz = f.z - h.z, l = Math.hypot(dx, dz) || 1, r = ab.range || 5;
       if (m.cast(h, slot, h.x + dx / l * r, h.z + dz / l * r, null)) return;
@@ -255,7 +260,7 @@ export class Bot {
     const fighting = m.units.find(u => u.kind === 'monster' && u.alive && u.aggro === h && !u.mdef.epic);
     if (fighting) {
       this.attack(fighting);
-      if (h.mana > h.st.maxMana * 0.35) for (const s of [0, 1, 2]) { const ab = h.def.abilities[s]; if ((ab.ai === 'nuke' || ab.ai === 'aoe' || ab.ai === 'engage') && m.canCastNow(h, s) && fighting.dist(h) < (ab.range || ab.radius || 3)) { m.cast(h, s, fighting.x, fighting.z, fighting); break; } }
+      if (h.mana > h.st.maxMana * 0.35) for (const s of [0, 1, 3]) { const ab = h.def.abilities[s]; if ((ab.ai === 'nuke' || ab.ai === 'aoe' || ab.ai === 'engage') && m.canCastNow(h, s) && fighting.dist(h) < (ab.range || ab.radius || 3)) { m.cast(h, s, fighting.x, fighting.z, fighting); break; } }
       return;
     }
     // next camp: nearest alive one, own side first
@@ -319,7 +324,7 @@ export class Bot {
     if (gathered < need && h.distTo(plan.x, plan.z) < 16) { if (h.distTo(plan.x, plan.z) > 9) this.moveTo(plan.x, plan.z); else if (h.order) m.orderStop(h); return true; }
     if (h.distTo(mob.x, mob.z) > 18) { this.moveTo(plan.x, plan.z); return true; }
     this.attack(mob);
-    for (const s of [0, 1, 2]) { const ab = h.def.abilities[s]; if ((ab.ai === 'nuke' || ab.ai === 'aoe') && m.canCastNow(h, s) && mob.dist(h) < (ab.range || ab.radius || 3) + mob.radius) { m.cast(h, s, mob.x, mob.z, mob); break; } }
+    for (const s of [0, 1, 3]) { const ab = h.def.abilities[s]; if ((ab.ai === 'nuke' || ab.ai === 'aoe') && m.canCastNow(h, s) && mob.dist(h) < (ab.range || ab.radius || 3) + mob.radius) { m.cast(h, s, mob.x, mob.z, mob); break; } }
     this.supportAbilities(m.heroes.filter(a => a.team === h.team && a.alive && a !== h && a.dist(h) < 12));
     return true;
   }

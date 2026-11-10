@@ -16,7 +16,7 @@ export class Unit {
     this.items = [null, null, null, null, null, null];
     this.buffs = [];
     this.st = {};
-    this.abil = [0, 1, 2, 3].map(() => ({ rank: 0, cd: 0 }));
+    this.abil = [0, 1, 2, 3, 4].map(() => ({ rank: 0, cd: 0 }));
     this.stats = { kills: 0, deaths: 0, assists: 0, cs: 0, dmg: 0, heroDmg: 0, gold: 0, towers: 0, streak: 0, deathStreak: 0 };
     this.hitBy = new Map();                   // hero id -> time (for assists)
     this.alive = true; this.respawnT = 0; this.removeT = -1;
@@ -105,6 +105,8 @@ export class Unit {
     S.hpRegen = (base.hpRegen || 0) + add.hpRegen; S.manaRegen = (base.manaRegen || 0) + add.manaRegen;
     S.magicPen = add.magicPen; S.thorns = add.thorns; S.healPower = add.healPower;
     S.dr = dr; S.dmgMul = dmgMul; S.size = size;
+    // the sprint (E) needs no points: it ranks up by itself every few levels
+    if (this.def) this.def.abilities.forEach((ab, i) => { if (ab.innate) this.abil[i].rank = Math.min(5, 1 + Math.floor((this.level - 1) / 4)); });
     if (oldMax && S.maxHp > oldMax && this.alive) this.hp += S.maxHp - oldMax;
     if (this.hp > S.maxHp) this.hp = S.maxHp;
     if (this.mana > S.maxMana) this.mana = S.maxMana;
@@ -116,7 +118,8 @@ export class Unit {
   canLevel(slot) {
     if (this.points <= 0 || !this.def) return false;
     const r = this.abil[slot].rank;
-    if (slot === 3) return r < 3 && this.level >= [6, 11, 16][r];
+    if (this.def.abilities[slot].innate) return false;
+    if (slot === 4) return r < 3 && this.level >= [6, 11, 16][r];
     return r < 5 && r < Math.ceil(this.level / 2);
   }
 }

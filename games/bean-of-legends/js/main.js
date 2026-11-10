@@ -267,7 +267,7 @@ class Input {
     const m = this.m, p = this.p;
     if (c === 'Tab') { $('scoreModal').classList.toggle('on', down); if (down) app.hud.renderScore(); return; }
     if (!down) {
-      if (['KeyQ', 'KeyW', 'KeyE', 'KeyR'].includes(c) && this.aim === 'QWER'.indexOf(c[3]) && app.settings.cast === 'indicator') this.castAim();
+      if (['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyT'].includes(c) && this.aim === 'QWERT'.indexOf(c[3]) && app.settings.cast === 'indicator') this.castAim();
       return;
     }
     if (c === 'Escape') {
@@ -278,11 +278,12 @@ class Input {
     }
     if (app.paused || !m || !p) return;
     if (e.repeat && was) { if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(c)) return; }
-    const slot = { KeyQ: 0, KeyW: 1, KeyE: 2, KeyR: 3 }[c];
+    const slot = { KeyQ: 0, KeyW: 1, KeyE: 2, KeyR: 3, KeyT: 4 }[c];
     if (slot !== undefined) {
       if (e.shiftKey || e.altKey) { m.levelAbility(p, slot); return; }
       if (app.hud.shopOpen) return;
       this.aArmed = false;
+      if (p.def.abilities[slot].type === 'self' && p.def.abilities[slot].kind === 'sprint') { this.cast(slot); return; }
       if (app.settings.cast === 'indicator') { if (m.canCastNow(p, slot) || p.abil[slot].rank === 0 || p.abil[slot].cd > 0) { if (p.abil[slot].rank > 0 && p.abil[slot].cd <= 0) this.aim = slot; else this.cast(slot); } else this.cast(slot); }
       else this.cast(slot);
       return;

@@ -150,6 +150,8 @@
   .ab .up { position: absolute; top: -26px; left: 50%; transform: translateX(-50%); width: 26px; height: 22px; border-radius: 7px; background: linear-gradient(180deg, #ffe680, var(--gold)); color: #2b1a00; font-family: "Lilita One"; font-size: 18px; line-height: 22px; text-align: center; box-shadow: 0 2px 0 #a86b00; animation: bob .8s ease-in-out infinite; display: none; }
   .ab.can .up { display: block; }
   .ab.ult { border-color: #ff9d00; }
+  .ab.innate { border-color: #7bd389; }
+  .ab.innate .up { display: none !important; }
   @keyframes bob { 50% { transform: translateX(-50%) translateY(-3px); } }
   .bars { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
   .hbar { position: relative; height: 18px; border-radius: 6px; background: #2a1d3d; overflow: hidden; border: 1px solid rgba(0,0,0,.6); }
@@ -253,7 +255,7 @@
     <div class="card"><div class="big"><i data-ic="swords2"></i></div><div><h2 style="font-size:28px">5 VS 5 CLASSIC</h2><div style="opacity:.85;font-weight:800">Three lanes, a jungle, towers and minions. Destroy the enemy BEAN CORE to win. You and 4 bot teammates against 5 bots.</div></div></div>
     <div class="row"><div class="lbl">Difficulty</div><div class="seg" id="optDiff"><button data-v="easy">Easy</button><button data-v="normal" class="on">Normal</button><button data-v="hard">Hard</button></div></div>
     <div class="row"><div class="lbl">Your team</div><div class="seg" id="optTeam"><button data-v="0" class="on"><span class="tdot b"></span>Blue</button><button data-v="1"><span class="tdot r"></span>Red</button></div></div>
-    <div class="row"><div class="lbl">Match length</div><div class="seg" id="optQuick"><button data-v="0" class="on">Normal (12-16 min)</button><button data-v="1">Quick (9-12 min)</button></div></div>
+    <div class="row"><div class="lbl">Match length</div><div class="seg" id="optQuick"><button data-v="0" class="on">Normal (12-16 min)</button><button data-v="1">Quick (8-12 min)</button></div></div>
     <div class="row"><div class="lbl">Map</div><div class="themes" id="optTheme"></div></div>
     <div id="themeDesc"></div>
     <div class="row" style="justify-content:space-between;margin-top:6px"><button class="btn ghost" id="modeBack">← Back</button><button class="btn" id="modeGo">CHOOSE YOUR BEAN →</button></div>
@@ -305,7 +307,7 @@
     </div>
   </div>
   <canvas id="minimap" class="pe" width="240" height="240"></canvas>
-  <div id="help">Left-click: move / attack · Right-click: cancel aim · Q W E R: abilities · Shift+Q/W/E/R: level up · A: attack-move · S: stop · B: recall · P: shop · Tab: scores · Space: camera · Y: lock camera · Esc: menu</div>
+  <div id="help">Left-click: move / attack · Right-click: cancel aim · Q W: attacks · E: sprint · R: special · T: ultimate · Shift+Q/W/R/T: level up · A: attack-move · S: stop · B: recall · P: shop · Tab: scores · Space: camera · Y: lock camera · Esc: menu</div>
 </div>
 
 <div id="shopModal" class="modal"><div id="shopBox" class="panel">
@@ -346,12 +348,12 @@
   <h2 style="font-size:30px;color:var(--gold)">HOW TO PLAY</h2>
   <p><b>Goal:</b> destroy the enemy <b>BEAN CORE</b> in their base. Towers protect each lane: you must destroy the outer tower before the inner one, then the base tower. When a base tower falls, the two guard towers next to the core can be attacked, and when both guards are gone the core is open.</p>
   <p><b>Moving and attacking:</b> <kbd>Left-click</kbd> the ground to walk (hold to keep walking), <kbd>left-click</kbd> an enemy to attack it. <kbd>A</kbd> + click = attack-move, <kbd>S</kbd> = stop. While aiming an ability, left-click casts it and right-click cancels.</p>
-  <p><b>Abilities:</b> <kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd> aim at your mouse. Every level gives an ability point: press <kbd>Shift</kbd>+<kbd>Q/W/E/R</kbd> or click the yellow <b>+</b>. The ultimate (R) unlocks at level 6, 11 and 16.</p>
+  <p><b>Abilities:</b> every bean has the same layout. <kbd>Q</kbd> is a strong attack on ONE enemy (it only splashes onto enemies standing right next to the target). <kbd>W</kbd> is an area attack. <kbd>E</kbd> is a sprint that always makes you run faster (free, and it ranks up by itself). <kbd>R</kbd> is the bean's very own special move. <kbd>T</kbd> is the ultimate. Some beans have an extra strong Q (3 shurikens, double bite, bouncing feather...), others an extra big W area. Abilities aim at your mouse. Every level gives a point: press <kbd>Shift</kbd>+<kbd>Q/W/R/T</kbd> or click the yellow <b>+</b>. The ultimate (T) unlocks at level 6, 11 and 16.</p>
   <p><b>Gold:</b> land the last hit on minions and monsters, defeat enemy heroes and towers. Press <kbd>P</kbd> in your base to buy items. Cheap parts combine into stronger items. Press <kbd>B</kbd> to recall to base and heal.</p>
   <p><b>Jungle:</b> monsters between the lanes give gold and XP. The <b>Brainfreeze Yeti</b> and <b>Chili Golem</b> give buffs. The <b>Sugar Dragon</b> gives your whole team a permanent bonus. The <b>Mega Bean</b> gives a strong team buff — bring friends!</p>
   <p><b>Maps:</b> pick Candy Valley, Frosty Peaks, Lava Isles, Sunny Dunes or Moonlit Grove before the match. They all share the same layout, only the look changes. Respawning always takes 10 seconds.</p>
   <p><b>Bushes:</b> standing in a bush hides you from enemies outside it. Areas without allies nearby are covered in fog.</p>
-  <p><b>Camera:</b> mouse wheel zooms, <kbd>Space</kbd> centres on your bean, <kbd>Y</kbd> locks/unlocks the camera. On the minimap: left-click walks there, right-click (or drag) moves the camera. <kbd>Tab</kbd> shows the scoreboard.</p>
+  <p><b>Camera:</b> mouse wheel zooms, <kbd>Space</kbd> centres on your bean, <kbd>Y</kbd> locks/unlocks the camera. On the minimap: hold left-click to look around (the camera jumps back when you let go), right-click walks there. <kbd>Tab</kbd> shows the scoreboard.</p>
 </div></div>
 
 <div id="tooltip" class="panel"></div>

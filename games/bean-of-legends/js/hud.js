@@ -12,7 +12,7 @@ const RATIO = (ab) => [ab.ad ? `<span style="color:#ffb46b">(+${Math.round(ab.ad
 // fill {dmg} {shield} {heal} with "70/110/150" and highlight the current rank
 export function abilityText(ab, rank) {
   const list = arr => arr.map((v, i) => i === rank - 1 ? `<b style="color:#fff">${v}</b>` : `<span style="opacity:.75">${v}</span>`).join('/');
-  return ab.text.replace('{dmg}', ab.dmg ? list(ab.dmg) + ' ' + RATIO(ab) : '').replace('{shield}', ab.shield ? list(ab.shield) + (ab.ap ? ' ' + RATIO(ab) : '') : '').replace('{heal}', ab.heal ? list(ab.heal) + ' ' + RATIO(ab) : '');
+  return ab.text.replace('{ms}', ab.ms ? list(ab.ms.map(v => Math.round(v * 100) + '%')) : '').replace('{dmg}', ab.dmg ? list(ab.dmg) + ' ' + RATIO(ab) : '').replace('{shield}', ab.shield ? list(ab.shield) + (ab.ap ? ' ' + RATIO(ab) : '') : '').replace('{heal}', ab.heal ? list(ab.heal) + ' ' + RATIO(ab) : '');
 }
 const BUFF_ICON = { brainfreeze: 'snowflake', hotsauce: 'chili', megabean: 'crown', shieldup: 'shieldup', royal: 'crown', giant: 'dinohead', frenzy: 'frenzy', coo: 'bird', smoke: 'smoke', vanish: 'tophat', overdrive: 'bolt', potion: 'potion', bunny: 'bunny', burn: 'flame', stun: 'stun', knockup: 'stun', finrush: 'fin', clonesms: 'clones', roared: 'roar', split: 'split', forcefast: 'hexshield' };
 const ITEM_BADGE = ['#4a3590', '#1b1036'];
@@ -39,8 +39,8 @@ export class HUD {
     // abilities
     const ab = $('abilities'); ab.innerHTML = '';
     p.def.abilities.forEach((a, i) => {
-      const el = document.createElement('div'); el.className = 'ab pe' + (i === 3 ? ' ult' : ''); el.dataset.slot = i;
-      el.innerHTML = `<div class="up">+</div><span class="ico">${icon(a.icon, { badge: p.def.badge })}</span><span class="key">${a.key}</span><span class="cost"></span><div class="cd"></div><div class="pips">${(i === 3 ? [0, 1, 2] : [0, 1, 2, 3, 4]).map(() => '<i></i>').join('')}</div>`;
+      const el = document.createElement('div'); el.className = 'ab pe' + (i === 4 ? ' ult' : '') + (a.innate ? ' innate' : ''); el.dataset.slot = i;
+      el.innerHTML = `<div class="up">+</div><span class="ico">${icon(a.icon, { badge: p.def.badge })}</span><span class="key">${a.key}</span><span class="cost"></span><div class="cd"></div><div class="pips">${(i === 4 ? [0, 1, 2] : [0, 1, 2, 3, 4]).map(() => '<i></i>').join('')}</div>`;
       el.querySelector('.up').addEventListener('mousedown', e => { e.stopPropagation(); this.m.levelAbility(p, i); });
       el.addEventListener('mouseenter', () => this.showTip(el, () => this.abilityTip(i)));
       el.addEventListener('mouseleave', () => this.hideTip());
@@ -71,11 +71,12 @@ export class HUD {
     this.mm.addEventListener('contextmenu', e => e.preventDefault());
     const mmAct = (e, drag) => {
       const r = this.mm.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * HALF * 2 - HALF, z = (e.clientY - r.top) / r.height * HALF * 2 - HALF;
-      if (e.button === 0 && !drag) { this.app.input.moveOrder(x, z, true); this.app.input.held = false; }
-      else if (e.buttons & 2) this.app.cam.lookAt(x, z, true);
+      if (e.button === 2 && !drag) { this.app.input.moveOrder(x, z, true); this.app.input.held = false; }
+      else if (e.buttons & 1) { this.app.cam.lookAt(x, z, true); this.mmHeld = true; }
     };
     this.mm.addEventListener('mousedown', e => { e.stopPropagation(); mmAct(e, false); });
-    this.mm.addEventListener('mousemove', e => { if (e.buttons & 2) mmAct(e, true); });
+    this.mm.addEventListener('mousemove', e => { if (e.buttons & 1) mmAct(e, true); });
+    addEventListener('mouseup', e => { if (e.button === 0 && this.mmHeld) { this.mmHeld = false; if (this.app.settings.cam !== 'free') this.app.cam.locked = true; } });
   }
   // ---------- events from the match ----------
   onEvent(type, d) {
@@ -110,7 +111,7 @@ export class HUD {
   abilityTip(i) {
     const p = this.p, ab = p.def.abilities[i], r = p.abil[i].rank;
     const cd = ab.cd[Math.max(0, r - 1)] * (1 - p.st.cdr);
-    return `<h4>${icon(ab.icon, { badge: p.def.badge, cls: 'icl' })} ${esc(ab.name)} <span style="opacity:.6;font-size:13px">[${ab.key}]${r ? ' rank ' + r : ' not learned'}</span></h4><div>${abilityText(ab, r || 1)}</div><div style="margin-top:6px;opacity:.8;font-size:12px">Cooldown ${cd.toFixed(1)}s · Cost ${ab.cost[Math.max(0, r - 1)]} mana${ab.range ? ' · Range ' + ab.range : ''}</div>`;
+    return `<h4>${icon(ab.icon, { badge: p.def.badge, cls: 'icl' })} ${esc(ab.name)} <span style="opacity:.6;font-size:13px">[${ab.key}]${r ? ' rank ' + r : ' not learned'}${i === 4 ? ' · ULTIMATE' : ''}</span></h4><div>${abilityText(ab, r || 1)}</div><div style="margin-top:6px;opacity:.8;font-size:12px">Cooldown ${cd.toFixed(1)}s · ${ab.cost[Math.max(0, r - 1)] ? 'Cost ' + ab.cost[Math.max(0, r - 1)] + ' mana' : 'No mana cost'}${ab.range ? ' · Range ' + ab.range : ''}${ab.radius ? ' · Area ' + ab.radius : ''}</div>`;
   }
   itemTip(id, owned) {
     const it = ITEM[id];
@@ -159,7 +160,7 @@ export class HUD {
       el.classList.toggle('nomana', ready && p.mana < ab.cost[a.rank - 1]);
       el.querySelector('.cd').textContent = a.cd > 0 ? (a.cd > 1 ? Math.ceil(a.cd) : a.cd.toFixed(1)) : '';
       el.querySelector('.cd').style.background = a.cd > 0 ? `conic-gradient(rgba(0,0,0,.55) ${a.cd / (ab.cd[a.rank - 1] * (1 - st.cdr)) * 360}deg, transparent 0)` : '';
-      el.querySelector('.cost').textContent = a.rank ? ab.cost[a.rank - 1] : '';
+      el.querySelector('.cost').textContent = a.rank && ab.cost[a.rank - 1] ? ab.cost[a.rank - 1] : '';
       [...el.querySelectorAll('.pips i')].forEach((pi, k) => pi.classList.toggle('on', k < a.rank));
     });
     // stats
@@ -167,7 +168,7 @@ export class HUD {
     const gtxt = Math.floor(p.gold); if (this._g !== gtxt) { this._g = gtxt; $('gold').innerHTML = coin(gtxt); $('shopGold').innerHTML = coin(gtxt); }
     // buffs
     $('buffs').innerHTML = p.buffs.filter(b => BUFF_ICON[b.id] || BUFF_ICON[(b.id || '').replace(/\d+$/, '')] || b.slow).slice(0, 8).map(b => {
-      const ic = BUFF_ICON[b.id] || (b.slow ? 'snail' : 'sparkles'), col = b.color || (b.stun || b.knockup || b.slow || b.bunny ? '#ff6b6b' : '#7bd389');
+      const ic = b.icon || BUFF_ICON[b.id] || (b.slow ? 'snail' : 'sparkles'), col = b.color || (b.stun || b.knockup || b.slow || b.bunny ? '#ff6b6b' : '#7bd389');
       return `<div class="buff" style="border-color:${col}" title="${esc(b.name || b.id)}">${icon(ic)}<span style="position:absolute;margin-top:30px;font-size:10px">${b.t < 99 ? Math.ceil(b.t) : ''}</span></div>`;
     }).join('');
     // death + recall

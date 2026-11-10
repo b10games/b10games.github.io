@@ -144,7 +144,7 @@ export function renderHeroInfo(app, id, collection) {
     ${bar('Range', s.range, 7.5, s.range)}
     ${bar('Speed', s.ms, 7.4, Math.round(s.ms * 50))}
     <h3 style="margin-top:14px;font-size:20px">ABILITIES</h3>
-    ${h.abilities.map(ab => `<div class="abil"><div class="ai">${icon(ab.icon, { badge: h.badge })}<b>${ab.key}</b></div><div><h4>${esc(ab.name)}</h4><p>${abilityText(ab, 1)}</p><div class="meta">Cooldown ${ab.cd.join('/')}s · Mana ${ab.cost[0]}${ab.range ? ' · Range ' + ab.range : ''}</div></div></div>`).join('')}
+    ${h.abilities.map(ab => `<div class="abil"><div class="ai">${icon(ab.icon, { badge: h.badge })}<b>${ab.key}</b></div><div><h4>${esc(ab.name)}</h4><p>${abilityText(ab, 1)}</p><div class="meta">${ab.key === 'T' ? 'ULTIMATE · ' : ab.innate ? 'Sprint · ' : ''}Cooldown ${ab.cd.join('/')}s · ${ab.cost[0] ? 'Mana ' + ab.cost[0] : 'Free'}${ab.range ? ' · Range ' + ab.range : ''}${ab.radius ? ' · Area ' + ab.radius : ''}</div></div></div>`).join('')}
     <h3 style="margin-top:14px;font-size:20px">COSTUME COLOURS</h3>
     <div class="chromas">${[h.colors, ...h.chromas].map((c, k) => `<div class="chroma ${k === eq ? 'on' : ''} ${owned.includes(k) ? '' : 'locked'}" data-k="${k}" title="${owned.includes(k) ? 'Equip' : 'Unlock in the Bean Shop'}" style="background:linear-gradient(135deg, ${c[0]} 50%, ${c[1]} 50%)"></div>`).join('')}</div>
     ${collection ? '' : ''}`;

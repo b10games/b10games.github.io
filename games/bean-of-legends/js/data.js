@@ -17,7 +17,7 @@ export const RULES = {
   dragonFirst: 150, dragonRespawn: 240, bossFirst: 480, bossRespawn: 300,
   recallTime: 5, fountainR: 13, shopR: 19
 };
-export const QUICK = { gold: 1.5, xp: 1.4, towerHp: 0.65, coreHp: 0.75, bossFirst: 330, dragonFirst: 90 };
+export const QUICK = { gold: 1.5, xp: 1.4, towerHp: 0.76, coreHp: 0.86, bossFirst: 330, dragonFirst: 90 };
 
 export const DIFFICULTY = {
   easy: { name: 'EASY', think: 0.42, aim: 0.45, retreat: 0.22, dmg: 0.82, gold: 0.85, spread: 1.4, abilityUse: 0.55 },
@@ -37,6 +37,8 @@ export const ROLES = {
 export const ROLE_LANE = { Tank: 'top', Fighter: 'jungle', Assassin: 'mid', Mage: 'mid', Marksman: 'bot', Support: 'sup' };
 
 // Ability fields:
+//  Q = strong single-target hit (splash only on clumped enemies), W = area attack, E = sprint (innate, ranks up with level),
+//  R = the bean's own special, T = ultimate (levels 6/11/16).
 //  type: skillshot (fires toward the cursor) | ground (target point) | unit (enemy target) | ally (ally or self) | self
 //  dmg/ad/ap/dtype: damage per rank and ratios, cd/cost per rank, range/radius/width/speed in world units
 //  ai: how bots use it (nuke, aoe, engage, escape, buff, heal, shield, trap, ult)
@@ -49,13 +51,15 @@ export const HEROES = [
     stats: { hp: [640, 104], mana: [300, 42], ad: [62, 3.4], armor: [36, 4.6], mr: [32, 2.1], as: [0.65, 0.024], range: 2.3, ms: 7.93, hpRegen: [2.2, 0.2], manaRegen: [1.6, 0.1] },
     proj: null, hitColor: '#e9ecef',
     abilities: [
-      { key: 'Q', name: 'Sword Smash', icon: 'smash', type: 'ground', range: 6.5, radius: 3, dmg: [70, 110, 150, 190, 230], ad: 0.8, dtype: 'phys', cd: [9, 8.5, 8, 7.5, 7], cost: [50, 50, 50, 50, 50], slow: 0.3, ai: 'engage',
-        text: 'Leaps forward and smashes the ground, dealing {dmg} physical damage around the landing spot and slowing enemies by 30% for 1.5s.' },
-      { key: 'W', name: 'Shield Up', icon: 'shieldup', type: 'self', dr: [0.4, 0.45, 0.5, 0.55, 0.6], shield: [60, 90, 120, 150, 180], cd: [16, 15, 14, 13, 12], cost: [60, 60, 60, 60, 60], ai: 'buff',
-        text: 'Raises the shield for 2.5s: takes 40-60% less damage and gains a {shield} shield (+8% max health).' },
-      { key: 'E', name: 'Charge', icon: 'charge', type: 'skillshot', range: 8, width: 1.6, dmg: [60, 95, 130, 165, 200], ad: 0.5, dtype: 'phys', cd: [13, 12, 11, 10, 9], cost: [70, 70, 70, 70, 70], ai: 'engage',
-        text: 'Charges forward, dealing {dmg} physical damage, knocking enemies back and stunning them for 0.75s.' },
-      { key: 'R', name: 'Royal Bean', icon: 'crown', type: 'self', radius: 5.5, dmg: [150, 250, 350], ap: 0.5, dtype: 'magic', bonusHp: [300, 500, 700], resist: [30, 45, 60], cd: [110, 95, 80], cost: [100, 100, 100], ai: 'ult',
+      { key: 'Q', name: 'Royal Strike', icon: 'swordstrike', kind: 'lunge', type: 'unit', range: 4.5, splash: 1.4, color: '#e9ecef', dmg: [80, 125, 170, 215, 260], ad: 1.0, dtype: 'phys', cd: [7, 6.5, 6, 5.5, 5], cost: [40, 40, 40, 40, 40], ai: 'nuke',
+        text: 'Leaps at one enemy and strikes it hard for {dmg} physical damage. Only enemies squeezed right next to the target also get hit (60%).' },
+      { key: 'W', name: 'Earthquake Slam', icon: 'smash', kind: 'nova', type: 'self', radius: 5.5, slow: 0.3, crack: true, color: '#cfd6de', dmg: [60, 95, 130, 165, 200], ad: 0.6, dtype: 'phys', cd: [10, 9.5, 9, 8.5, 8], cost: [55, 55, 55, 55, 55], ai: 'aoe',
+        text: 'BIG area: slams the ground, dealing {dmg} physical damage to every enemy in a wide circle and slowing them by 30% for 1.5s.' },
+      { key: 'E', name: 'Gallop', icon: 'horseshoe', kind: 'sprint', type: 'self', innate: true, ms: [0.4, 0.46, 0.52, 0.58, 0.64], dur: 3, color: '#ffd23f', cd: [14, 13, 12, 11, 10], cost: [0, 0, 0, 0, 0], ai: 'sprint',
+        text: 'Gallops like a (very small) horse. Gains {ms} movement speed for 3s and runs through units. Free, and it ranks up by itself as you level.' },
+      { key: 'R', name: 'Shield Boomerang', icon: 'shieldthrow', kind: 'boomerang', type: 'skillshot', range: 10, width: 1.7, speed: 24, stun: 0.6, color: '#3a86ff', dmg: [60, 95, 130, 165, 200], ad: 0.5, dtype: 'phys', cd: [14, 13, 12, 11, 10], cost: [60, 60, 60, 60, 60], ai: 'nuke',
+        text: 'Throws the shield like a boomerang. It hits every enemy on the way out AND on the way back for {dmg} physical damage, and the first hero hit is stunned for 0.6s.' },
+      { key: 'T', name: 'Royal Bean', icon: 'crown', type: 'self', radius: 5.5, dmg: [150, 250, 350], ap: 0.5, dtype: 'magic', bonusHp: [300, 500, 700], resist: [30, 45, 60], cd: [110, 95, 80], cost: [100, 100, 100], ai: 'ult',
         text: 'Grows huge for 10s, gaining 300/500/700 health and 30/45/60 armor and magic resist, and smashes the ground for {dmg} magic damage (+5% max health), knocking enemies up.' }
     ],
     items: ['potion', 'treads', 'bulwark', 'cape', 'belt', 'shell']
@@ -67,13 +71,15 @@ export const HEROES = [
     stats: { hp: [560, 92], mana: [320, 40], ad: [66, 3.6], armor: [28, 4.2], mr: [30, 2.0], as: [0.68, 0.03], range: 2.1, ms: 8.28, hpRegen: [1.8, 0.16], manaRegen: [1.8, 0.12] },
     proj: null, hitColor: '#c77dff',
     abilities: [
-      { key: 'Q', name: 'Shadow Throw', icon: 'shuriken', type: 'skillshot', range: 10, width: 0.8, speed: 34, dmg: [75, 115, 155, 195, 235], ad: 0.9, dtype: 'phys', cd: [5, 5, 5, 5, 5], cost: [30, 30, 30, 30, 30], ai: 'nuke',
-        text: 'Throws a fast shuriken that deals {dmg} physical damage to the first enemy hit.' },
-      { key: 'W', name: 'Smoke Bomb', icon: 'smoke', type: 'ground', range: 5, radius: 4, cd: [18, 17, 16, 15, 14], cost: [60, 60, 60, 60, 60], ai: 'escape',
-        text: 'Drops a smoke cloud for 4s. Inside it the Ninja is invisible and 20% faster, and enemies are slowed by 25%.' },
-      { key: 'E', name: 'Shadow Dash', icon: 'dash', type: 'ground', range: 7, dmg: [50, 75, 100, 125, 150], ad: 0.4, dtype: 'phys', cd: [12, 11, 10, 9, 8], cost: [40, 40, 40, 40, 40], ai: 'engage',
-        text: 'Dashes to a spot, dealing {dmg} physical damage to enemies passed through. The next basic attack within 3s deals 40% bonus damage.' },
-      { key: 'R', name: 'Shadow Clones', icon: 'clones', type: 'self', dur: [6, 7, 8], pct: [0.35, 0.45, 0.55], cd: [100, 85, 70], cost: [100, 100, 100], ai: 'ult',
+      { key: 'Q', name: 'Triple Shuriken', icon: 'shuriken3', kind: 'bolt', type: 'skillshot', count: 3, spread: 0.17, range: 10, width: 0.8, speed: 34, shape: 'star', spin: 22, splash: 1.0, color: '#c77dff', dmg: [50, 80, 110, 140, 170], ad: 0.6, dtype: 'phys', cd: [6, 5.5, 5, 4.5, 4], cost: [35, 35, 35, 35, 35], ai: 'nuke',
+        text: 'STRONG Q: throws 3 shurikens in a fan. Each deals {dmg} physical damage to the first enemy it hits (extra shurikens on the same target deal 50%).' },
+      { key: 'W', name: 'Spin Slash', icon: 'spinslash', kind: 'nova', type: 'self', radius: 3.2, spin: true, color: '#c77dff', dmg: [60, 95, 130, 165, 200], ad: 0.7, dtype: 'phys', cd: [9, 8.5, 8, 7.5, 7], cost: [45, 45, 45, 45, 45], ai: 'aoe',
+        text: 'Small area: spins with both blades, dealing {dmg} physical damage to enemies close around the Ninja.' },
+      { key: 'E', name: 'Shadow Step', icon: 'dash', kind: 'sprint', type: 'self', innate: true, ms: [0.4, 0.46, 0.52, 0.58, 0.64], dur: 3, color: '#7b2cbf', cd: [14, 13, 12, 11, 10], cost: [0, 0, 0, 0, 0], ai: 'sprint',
+        text: 'Runs like a shadow. Gains {ms} movement speed for 3s and runs through units. Free, and it ranks up by itself as you level.' },
+      { key: 'R', name: 'Shadow Strike', icon: 'shadowstrike', kind: 'shadowstrike', type: 'unit', range: 8, color: '#c77dff', dmg: [70, 110, 150, 190, 230], ad: 0.8, dtype: 'phys', cd: [16, 15, 14, 13, 12], cost: [60, 60, 60, 60, 60], ai: 'engage',
+        text: 'Teleports behind an enemy and stabs it for {dmg} physical damage, then turns invisible for 1s. The next basic attack deals 40% bonus damage.' },
+      { key: 'T', name: 'Shadow Clones', icon: 'clones', type: 'self', dur: [6, 7, 8], pct: [0.35, 0.45, 0.55], cd: [100, 85, 70], cost: [100, 100, 100], ai: 'ult',
         text: 'Summons 3 shadow clones for 6/7/8s that attack nearby enemies for 35/45/55% of the Ninja\'s damage. Gains 25% movement speed for 3s.' }
     ],
     items: ['potion', 'knife', 'fangs', 'sneakers', 'blade', 'bulwark']
@@ -85,13 +91,15 @@ export const HEROES = [
     stats: { hp: [620, 100], mana: [290, 40], ad: [65, 3.6], armor: [33, 4.4], mr: [32, 2.0], as: [0.64, 0.026], range: 2.3, ms: 7.93, hpRegen: [2.1, 0.2], manaRegen: [1.5, 0.1] },
     proj: null, hitColor: '#7bd389',
     abilities: [
-      { key: 'Q', name: 'Tail Swipe', icon: 'tail', type: 'self', radius: 3.4, dmg: [60, 100, 140, 180, 220], ad: 0.9, dtype: 'phys', cd: [7, 6.5, 6, 5.5, 5], cost: [35, 35, 35, 35, 35], ai: 'aoe',
-        text: 'Spins and swings the tail, dealing {dmg} physical damage around Rexy and healing 4% max health per hero hit.' },
-      { key: 'W', name: 'Roar', icon: 'roar', type: 'self', radius: 6, cd: [15, 14, 13, 12, 11], cost: [50, 50, 50, 50, 50], ai: 'aoe',
-        text: 'Lets out a huge roar that slows nearby enemies by 40% for 2s. They deal 20% less damage for 3s.' },
-      { key: 'E', name: 'Stomp', icon: 'stomp', type: 'ground', range: 7, radius: 3.5, dmg: [70, 110, 150, 190, 230], ad: 0.6, dtype: 'phys', cd: [14, 13, 12, 11, 10], cost: [60, 60, 60, 60, 60], ai: 'engage',
-        text: 'Jumps to a spot and lands with a shockwave, dealing {dmg} physical damage and stunning enemies for 0.8s.' },
-      { key: 'R', name: 'Giant Dino', icon: 'dinohead', type: 'self', bonusHp: [300, 450, 600], adPct: [0.35, 0.5, 0.65], cd: [110, 95, 80], cost: [100, 100, 100], ai: 'ultbuff',
+      { key: 'Q', name: 'Rock Throw', icon: 'rock', kind: 'bolt', type: 'skillshot', count: 1, range: 9, width: 1.1, speed: 24, shape: 'rock', spin: 8, splash: 1.6, slow: 0.25, color: '#a1887f', dmg: [80, 125, 170, 215, 260], ad: 1.0, dtype: 'phys', cd: [7, 6.5, 6, 5.5, 5], cost: [40, 40, 40, 40, 40], ai: 'nuke',
+        text: 'Hurls a big rock: {dmg} physical damage to the first enemy hit and a 25% slow. Only enemies right next to it also get hit (60%).' },
+      { key: 'W', name: 'Tail Quake', icon: 'tail', kind: 'nova', type: 'self', radius: 5, knock: 2, spin: true, crack: true, color: '#7bd389', dmg: [60, 95, 130, 165, 200], ad: 0.6, dtype: 'phys', cd: [10, 9.5, 9, 8.5, 8], cost: [50, 50, 50, 50, 50], ai: 'aoe',
+        text: 'BIG area: spins and slams the tail down, dealing {dmg} physical damage to all enemies in a wide circle and knocking them back.' },
+      { key: 'E', name: 'Stampede', icon: 'stomp', kind: 'sprint', type: 'self', innate: true, ms: [0.4, 0.46, 0.52, 0.58, 0.64], dur: 3, color: '#a1887f', cd: [14, 13, 12, 11, 10], cost: [0, 0, 0, 0, 0], ai: 'sprint',
+        text: 'Stomps along at full dino speed. Gains {ms} movement speed for 3s and runs through units. Free, and it ranks up by itself as you level.' },
+      { key: 'R', name: 'Rock Fissure', icon: 'fissure', kind: 'fissure', type: 'skillshot', range: 11, width: 2.4, speed: 40, color: '#a1887f', dmg: [70, 110, 150, 190, 230], ad: 0.6, dtype: 'phys', cd: [15, 14, 13, 12, 11], cost: [60, 60, 60, 60, 60], ai: 'nuke',
+        text: 'Cracks the ground in a straight line. Rock spikes burst up along it, dealing {dmg} physical damage and knocking every enemy up for 0.6s.' },
+      { key: 'T', name: 'Giant Dino', icon: 'dinohead', type: 'self', bonusHp: [300, 450, 600], adPct: [0.35, 0.5, 0.65], cd: [110, 95, 80], cost: [100, 100, 100], ai: 'ultbuff',
         text: 'Grows giant for 10s: gains 300/450/600 health and 35/50/65% attack damage, and basic attacks splash around the target.' }
     ],
     items: ['potion', 'knife', 'treads', 'belt', 'fangs', 'bulwark']
@@ -103,13 +111,15 @@ export const HEROES = [
     stats: { hp: [600, 96], mana: [300, 40], ad: [67, 3.7], armor: [31, 4.3], mr: [32, 2.0], as: [0.68, 0.03], range: 2.2, ms: 8.05, hpRegen: [2.0, 0.18], manaRegen: [1.6, 0.1] },
     proj: null, hitColor: '#9fd8ff',
     abilities: [
-      { key: 'Q', name: 'Jaw Snap', icon: 'jaws', type: 'unit', range: 6, dmg: [70, 105, 140, 175, 210], ad: 1.0, dtype: 'phys', cd: [8, 7.5, 7, 6.5, 6], cost: [40, 40, 40, 40, 40], ai: 'engage',
-        text: 'Lunges at an enemy and bites for {dmg} physical damage, healing for 30% of the damage. Double damage against targets below 40% health.' },
-      { key: 'W', name: 'Riptide', icon: 'wave', type: 'skillshot', range: 9, width: 2.2, speed: 20, pierce: true, dmg: [60, 95, 130, 165, 200], ap: 0.5, ad: 0.3, dtype: 'magic', cd: [10, 10, 10, 10, 10], cost: [55, 55, 55, 55, 55], ai: 'nuke',
-        text: 'Sends out a wave that deals {dmg} magic damage to all enemies it passes and slows them by 35% for 2s.' },
-      { key: 'E', name: 'Fin Rush', icon: 'fin', type: 'self', ms: [0.5, 0.55, 0.6, 0.65, 0.7], cd: [14, 13, 12, 11, 10], cost: [45, 45, 45, 45, 45], ai: 'engage',
-        text: 'Gains 50-70% movement speed for 3s and moves through units. The next basic attack knocks the target up for 0.6s.' },
-      { key: 'R', name: 'Feeding Frenzy', icon: 'frenzy', type: 'self', as: [0.5, 0.7, 0.9], cd: [100, 85, 70], cost: [100, 100, 100], ai: 'ultbuff',
+      { key: 'Q', name: 'Double Bite', icon: 'jaws', kind: 'lunge', type: 'unit', range: 5.5, hits: 2, splash: 1.2, lifesteal: 0.25, bite: true, color: '#9fd8ff', dmg: [45, 70, 95, 120, 145], ad: 0.6, dtype: 'phys', cd: [7, 6.5, 6, 5.5, 5], cost: [40, 40, 40, 40, 40], ai: 'nuke',
+        text: 'STRONG Q: lunges at an enemy and bites TWICE, each bite dealing {dmg} physical damage. Heals for 25% of the damage.' },
+      { key: 'W', name: 'Splash Down', icon: 'wave', kind: 'nova', type: 'self', radius: 3.8, slow: 0.35, water: true, color: '#4d9de0', dmg: [60, 95, 130, 165, 200], ad: 0.5, ap: 0.3, dtype: 'magic', cd: [10, 9.5, 9, 8.5, 8], cost: [50, 50, 50, 50, 50], ai: 'aoe',
+        text: 'Small area: belly-flops and splashes water around, dealing {dmg} magic damage to nearby enemies and slowing them by 35% for 1.5s.' },
+      { key: 'E', name: 'Surf Rush', icon: 'fin', kind: 'sprint', type: 'self', innate: true, ms: [0.4, 0.46, 0.52, 0.58, 0.64], dur: 3, color: '#9fd8ff', cd: [14, 13, 12, 11, 10], cost: [0, 0, 0, 0, 0], ai: 'sprint',
+        text: 'Surfs over the ground. Gains {ms} movement speed for 3s and runs through units. Free, and it ranks up by itself as you level.' },
+      { key: 'R', name: 'Deep Dive', icon: 'dive', kind: 'deepdive', type: 'ground', range: 10, radius: 3.2, color: '#4d9de0', dmg: [70, 110, 150, 190, 230], ad: 0.6, dtype: 'phys', cd: [16, 15, 14, 13, 12], cost: [60, 60, 60, 60, 60], ai: 'engage',
+        text: 'Dives under the ground (nothing can hit Chomps) and swims to a spot, then bursts out, dealing {dmg} physical damage and knocking enemies up for 0.75s.' },
+      { key: 'T', name: 'Feeding Frenzy', icon: 'frenzy', type: 'self', as: [0.5, 0.7, 0.9], cd: [100, 85, 70], cost: [100, 100, 100], ai: 'ultbuff',
         text: 'Goes into a frenzy for 7s: gains 50/70/90% attack speed and 20% life steal, and basic attacks deal 5% of the target\'s missing health as bonus damage.' }
     ],
     items: ['potion', 'fangs', 'sneakers', 'stormbow', 'belt', 'bulwark']
@@ -121,13 +131,15 @@ export const HEROES = [
     stats: { hp: [520, 86], mana: [400, 50], ad: [52, 3.0], armor: [22, 4.0], mr: [30, 1.4], as: [0.62, 0.018], range: 6.2, ms: 7.82, hpRegen: [1.6, 0.12], manaRegen: [2.4, 0.16] },
     proj: { color: '#7df9ff', size: 0.35, speed: 26 }, hitColor: '#7df9ff',
     abilities: [
-      { key: 'Q', name: 'Laser Shot', icon: 'laser', type: 'skillshot', range: 11, width: 0.8, speed: 30, dmg: [80, 125, 170, 215, 260], ap: 0.75, dtype: 'magic', cd: [6, 5.5, 5, 4.5, 4], cost: [50, 55, 60, 65, 70], ai: 'nuke',
-        text: 'Fires an energy laser that deals {dmg} magic damage to the first enemy hit.' },
-      { key: 'W', name: 'Gravity Field', icon: 'planet', type: 'ground', range: 9, radius: 4, dmg: [20, 30, 40, 50, 60], ap: 0.15, dtype: 'magic', cd: [14, 13, 12, 11, 10], cost: [70, 70, 70, 70, 70], ai: 'aoe',
-        text: 'Creates a gravity field for 3s that slows enemies by 40% and deals {dmg} magic damage every half second.' },
-      { key: 'E', name: 'Space Dash', icon: 'sparkle', type: 'ground', range: 6.5, cd: [18, 16.5, 15, 13.5, 12], cost: [60, 60, 60, 60, 60], ai: 'escape',
-        text: 'Teleports a short distance in a flash of stars.' },
-      { key: 'R', name: 'Black Hole', icon: 'blackhole', type: 'ground', range: 10, radius: 6.5, dmg: [150, 250, 350], ap: 0.6, tick: [30, 50, 70], dtype: 'magic', cd: [120, 100, 80], cost: [100, 100, 100], ai: 'ult',
+      { key: 'Q', name: 'Plasma Bolt', icon: 'laser', kind: 'bolt', type: 'skillshot', count: 1, range: 11, width: 0.8, speed: 32, shape: 'laser', splash: 1.5, color: '#7df9ff', dmg: [80, 125, 170, 215, 260], ap: 0.8, dtype: 'magic', cd: [6, 5.5, 5, 4.5, 4], cost: [45, 50, 55, 60, 65], ai: 'nuke',
+        text: 'Fires a plasma bolt: {dmg} magic damage to the first enemy hit. Only enemies right next to it also get hit (60%).' },
+      { key: 'W', name: 'Meteor Strike', icon: 'meteor', kind: 'blast', type: 'ground', range: 10, radius: 5.5, delay: 0.7, drop: 'meteor', slow: 0.3, color: '#ff8c42', dmg: [60, 95, 130, 165, 200], ap: 0.6, dtype: 'magic', cd: [11, 10.5, 10, 9.5, 9], cost: [65, 65, 65, 65, 65], ai: 'aoe',
+        text: 'BIG area: calls down a meteor that crashes after 0.7s, dealing {dmg} magic damage to all enemies in a wide circle and slowing them by 30%.' },
+      { key: 'E', name: 'Jetpack', icon: 'jetpack', kind: 'sprint', type: 'self', innate: true, ms: [0.4, 0.46, 0.52, 0.58, 0.64], dur: 3, color: '#ff8c42', cd: [14, 13, 12, 11, 10], cost: [0, 0, 0, 0, 0], ai: 'sprint',
+        text: 'Fires up the jetpack. Gains {ms} movement speed for 3s and runs through units. Free, and it ranks up by itself as you level.' },
+      { key: 'R', name: 'Satellite Orbit', icon: 'planet', kind: 'satellite', type: 'self', radius: 3.4, dur: 5, color: '#7df9ff', dmg: [35, 50, 65, 80, 95], ap: 0.25, dtype: 'magic', cd: [16, 15, 14, 13, 12], cost: [70, 70, 70, 70, 70], ai: 'aoe',
+        text: 'Three little satellites orbit Nova for 5s. Each one deals {dmg} magic damage to enemies it touches (the same enemy can be hit every 0.5s).' },
+      { key: 'T', name: 'Black Hole', icon: 'blackhole', type: 'ground', range: 10, radius: 6.5, dmg: [150, 250, 350], ap: 0.6, tick: [30, 50, 70], dtype: 'magic', cd: [120, 100, 80], cost: [100, 100, 100], ai: 'ult',
         text: 'Opens a black hole for 3s that pulls enemies toward its center and deals 30/50/70 magic damage four times a second, then collapses for {dmg} magic damage.' }
     ],
     items: ['potion', 'megawand', 'slippers', 'cosmichat', 'cape', 'staff']
@@ -139,13 +151,15 @@ export const HEROES = [
     stats: { hp: [540, 88], mana: [320, 38], ad: [60, 3.2], armor: [24, 4.0], mr: [30, 1.4], as: [0.66, 0.03], range: 6.5, ms: 7.82, hpRegen: [1.7, 0.14], manaRegen: [1.6, 0.1] },
     proj: { color: '#e53935', size: 0.32, speed: 28 }, hitColor: '#e53935',
     abilities: [
-      { key: 'Q', name: 'Ketchup Blast', icon: 'ketchup', type: 'skillshot', range: 9, width: 0.9, speed: 24, radius: 2.2, dmg: [60, 95, 130, 165, 200], ad: 1.0, ap: 0.3, dtype: 'phys', cd: [7, 6.5, 6, 5.5, 5], cost: [45, 45, 45, 45, 45], ai: 'nuke',
-        text: 'Squirts a blob of ketchup that splashes on the first enemy hit, dealing {dmg} physical damage to everyone nearby.' },
-      { key: 'W', name: 'Mustard Slick', icon: 'mustard', type: 'ground', range: 8, radius: 3.5, dmg: [15, 25, 35, 45, 55], ap: 0.2, dtype: 'magic', cd: [16, 15, 14, 13, 12], cost: [60, 60, 60, 60, 60], ai: 'aoe',
-        text: 'Covers the ground in mustard for 4s. Enemies in it are slowed by 45% and take {dmg} magic damage every second.' },
-      { key: 'E', name: 'Sizzle Roll', icon: 'flame', type: 'ground', range: 6, cd: [14, 12.5, 11, 9.5, 8], cost: [40, 40, 40, 40, 40], ai: 'escape',
-        text: 'Rolls a short distance. The next basic attack within 3s is a guaranteed critical hit.' },
-      { key: 'R', name: 'Hot Dog Rain', icon: 'hotdograin', type: 'ground', range: 12, radius: 5, dmg: [70, 110, 150], ad: 0.4, dtype: 'phys', cd: [100, 85, 70], cost: [100, 100, 100], ai: 'ult',
+      { key: 'Q', name: 'Ketchup Cannon', icon: 'ketchup', kind: 'bolt', type: 'skillshot', count: 1, range: 12, width: 1.0, speed: 26, shape: 'blob', splash: 2.6, splashPct: 0.75, splat: '#e53935', color: '#e53935', dmg: [75, 115, 155, 195, 235], ad: 0.9, dtype: 'phys', cd: [7, 6.5, 6, 5.5, 5], cost: [45, 45, 45, 45, 45], ai: 'nuke',
+        text: 'STRONG Q: fires a huge ketchup blob with extra long range. {dmg} physical damage to the first enemy hit, and it splashes wide: enemies near it take 75%.' },
+      { key: 'W', name: 'Mustard Bomb', icon: 'mustard', kind: 'blast', type: 'ground', range: 8, radius: 3.6, delay: 0.45, drop: 'bottle', slow: 0.45, splat: '#ffcc00', color: '#ffd23f', dmg: [60, 95, 130, 165, 200], ad: 0.5, ap: 0.3, dtype: 'magic', cd: [10, 9.5, 9, 8.5, 8], cost: [50, 50, 50, 50, 50], ai: 'aoe',
+        text: 'Small area: lobs a mustard bottle that bursts for {dmg} magic damage and a 45% slow for 1.5s.' },
+      { key: 'E', name: 'Sizzle Sprint', icon: 'flame', kind: 'sprint', type: 'self', innate: true, ms: [0.4, 0.46, 0.52, 0.58, 0.64], dur: 3, color: '#ff8c42', cd: [14, 13, 12, 11, 10], cost: [0, 0, 0, 0, 0], ai: 'sprint',
+        text: 'Runs so fast it leaves a trail of flames. Gains {ms} movement speed for 3s and runs through units. Free, and it ranks up by itself as you level.' },
+      { key: 'R', name: 'Grill Turret', icon: 'grill', kind: 'grill', type: 'ground', range: 7, dur: 6, color: '#ff8c42', dmg: [30, 45, 60, 75, 90], ad: 0.3, dtype: 'phys', cd: [18, 17, 16, 15, 14], cost: [70, 70, 70, 70, 70], ai: 'trap',
+        text: 'Sets up a hot grill turret for 6s. It shoots a sizzling sausage at the nearest enemy every 0.6s for {dmg} physical damage.' },
+      { key: 'T', name: 'Hot Dog Rain', icon: 'hotdograin', type: 'ground', range: 12, radius: 5, dmg: [70, 110, 150], ad: 0.4, dtype: 'phys', cd: [100, 85, 70], cost: [100, 100, 100], ai: 'ult',
         text: 'Calls down 8 giant hot dogs over 2s. Each one deals {dmg} physical damage where it lands and slows by 30%.' }
     ],
     items: ['potion', 'stormbow', 'sneakers', 'blade', 'fangs', 'cape']
@@ -157,13 +171,15 @@ export const HEROES = [
     stats: { hp: [530, 86], mana: [310, 38], ad: [58, 3.1], armor: [23, 3.9], mr: [30, 1.4], as: [0.68, 0.032], range: 7, ms: 7.93, hpRegen: [1.7, 0.14], manaRegen: [1.6, 0.1] },
     proj: { color: '#dfe7ef', size: 0.28, speed: 30, feather: true }, hitColor: '#dfe7ef',
     abilities: [
-      { key: 'Q', name: 'Feather Fan', icon: 'feathers', type: 'skillshot', range: 8, width: 0.6, speed: 28, dmg: [45, 70, 95, 120, 145], ad: 0.6, dtype: 'phys', cd: [8, 7, 6, 5, 4], cost: [40, 40, 40, 40, 40], ai: 'nuke',
-        text: 'Flaps out a fan of 5 feathers. Each deals {dmg} physical damage (extra feathers on the same target deal 50%).' },
-      { key: 'W', name: 'Coo Frenzy', icon: 'bird', type: 'self', as: [0.4, 0.5, 0.6, 0.7, 0.8], cd: [14, 13, 12, 11, 10], cost: [50, 50, 50, 50, 50], ai: 'buff',
-        text: 'Gains 40-80% attack speed for 4s, and basic attacks bounce to a second enemy for 50% damage.' },
-      { key: 'E', name: 'Flutter', icon: 'wing', type: 'ground', range: 5.5, cd: [15, 13.5, 12, 10.5, 9], cost: [45, 45, 45, 45, 45], ai: 'escape',
-        text: 'Flutters to a spot. Enemies near the starting point are slowed by 40% for 1.5s.' },
-      { key: 'R', name: 'Sky Dive', icon: 'comet', type: 'ground', range: 14, radius: 4.5, dmg: [200, 325, 450], ad: 0.8, dtype: 'phys', cd: [90, 75, 60], cost: [100, 100, 100], ai: 'ult',
+      { key: 'Q', name: 'Bouncing Feather', icon: 'feathers', kind: 'bounce', type: 'unit', range: 8, bounces: 2, bounceR: 5, color: '#dfe7ef', dmg: [80, 125, 170, 215, 260], ad: 0.9, dtype: 'phys', cd: [7, 6.5, 6, 5.5, 5], cost: [40, 40, 40, 40, 40], ai: 'nuke',
+        text: 'STRONG Q: flings a sharp feather at an enemy for {dmg} physical damage. If more enemies are close by, it bounces to 2 more of them (65% damage per bounce).' },
+      { key: 'W', name: 'Wing Gust', icon: 'wing', kind: 'cone', type: 'ground', range: 6, radius: 6, arc: 1.4, knock: 2.5, color: '#dfe7ef', dmg: [60, 95, 130, 165, 200], ad: 0.6, dtype: 'phys', cd: [10, 9.5, 9, 8.5, 8], cost: [50, 50, 50, 50, 50], ai: 'aoe',
+        text: 'Cone: flaps a strong gust of wind in front of Coo, dealing {dmg} physical damage and pushing enemies back.' },
+      { key: 'E', name: 'Tailwind', icon: 'wingboot', kind: 'sprint', type: 'self', innate: true, ms: [0.4, 0.46, 0.52, 0.58, 0.64], dur: 3, color: '#dfe7ef', cd: [14, 13, 12, 11, 10], cost: [0, 0, 0, 0, 0], ai: 'sprint',
+        text: 'Rides the wind. Gains {ms} movement speed for 3s and runs through units. Free, and it ranks up by itself as you level.' },
+      { key: 'R', name: 'Pigeon Flock', icon: 'bird', kind: 'flock', type: 'self', radius: 9, count: 6, color: '#9aa5b1', dmg: [40, 60, 80, 100, 120], ad: 0.35, dtype: 'phys', cd: [15, 14, 13, 12, 11], cost: [60, 60, 60, 60, 60], ai: 'aoe',
+        text: 'Whistles for 6 pigeon friends that fly at enemies nearby. Each one deals {dmg} physical damage and slows by 20%. Several can hit the same enemy.' },
+      { key: 'T', name: 'Sky Dive', icon: 'comet', type: 'ground', range: 14, radius: 4.5, dmg: [200, 325, 450], ad: 0.8, dtype: 'phys', cd: [90, 75, 60], cost: [100, 100, 100], ai: 'ult',
         text: 'Flies up out of reach and dive-bombs a spot, dealing {dmg} physical damage and slowing enemies by 50% for 2s.' }
     ],
     items: ['potion', 'stormbow', 'sneakers', 'blade', 'fangs', 'bulwark']
@@ -175,13 +191,15 @@ export const HEROES = [
     stats: { hp: [540, 88], mana: [380, 48], ad: [50, 2.8], armor: [26, 4.0], mr: [30, 1.4], as: [0.62, 0.02], range: 5.6, ms: 8.28, hpRegen: [1.8, 0.14], manaRegen: [2.2, 0.16] },
     proj: { color: '#ffe14d', size: 0.3, speed: 24 }, hitColor: '#ffe14d',
     abilities: [
-      { key: 'Q', name: 'Peel Trap', icon: 'peel', type: 'ground', range: 8, dmg: [50, 80, 110, 140, 170], ap: 0.4, dtype: 'magic', stun: [1.0, 1.1, 1.2, 1.3, 1.4], cd: [9, 8, 7, 6, 5], cost: [50, 50, 50, 50, 50], ai: 'trap',
-        text: 'Drops a banana peel (up to 3, lasts 30s). The first enemy to step on it slips: {dmg} magic damage and stunned for 1-1.4s.' },
-      { key: 'W', name: 'Smoothie', icon: 'smoothie', type: 'ally', range: 7, heal: [70, 100, 130, 160, 190], ap: 0.4, cd: [12, 11, 10, 9, 8], cost: [70, 70, 70, 70, 70], ai: 'heal',
-        text: 'Shares a smoothie: heals Peely and an ally for {heal}.' },
-      { key: 'E', name: 'Slide', icon: 'slide', type: 'ground', range: 8, cd: [14, 13, 12, 11, 10], cost: [50, 50, 50, 50, 50], ai: 'escape',
-        text: 'Slides to a spot and leaves a slippery trail for 3s: enemies on it are slowed by 40%, allies get 30% movement speed.' },
-      { key: 'R', name: 'Banana Split', icon: 'split', type: 'ground', range: 10, radius: 6, dmg: [150, 250, 350], ap: 0.5, dtype: 'magic', stun: [1.0, 1.25, 1.5], shield: [100, 150, 200], cd: [110, 95, 80], cost: [100, 100, 100], ai: 'ult',
+      { key: 'Q', name: 'Banana Shot', icon: 'peel', kind: 'bolt', type: 'skillshot', count: 1, range: 9, width: 0.9, speed: 26, shape: 'banana', spin: 14, splash: 1.3, slow: 0.25, color: '#ffe14d', dmg: [75, 115, 155, 195, 235], ap: 0.7, dtype: 'magic', cd: [7, 6.5, 6, 5.5, 5], cost: [45, 45, 45, 45, 45], ai: 'nuke',
+        text: 'Throws a spinning banana: {dmg} magic damage to the first enemy hit and a 25% slow. Only enemies right next to it also get hit (60%).' },
+      { key: 'W', name: 'Banana Bomb', icon: 'bananabomb', kind: 'blast', type: 'ground', range: 9, radius: 5.5, delay: 0.6, drop: 'banana', stun: 0.5, color: '#ffe14d', dmg: [55, 90, 125, 160, 195], ap: 0.55, dtype: 'magic', cd: [12, 11.5, 11, 10.5, 10], cost: [60, 60, 60, 60, 60], ai: 'aoe',
+        text: 'BIG area: throws a whole bunch of bananas that bursts over a wide circle: {dmg} magic damage and everyone slips (stunned 0.5s).' },
+      { key: 'E', name: 'Slippery Sprint', icon: 'slide', kind: 'sprint', type: 'self', innate: true, ms: [0.4, 0.46, 0.52, 0.58, 0.64], dur: 3, color: '#ffe14d', cd: [14, 13, 12, 11, 10], cost: [0, 0, 0, 0, 0], ai: 'sprint',
+        text: 'Slides around like only a banana can. Gains {ms} movement speed for 3s and runs through units. Free, and it ranks up by itself as you level.' },
+      { key: 'R', name: 'Smoothie Fountain', icon: 'smoothie', kind: 'fountain', type: 'ground', range: 7, radius: 4.5, dur: 4, color: '#7bd389', heal: [25, 35, 45, 55, 65], ap: 0.12, cd: [18, 17, 16, 15, 14], cost: [70, 70, 70, 70, 70], ai: 'heal',
+        text: 'Places a smoothie fountain for 4s. Allies inside heal {heal} every half second (8 times), and enemies inside are slowed by 25%.' },
+      { key: 'T', name: 'Banana Split', icon: 'split', type: 'ground', range: 10, radius: 6, dmg: [150, 250, 350], ap: 0.5, dtype: 'magic', stun: [1.0, 1.25, 1.5], shield: [100, 150, 200], cd: [110, 95, 80], cost: [100, 100, 100], ai: 'ult',
         text: 'Throws a whole bunch of bananas: enemies in the area slip for 1-1.5s and take {dmg} magic damage. Allies there get a 100/150/200 shield and 30% movement speed.' }
     ],
     items: ['potion', 'staff', 'slippers', 'cape', 'cosmichat', 'bulwark']
@@ -193,13 +211,15 @@ export const HEROES = [
     stats: { hp: [510, 84], mana: [420, 52], ad: [50, 3.0], armor: [21, 4.0], mr: [30, 1.4], as: [0.62, 0.018], range: 6, ms: 7.82, hpRegen: [1.5, 0.12], manaRegen: [2.5, 0.17] },
     proj: { color: '#c77dff', size: 0.34, speed: 25 }, hitColor: '#c77dff',
     abilities: [
-      { key: 'Q', name: 'Star Bolts', icon: 'stars3', type: 'skillshot', range: 10, width: 0.7, speed: 26, dmg: [55, 85, 115, 145, 175], ap: 0.45, dtype: 'magic', cd: [6, 6, 6, 6, 6], cost: [50, 55, 60, 65, 70], ai: 'nuke',
-        text: 'Fires 3 star bolts in a narrow fan. Each deals {dmg} magic damage (extra bolts on the same target deal 50%).' },
-      { key: 'W', name: 'Bunnify', icon: 'bunny', type: 'unit', range: 7, dmg: [40, 70, 100, 130, 160], ap: 0.4, dtype: 'magic', dur: [1.25, 1.4, 1.55, 1.7, 1.85], cd: [16, 15, 14, 13, 12], cost: [80, 80, 80, 80, 80], ai: 'nuke',
-        text: 'Turns an enemy into a harmless bunny for 1.25-1.85s: it cannot attack or cast and is slowed. Deals {dmg} magic damage.' },
-      { key: 'E', name: 'Vanish', icon: 'tophat', type: 'ground', range: 6, cd: [18, 16, 14, 12, 10], cost: [60, 60, 60, 60, 60], ai: 'escape',
-        text: 'Vanishes in a puff and reappears nearby, invisible for 1.25s.' },
-      { key: 'R', name: 'Grand Finale', icon: 'firework', type: 'ground', range: 11, radius: 6.5, dmg: [250, 400, 550], ap: 0.9, dtype: 'magic', cd: [110, 95, 80], cost: [100, 100, 100], ai: 'ult',
+      { key: 'Q', name: 'Magic Missiles', icon: 'stars3', kind: 'missiles', type: 'unit', range: 8, count: 3, splash: 1.0, color: '#c77dff', dmg: [45, 70, 95, 120, 145], ap: 0.4, dtype: 'magic', cd: [6, 5.5, 5, 4.5, 4], cost: [45, 50, 55, 60, 65], ai: 'nuke',
+        text: 'STRONG Q: fires 3 homing magic missiles that never miss. Each deals {dmg} magic damage (2nd and 3rd missile deal 50%).' },
+      { key: 'W', name: 'Arcane Circle', icon: 'runecircle', kind: 'blast', type: 'ground', range: 9, radius: 4.2, delay: 0.5, drop: 'rune', color: '#c77dff', dmg: [60, 95, 130, 165, 200], ap: 0.6, dtype: 'magic', cd: [10, 9.5, 9, 8.5, 8], cost: [60, 60, 60, 60, 60], ai: 'aoe',
+        text: 'Medium area: draws a magic circle that explodes after 0.5s for {dmg} magic damage.' },
+      { key: 'E', name: 'Haste Spell', icon: 'haste', kind: 'sprint', type: 'self', innate: true, ms: [0.4, 0.46, 0.52, 0.58, 0.64], dur: 3, color: '#c77dff', cd: [14, 13, 12, 11, 10], cost: [0, 0, 0, 0, 0], ai: 'sprint',
+        text: 'Casts a speedy spell on itself. Gains {ms} movement speed for 3s and runs through units. Free, and it ranks up by itself as you level.' },
+      { key: 'R', name: 'Chain Spell', icon: 'chain', kind: 'chain', type: 'unit', range: 8, bounces: 4, bounceR: 6, color: '#c77dff', dmg: [80, 120, 160, 200, 240], ap: 0.6, dtype: 'magic', cd: [14, 13, 12, 11, 10], cost: [70, 70, 70, 70, 70], ai: 'nuke',
+        text: 'A crackling spell that jumps from enemy to enemy up to 5 times, dealing {dmg} magic damage to the first and 15% less to each next one.' },
+      { key: 'T', name: 'Grand Finale', icon: 'firework', type: 'ground', range: 11, radius: 6.5, dmg: [250, 400, 550], ap: 0.9, dtype: 'magic', cd: [110, 95, 80], cost: [100, 100, 100], ai: 'ult',
         text: 'Draws a giant magic circle that explodes after 1s for {dmg} magic damage, stunning enemies for 1s.' }
     ],
     items: ['potion', 'megawand', 'slippers', 'cosmichat', 'staff', 'cape']
@@ -211,13 +231,15 @@ export const HEROES = [
     stats: { hp: [580, 94], mana: [360, 46], ad: [52, 2.9], armor: [30, 4.4], mr: [32, 1.8], as: [0.62, 0.02], range: 5.6, ms: 7.82, hpRegen: [2.0, 0.16], manaRegen: [2.0, 0.15] },
     proj: { color: '#00e5ff', size: 0.3, speed: 28 }, hitColor: '#00e5ff',
     abilities: [
-      { key: 'Q', name: 'Laser Beam', icon: 'eyebeam', type: 'skillshot', range: 10, width: 1.2, dmg: [70, 110, 150, 190, 230], ap: 0.6, dtype: 'magic', cd: [8, 7.5, 7, 6.5, 6], cost: [50, 50, 50, 50, 50], ai: 'nuke', beam: true,
-        text: 'Fires a laser beam that hits every enemy in a line for {dmg} magic damage and slows them by 30% for 1.5s.' },
-      { key: 'W', name: 'Force Shield', icon: 'hexshield', type: 'ally', range: 8, shield: [80, 120, 160, 200, 240], ap: 0.5, cd: [12, 11, 10, 9, 8], cost: [60, 60, 60, 60, 60], ai: 'shield',
-        text: 'Projects a force field on an ally (or itself) that blocks {shield} damage for 3s and gives 20% movement speed.' },
-      { key: 'E', name: 'Magnet Grab', icon: 'magnet', type: 'skillshot', range: 10, width: 1.0, speed: 30, dmg: [80, 120, 160, 200, 240], ap: 0.5, dtype: 'magic', cd: [18, 17, 16, 15, 14], cost: [80, 80, 80, 80, 80], ai: 'engage',
-        text: 'Launches a magnet that pulls the first enemy hit to B0-LT, dealing {dmg} magic damage and stunning for 0.5s.' },
-      { key: 'R', name: 'Overdrive', icon: 'bolt', type: 'self', radius: 10, shield: [150, 250, 350], ap: 0.6, cd: [110, 95, 80], cost: [100, 100, 100], ai: 'ultbuff',
+      { key: 'Q', name: 'Laser Bolt', icon: 'eyebeam', kind: 'bolt', type: 'skillshot', count: 1, range: 10, width: 0.9, speed: 34, shape: 'laser', splash: 1.3, color: '#00e5ff', dmg: [75, 115, 155, 195, 235], ap: 0.7, dtype: 'magic', cd: [7, 6.5, 6, 5.5, 5], cost: [45, 45, 45, 45, 45], ai: 'nuke',
+        text: 'Fires a laser bolt: {dmg} magic damage to the first enemy hit. Only enemies right next to it also get hit (60%).' },
+      { key: 'W', name: 'Shock Pulse', icon: 'pulse', kind: 'nova', type: 'self', radius: 5.5, slow: 0.3, zap: true, color: '#00e5ff', dmg: [55, 90, 125, 160, 195], ap: 0.55, dtype: 'magic', cd: [10, 9.5, 9, 8.5, 8], cost: [60, 60, 60, 60, 60], ai: 'aoe',
+        text: 'BIG area: releases an electric pulse that zaps all enemies in a wide circle for {dmg} magic damage and slows them by 30%.' },
+      { key: 'E', name: 'Turbo Boost', icon: 'turbo', kind: 'sprint', type: 'self', innate: true, ms: [0.4, 0.46, 0.52, 0.58, 0.64], dur: 3, color: '#00e5ff', cd: [14, 13, 12, 11, 10], cost: [0, 0, 0, 0, 0], ai: 'sprint',
+        text: 'Switches to turbo wheels. Gains {ms} movement speed for 3s and runs through units. Free, and it ranks up by itself as you level.' },
+      { key: 'R', name: 'Magnet Pulse', icon: 'magnet', kind: 'magnet', type: 'self', radius: 7, stun: 0.6, color: '#e53935', dmg: [60, 95, 130, 165, 200], ap: 0.5, dtype: 'magic', cd: [16, 15, 14, 13, 12], cost: [70, 70, 70, 70, 70], ai: 'aoe',
+        text: 'Switches on a giant magnet: all enemies nearby are yanked next to B0-LT, take {dmg} magic damage and are stunned for 0.6s.' },
+      { key: 'T', name: 'Overdrive', icon: 'bolt', type: 'self', radius: 10, shield: [150, 250, 350], ap: 0.6, cd: [110, 95, 80], cost: [100, 100, 100], ai: 'ultbuff',
         text: 'Overclocks the whole team nearby for 5s: a 150/250/350 shield, 30% movement speed and 30% attack speed.' }
     ],
     items: ['potion', 'staff', 'treads', 'bulwark', 'cape', 'cosmichat']
@@ -295,5 +317,5 @@ export const MINIONS = {
   ranged: { hp: 300, ad: 22, armor: 0, mr: 0, as: 0.75, range: 6, ms: 6.61, gold: 18, xp: 38, radius: 0.6, size: 0.75 },
   siege: { hp: 920, ad: 40, armor: 20, mr: 20, as: 0.55, range: 7, ms: 6.37, gold: 66, xp: 90, radius: 1.0, size: 1.15, towerBonus: 2 }
 };
-export const TOWER = { hp: [1700, 2000, 2300, 1900], ad: 150, armor: 45, mr: 45, as: 0.85, range: 10, radius: 1.8 };
-export const CORE = { hp: 3600, armor: 30, mr: 30, radius: 3.2 };
+export const TOWER = { hp: [1450, 1700, 1950, 1600], ad: 150, armor: 45, mr: 45, as: 0.85, range: 10, radius: 1.8 };
+export const CORE = { hp: 3100, armor: 30, mr: 30, radius: 3.2 };
