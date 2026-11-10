@@ -380,7 +380,7 @@ export class Match {
     while (u.level < RULES.maxLevel && u.xp >= RULES.xpToNext(u.level)) {
       u.xp -= RULES.xpToNext(u.level); u.level++; u.points++;
       u.recalc(); u.mana = Math.min(u.st.maxMana, u.mana + 60);
-      if (u.alive) this.fx.levelUp(_v.set(u.x, this.groundY(u.x, u.z), u.z));
+      if (u.alive) { this.fx.levelUp(_v.set(u.x, this.groundY(u.x, u.z), u.z)); u.popT = 0.45; }
       if (u === this.player) { this.sound('levelup'); this.emit('levelup', u); }
       if (u.bot) u.bot.autoLevel();
     }
@@ -949,7 +949,8 @@ export class Match {
       u.obj.position.set(u.x, y, u.z);
       if (u.kind !== 'tower' && u.kind !== 'core') u.obj.rotation.y = turn(u.obj.rotation.y, u.facing, dt * 12);
       const base = u.hero ? 1.65 : u.kind === 'monster' ? (u.mdef.size || 1) : u.kind === 'clone' ? 1.3 : null;
-      if (base) { const want = base * (u.st.size || 1); const s = u.obj.scale.x + (want - u.obj.scale.x) * Math.min(1, dt * 5); u.obj.scale.setScalar(s); }
+      if (u.popT > 0) u.popT -= dt;
+      if (base) { const want = base * (u.st.size || 1) * (u.popT > 0 ? 1 + Math.sin((1 - u.popT / 0.45) * Math.PI) * 0.14 : 1); const s = u.obj.scale.x + (want - u.obj.scale.x) * Math.min(1, dt * 5); u.obj.scale.setScalar(s); }
       if (u.atkAnim >= 0) { u.atkAnim += dt / Math.max(0.15, Math.min(0.6, 1 / u.st.as)); if (u.atkAnim > 1) u.atkAnim = -1; }
       if (u.spinT > 0) u.spinT -= dt;
       const st = { spin: u.spinT > 0 ? 1 - u.spinT / u.spinMax : -1, speed: u.moving ? u.st.ms : 0, attack: u.atkAnim, melee: u.melee, cast: u.castAnim, dead: !u.alive, stun: u.stunned, air: !!(u.dash && u.dash.arc) || !!air,

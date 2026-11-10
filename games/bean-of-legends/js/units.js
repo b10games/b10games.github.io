@@ -104,6 +104,8 @@ export class Unit {
     S.crit = Math.min(1, add.crit); S.cdr = Math.min(0.45, add.cdr); S.lifesteal = add.lifesteal;
     S.hpRegen = (base.hpRegen || 0) + add.hpRegen; S.manaRegen = (base.manaRegen || 0) + add.manaRegen;
     S.magicPen = add.magicPen; S.thorns = add.thorns; S.healPower = add.healPower;
+    // heroes grow a little with every level (2.5% per level: level 18 is about 40% bigger)
+    if (this.kind === 'hero') size *= 1 + 0.025 * (L - 1);
     S.dr = dr; S.dmgMul = dmgMul; S.size = size;
     // the sprint (E) needs no points: it ranks up by itself every few levels
     if (this.def) this.def.abilities.forEach((ab, i) => { if (ab.innate) this.abil[i].rank = Math.min(5, 1 + Math.floor((this.level - 1) / 4)); });

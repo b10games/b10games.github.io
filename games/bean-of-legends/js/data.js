@@ -17,7 +17,7 @@ export const RULES = {
   dragonFirst: 150, dragonRespawn: 240, bossFirst: 480, bossRespawn: 300,
   recallTime: 5, fountainR: 13, shopR: 19
 };
-export const QUICK = { gold: 1.5, xp: 1.4, towerHp: 0.76, coreHp: 0.86, bossFirst: 330, dragonFirst: 90 };
+export const QUICK = { gold: 1.5, xp: 2.1, towerHp: 0.76, coreHp: 0.86, bossFirst: 330, dragonFirst: 90 };
 
 export const DIFFICULTY = {
   easy: { name: 'EASY', think: 0.42, aim: 0.45, retreat: 0.22, dmg: 0.82, gold: 0.85, spread: 1.4, abilityUse: 0.55 },
