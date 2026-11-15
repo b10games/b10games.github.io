@@ -10,7 +10,7 @@ const BEAM_G = new THREE.CylinderGeometry(1, 1, 1, 10, 1, true); BEAM_G.rotateX(
 const COL_G = new THREE.CylinderGeometry(1, 1, 1, 20, 1, true); COL_G.translate(0, 0.5, 0);
 const SPH_G = new THREE.SphereGeometry(1, 16, 12);
 const RAY_G = new THREE.PlaneGeometry(1, 1); RAY_G.translate(0, 0.5, 0);
-let DECAL_TEX = null;
+let DECAL_TEX = null, DOLLAR_MAT = null;
 function decalTex() {
   if (DECAL_TEX) return DECAL_TEX;
   const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
@@ -140,6 +140,25 @@ export class FX {
     const m = new THREE.Mesh(COL_G, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
     m.position.set(pos.x, pos.y, pos.z); m.scale.set(r, h, r); this.scene.add(m);
     this.temps.push({ m, life, max: life, up: k => { m.material.opacity = 0.55 * (1 - k); m.scale.x = m.scale.z = r * (1 + k * 0.3); } });
+  }
+  // a green $ that floats up and fades (farms)
+  dollar(pos, size = 1, delay = 0) {
+    if (!DOLLAR_MAT) {
+      const c = document.createElement('canvas'); c.width = c.height = 96; const g = c.getContext('2d');
+      g.font = '900 78px Nunito, Arial Black, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.lineWidth = 10; g.strokeStyle = '#14532d'; g.strokeText('$', 48, 52); g.fillStyle = '#4ade80'; g.fillText('$', 48, 52);
+      g.fillStyle = 'rgba(255,255,255,.55)'; g.fillText('$', 46, 49); g.globalCompositeOperation = 'source-atop'; g.fillStyle = '#22c55e'; g.fillRect(0, 54, 96, 42);
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; DOLLAR_MAT = new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false });
+    }
+    const sp = new THREE.Sprite(DOLLAR_MAT.clone()), start = pos.clone(), drift = (Math.random() - 0.5) * 0.8;
+    sp.scale.setScalar(0.001); sp.renderOrder = 15; sp.position.copy(start);
+    this.temp(sp, 1.3 + delay, k => {
+      const t = Math.max(0, (k * (1.3 + delay) - delay) / 1.3);
+      const pop = t < 0.15 ? t / 0.15 * 1.25 : 1.25 - Math.min(0.25, (t - 0.15) * 1.2);
+      sp.scale.setScalar(size * 1.1 * pop * (t > 0 ? 1 : 0.001));
+      sp.position.set(start.x + Math.sin(t * 6) * 0.15 + drift * t, start.y + t * 2.6, start.z);
+      sp.material.opacity = t < 0.7 ? 1 : 1 - (t - 0.7) / 0.3;
+    });
   }
   // run fn after a delay in game time (so it waits while the game is paused)
   later(delay, fn) { let done = false; this.temp(new THREE.Object3D(), delay, k => { if (k >= 1 && !done) { done = true; fn(); } }); }

@@ -87,6 +87,7 @@ export class UI {
       const s = t.stats;
       stats = [stat('damage', 'DAMAGE', s.dmg + (s.dot ? ` <span class="sm">+${s.dot}/s acid</span>` : '') + (s.bossMul > 1 ? ` <span class="sm">x${s.bossMul} boss</span>` : '')),
         stat('rate', 'ATTACKS / SEC', (1 / s.cd).toFixed(2)), stat('range', 'RANGE', s.range > 100 ? 'Map' : s.range.toFixed(1)),
+        d.kind === 'wind' ? stat('slow', 'PUSH BACK', s.push.toFixed(1)) : d.kind === 'support' ? stat('rate', 'BEANS FASTER', '+' + Math.round(s.boost * 100) + '%') : d.proj === 'fire' ? stat('blast', 'BURN / SEC', s.dot) :
         d.kind === 'bomb' || d.kind === 'cannon' ? stat('blast', 'BLAST SIZE', s.radius.toFixed(1)) : d.kind === 'ice' ? stat('freeze', 'FREEZE', s.freeze.toFixed(1) + 's') : d.kind === 'glue' ? stat('slow', 'SLOW', Math.round(s.slow * 100) + '%') : d.kind === 'chain' ? stat('pierce', 'JUMPS', s.chain) : d.kind === 'hitscan' ? stat('pierce', 'BOUNCES', s.ricochet || 0) : stat('pierce', 'PIERCE', s.pierce + (s.count > 1 ? ` <span class="sm">x${s.count}</span>` : '')),
         stat('pop', 'POPPED', fmt(t.pops)), stat('coinstack', 'SPENT', fmt(t.spent))].join('');
     }

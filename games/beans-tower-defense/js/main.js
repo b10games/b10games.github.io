@@ -2,7 +2,7 @@
 // mouse + touch controls (iPad friendly) and the main loop.
 import { THREE, createRenderer, applyQuality, makeWorldScene, clamp, damp, rng } from './engine.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { DIFFS, MAPS, MAP, BEANS, BEAN, FARMS, FARM, BALLOONS, BALLOON_ORDER, FIELD, STARTERS, TEAM_SIZE, ROUND_OPTIONS, coinsFor } from './data.js';
+import { DIFFS, MAPS, MAP, BEANS, BEAN, FARMS, FARM, BALLOONS, BALLOON_ORDER, FIELD, STARTERS, TEAM_SIZE, ROUND_OPTIONS, coinsFor, beanStats, upgradePrice, priceOf } from './data.js';
 import { buildMap } from './map.js';
 import { FX } from './fx.js';
 import { Audio, MUSIC } from './audio.js';
@@ -12,6 +12,7 @@ import { Bean, TowerBean, FarmModel, ACCESSORIES, setFace, dance, DANCES } from 
 import { icon, fillIcons } from './icons.js';
 import { UI, $ } from './ui.js';
 import { Ambient } from './ambient.js';
+import { BeanPreview } from './preview.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -168,7 +169,8 @@ function makeThumb(def) {
 }
 
 // ---------- the Bean Shop (buy beans and farms with Bean Coins, pick your team) ----------
-const KIND_NAME = { dart: 'Darts', hitscan: 'Long range shots', boom: 'Boomerang', bomb: 'Explosions', ice: 'Freezing', tack: 'Tack ring', glue: 'Slowing glue', laser: 'Laser beam', chain: 'Chain lightning', magic: 'Homing magic', cannon: 'Heavy cannon' };
+const KIND_NAME = { dart: 'Darts', hitscan: 'Long range shots', boom: 'Boomerang', bomb: 'Explosions', ice: 'Freezing', tack: 'Tack ring', glue: 'Slowing glue', laser: 'Laser beam', chain: 'Chain lightning', magic: 'Homing magic', cannon: 'Heavy cannon', wind: 'Blows balloons back', support: 'Makes beans faster' };
+const KIND_OF = b => b.proj === 'arrow' ? 'Long range arrows' : b.proj === 'bullet' ? 'Super fast bullets' : b.proj === 'thorn' ? 'Thorn ring' : b.proj === 'fire' ? 'Fire and burning' : b.proj === 'bee' ? 'Homing bees' : b.proj === 'rocket' ? 'Map-wide rockets' : b.proj === 'super' ? 'Heat vision' : b.proj === 'grape' ? 'Double cannon' : KIND_NAME[b.kind];
 function renderShop() {
   const sv = app.save;
   refreshCoins();
@@ -178,9 +180,9 @@ function renderShop() {
     const own = sv.owned.includes(b.id), inTeam = sv.team.includes(b.id), can = sv.coins >= b.unlock;
     const btn = own ? (inTeam ? `<button class="btn ghost on" data-team="${b.id}">${icon('check')}IN TEAM</button>` : `<button class="btn blue" data-team="${b.id}" ${sv.team.length >= TEAM_SIZE ? 'disabled' : ''}>${icon('team')}ADD TO TEAM</button>`)
       : `<button class="btn ${can ? 'green' : ''}" data-buy="${b.id}" ${can ? '' : 'disabled'}>${icon('beancoin')}${fmt(b.unlock)}</button>`;
-    return `<div class="scard panel ${own ? '' : 'locked'}" style="--c1:${b.badge[0]};--c2:${b.badge[1]}"><img src="${app.portraits[b.id]}" alt="">${own ? '' : `<span class="lockic">${icon('lock')}</span>`}<h3>${b.name}</h3><div class="kind">${KIND_NAME[b.kind]}</div><p>${b.desc}</p>${btn}</div>`;
+    return `<div class="scard panel ${own ? '' : 'locked'}" style="--c1:${b.badge[0]};--c2:${b.badge[1]}"><button class="btn ghost lvBtn" data-book="${b.id}" title="See every level">${icon('upgrade')}LEVELS</button><img src="${app.portraits[b.id]}" alt="" data-book="${b.id}" title="See every level">${own ? '' : `<span class="lockic">${icon('lock')}</span>`}<h3>${b.name}</h3><div class="kind">${KIND_OF(b)}</div><p>${b.desc}</p>${btn}</div>`;
   };
-  $('shopBeans').innerHTML = BEANS.map(beanCard).join('');
+  $('shopBeans').innerHTML = BEANS.slice().sort((a, b) => a.unlock - b.unlock || a.cost - b.cost).map(beanCard).join('');
   $('shopFarms').innerHTML = FARMS.map(f => {
     const own = sv.farms.includes(f.id), can = sv.coins >= f.unlock;
     return `<div class="scard panel ${own ? '' : 'locked'}" style="--c1:${f.badge[0]};--c2:${f.badge[1]}"><img src="${app.portraits[f.id]}" alt="">${own ? '' : `<span class="lockic">${icon('lock')}</span>`}<h3>${f.name}</h3><div class="kind">${f.income} money per wave</div><p>${f.desc}</p>${own ? `<button class="btn ghost on" disabled>${icon('check')}OWNED</button>` : `<button class="btn ${can ? 'green' : ''}" data-buyfarm="${f.id}" ${can ? '' : 'disabled'}>${icon('beancoin')}${fmt(f.unlock)}</button>`}</div>`;
@@ -189,8 +191,49 @@ function renderShop() {
   wire('#teamBar .slot.full', el => { if (sv.team.length <= 1) { app.audio.sfx('error'); return; } sv.team = sv.team.filter(x => x !== el.dataset.id); writeSave(); click(); renderShop(); });
   wire('[data-team]', el => { const id = el.dataset.team; if (sv.team.includes(id)) { if (sv.team.length <= 1) { app.audio.sfx('error'); return; } sv.team = sv.team.filter(x => x !== id); } else if (sv.team.length < TEAM_SIZE) sv.team.push(id); else { app.audio.sfx('error'); return; } writeSave(); app.audio.sfx('select'); renderShop(); });
   wire('[data-buy]', el => { const b = BEAN[el.dataset.buy]; if (sv.coins < b.unlock) { app.audio.sfx('error'); return; } sv.coins -= b.unlock; sv.owned.push(b.id); if (sv.team.length < TEAM_SIZE) sv.team.push(b.id); writeSave(); app.audio.sfx('unlock'); renderShop(); });
+  wire('[data-book]', el => { click(); openBook(el.dataset.book); });
   wire('[data-buyfarm]', el => { const f = FARM[el.dataset.buyfarm]; if (sv.coins < f.unlock) { app.audio.sfx('error'); return; } sv.coins -= f.unlock; sv.farms.push(f.id); writeSave(); app.audio.sfx('unlock'); renderShop(); });
 }
+
+// ---------- Bean Book: every level of a bean with a live preview ----------
+const STAT_NAME = { dmg: 'Damage', rate: 'Attacks / sec', range: 'Range', pierce: 'Pierce', count: 'Shots', radius: 'Blast size', maxHits: 'Hits per attack', freeze: 'Freeze time', slow: 'Slow', slowT: 'Effect time', area: 'Area', dot: 'Damage per sec', chain: 'Jumps', bounceR: 'Jump distance', ricochet: 'Bounces', bossMul: 'Boss damage', push: 'Push back', boost: 'Beans faster', rangeUp: 'Extra range for beans', cluster: 'Mini bombs', shatter: 'Shatter damage', blizzard: 'Blizzard', blaze: 'Burning' };
+const statVal = (k, v) => v == null ? '-' : k === 'rate' ? v.toFixed(2) : k === 'slow' || k === 'boost' ? Math.round(v * 100) + '%' : k === 'bossMul' ? 'x' + v : k === 'freeze' || k === 'slowT' ? (+v).toFixed(1) + 's' : k === 'blizzard' || k === 'blaze' ? (v ? 'Yes' : 'No') : k === 'range' && v > 100 ? 'Map' : +(+v).toFixed(1);
+const book = { id: null, lvl: 0, view: null };
+function openBook(id, lvl = 0) {
+  book.id = id; const b = BEAN[id];
+  $('bbImg').src = app.portraits[id] || ''; $('beanBook').style.setProperty('--c1', b.badge[0]); $('beanBook').style.setProperty('--c2', b.badge[1]);
+  $('bbName').textContent = b.name; $('bbKind').textContent = KIND_OF(b); $('bbDesc').textContent = b.desc;
+  $('bbLevels').innerHTML = Array.from({ length: 11 }, (_, i) => `<button data-lv="${i}" class="${i === 5 || i === 10 ? 'star' : ''}">${i === 0 ? 'NEW' : i}<small>${i === 0 ? 'START' : i === 5 || i === 10 ? 'NEW LOOK' : 'LEVEL'}</small></button>`).join('');
+  $('bbLevels').querySelectorAll('button').forEach(el => el.onclick = () => { click(); showLevel(+el.dataset.lv); });
+  modal('beanBook', true);
+  if (!book.view) book.view = new BeanPreview($('bbCanvas'));
+  showLevel(lvl);
+}
+function showLevel(L) {
+  const b = BEAN[book.id], s = beanStats(b, L), prev = L > 0 ? beanStats(b, L - 1) : null, easy = DIFFS.easy;
+  book.lvl = L;
+  $('bbLevels').querySelectorAll('button').forEach(el => el.classList.toggle('on', +el.dataset.lv === L));
+  $('bbTag').innerHTML = `${icon('upgrade')}${L === 0 ? 'Just bought' : 'Level ' + L + ' / 10'}`;
+  const keys = Object.keys(STAT_NAME).filter(k => k !== 'cd' && (s[k] != null || (prev && prev[k] != null)) && !(k === 'bossMul' && s[k] === 1 && (!prev || prev[k] === 1)) && !(k === 'dmg' && b.kind === 'support') && !(k === 'rate' && b.kind === 'support'));
+  const rows = keys.map(k => {
+    const now = s[k], was = prev ? prev[k] : now, ch = prev && now !== was;
+    const diff = ch && typeof now === 'number' && typeof (was || 0) === 'number' ? (k === 'rate' ? '+' + Math.round((now / (was || 1) - 1) * 100) + '%' : k === 'slow' || k === 'boost' ? '+' + Math.round((now - (was || 0)) * 100) + '%' : (now - (was || 0) > 0 ? '+' : '') + +(now - (was || 0)).toFixed(1)) : '';
+    return `<div class="${ch ? 'ch' : ''}"><span>${STAT_NAME[k]}</span><b>${statVal(k, now)}</b><span class="up">${diff}</span></div>`;
+  }).join('');
+  const up = L > 0 ? b.ups[L - 1] : null;
+  const head = up ? `<h2>${up.name}${L === 5 || L === 10 ? `<span class="newlook">${icon('max')}New look!</span>` : ''}</h2><p>${up.desc}</p><div class="price">${icon('coin')}${fmt(upgradePrice(b, L - 1, easy))} to upgrade</div>`
+    : `<h2>Just bought</h2><p>${b.desc}</p><div class="price">${icon('coin')}${fmt(priceOf(b.cost, easy))} to place</div>`;
+  $('bbInfo').innerHTML = `<div class="bbUp">${head}</div><div class="bbStats">${rows}</div>`;
+  let total = priceOf(b.cost, easy); for (let i = 0; i < L; i++) total += upgradePrice(b, i, easy);
+  const sv = app.save, own = sv.owned.includes(b.id), inTeam = sv.team.includes(b.id), can = sv.coins >= b.unlock;
+  $('bbFoot').innerHTML = `<span class="note">Total for level ${L}: ${fmt(total)} money in a game</span>` +
+    (own ? (inTeam ? `<button class="btn ghost on" disabled>${icon('check')}IN TEAM</button>` : `<button class="btn blue" id="bbTeam" ${sv.team.length >= TEAM_SIZE ? 'disabled' : ''}>${icon('team')}ADD TO TEAM</button>`)
+      : `<button class="btn ${can ? 'green' : ''}" id="bbBuy" ${can ? '' : 'disabled'}>${icon('beancoin')}BUY ${fmt(b.unlock)}</button>`);
+  if ($('bbBuy')) $('bbBuy').onclick = () => { if (sv.coins < b.unlock) return app.audio.sfx('error'); sv.coins -= b.unlock; sv.owned.push(b.id); if (sv.team.length < TEAM_SIZE) sv.team.push(b.id); writeSave(); app.audio.sfx('unlock'); renderShop(); showLevel(L); };
+  if ($('bbTeam')) $('bbTeam').onclick = () => { if (sv.team.length >= TEAM_SIZE) return app.audio.sfx('error'); sv.team.push(b.id); writeSave(); app.audio.sfx('select'); renderShop(); showLevel(L); };
+  book.view.show(book.id, L);
+}
+function closeBook() { modal('beanBook', false); if (book.view) book.view.stop(); }
 
 // ---------- map, difficulty and rounds ----------
 function renderMapSelect() {
@@ -351,7 +394,7 @@ class Input {
     if (t) { this.selected = t; app.ui.showInfo(t); app.audio.sfx('select'); } else this.deselect();
   }
   key(e) {
-    if (app.state !== 'game') { if (e.code === 'Escape') { modal('settings', false); modal('howto', false); } return; }
+    if (app.state !== 'game') { if (e.code === 'Escape') { modal('settings', false); modal('howto', false); closeBook(); } return; }
     if (e.code === 'Escape') {
       if ($('settings').classList.contains('on') || $('howto').classList.contains('on')) { modal('settings', false); modal('howto', false); return; }
       if (this.placing || this.selected || this.multi) { this.cancel(); return; }
@@ -550,6 +593,8 @@ function wire() {
   $('goBtn').onclick = () => { app.audio.sfx('wave'); startGame(); };
   $('setClose').onclick = () => { click(); modal('settings', false); };
   $('howClose').onclick = () => { click(); modal('howto', false); };
+  $('bbClose').onclick = () => { click(); closeBook(); };
+  $('beanBook').addEventListener('pointerdown', e => { if (e.target.id === 'beanBook') closeBook(); });
   for (const id of ['settings', 'howto']) $(id).addEventListener('pointerdown', e => { if (e.target.id === id) modal(id, false); });
   $('menuBtn').onclick = () => togglePause();
   $('pResume').onclick = () => togglePause();
@@ -599,6 +644,7 @@ function step(dt) {
     app.lobby.update(dt, innerWidth / innerHeight);
     renderer.render(app.lobby.scene, app.lobby.camera);
   }
+  if (book.view && book.view.active) { book.view.frame(dt); const p = $('bbPop'); const n = book.view.popped; if (p.dataset.n !== String(n)) { p.dataset.n = n; p.textContent = n + ' popped'; } }
 }
 function frame(now) {
   requestAnimationFrame(frame);
@@ -632,4 +678,4 @@ async function boot() {
 boot().catch(e => { console.error(e); $('bootTxt').textContent = 'Something went wrong: ' + e.message; });
 
 // test hooks
-window.BTD = { app, step, startGame, goLobby, goMaps, goShop, startWave, awardCoins, readRun, post, makePost, get game() { return app.game; } };
+window.BTD = { app, step, startGame, goLobby, goMaps, goShop, startWave, awardCoins, readRun, post, openBook, showLevel, book, get game() { return app.game; } };

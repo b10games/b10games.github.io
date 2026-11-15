@@ -5,14 +5,14 @@
 // ---------- difficulties ----------
 // Every difficulty uses the Easy prices (cost 0.85) for beans, farms and upgrades.
 export const DIFFS = {
-  easy: { id: 'easy', name: 'Easy', lives: 250, money: 800, rounds: 30, speed: 0.8, hp: 0.8, count: 0.72, cost: 0.85, cash: 1.1, coins: 1, color: '#7bd389',
-    desc: 'Slow, weak balloons and only a few of them. Fewest Bean Coins.' },
-  medium: { id: 'medium', name: 'Medium', lives: 150, money: 700, rounds: 40, speed: 0.9, hp: 0.95, count: 0.9, cost: 0.85, cash: 1.05, coins: 1.6, color: '#ffd23f',
-    desc: 'Normal speed and more balloons. More Bean Coins.' },
-  hard: { id: 'hard', name: 'Hard', lives: 100, money: 600, rounds: 50, speed: 0.97, hp: 1.05, count: 1.0, cost: 0.85, cash: 1.0, coins: 2.4, color: '#ff4d6d',
+  easy: { id: 'easy', name: 'Easy', lives: 220, money: 700, rounds: 30, speed: 0.85, hp: 0.88, count: 0.8, cost: 0.85, cash: 1.05, coins: 1, color: '#7bd389',
+    desc: 'Slow, weak balloons and not too many of them. Fewest Bean Coins.' },
+  medium: { id: 'medium', name: 'Medium', lives: 120, money: 600, rounds: 40, speed: 0.96, hp: 1.08, count: 1.0, cost: 0.85, cash: 1.0, coins: 1.6, color: '#ffd23f',
+    desc: 'Normal speed, more and stronger balloons. More Bean Coins.' },
+  hard: { id: 'hard', name: 'Hard', lives: 75, money: 520, rounds: 50, speed: 1.04, hp: 1.2, count: 1.12, cost: 0.85, cash: 0.95, coins: 2.4, color: '#ff4d6d',
     desc: 'Fast, tough balloons in big groups. Most Bean Coins.' },
-  infinity: { id: 'infinity', name: 'Infinity', lives: 100, money: 600, rounds: Infinity, speed: 0.97, hp: 1.05, count: 1.0, cost: 0.85, cash: 1.0, coins: 2.8, color: '#b15cff', infinite: true,
-    desc: 'Endless waves on Hard. They keep getting harder, forever. How far can you get?' }
+  infinity: { id: 'infinity', name: 'Infinity', lives: 75, money: 520, rounds: Infinity, speed: 1.04, hp: 1.2, count: 1.12, cost: 0.85, cash: 0.95, coins: 2.8, color: '#b15cff', infinite: true,
+    desc: 'Endless waves. From wave 30 they get much tougher every single wave. How far can you get?' }
 };
 export const ROUND_OPTIONS = [10, 20, 30, 40, 50, 60, 80, 100];
 
@@ -41,8 +41,8 @@ export function rbe(type, hpMul = 1) {
 }
 // which boss a boss wave brings, how many, how tough and what comes out of it
 export function bossFor(w, rounds) { return w === rounds ? 'king' : w <= 10 ? 'boss1' : w <= 30 ? 'giant' : 'colossal'; }
-export function bossCount(type, w) { return type === 'king' ? 1 : type === 'giant' ? (w >= 30 ? 2 : 1) : type === 'colossal' ? Math.min(6, 1 + Math.floor((w - 40) / 15)) : 1; }
-export function bossHpScale(type, w) { return type === 'king' ? Math.max(0.03, 0.8 * Math.pow(w / 50, 2)) : 0.85 * Math.max(0.3, Math.pow(w / BALLOONS[type].ref, 1.15)); }
+export function bossCount(type, w) { return type === 'king' ? 1 : type === 'giant' ? (w >= 30 ? 2 : 1) : type === 'colossal' ? Math.min(10, 1 + Math.floor((w - 40) / 12)) : 1; }
+export function bossHpScale(type, w) { return type === 'king' ? Math.max(0.03, 0.9 * Math.pow(w / 50, 2)) : 0.95 * Math.max(0.3, Math.pow(w / BALLOONS[type].ref, 1.15)); }
 export function bossChildren(type, w) {
   if (type === 'king') return w < 20 ? ['purple', 'purple', 'purple', 'purple'] : w < 35 ? ['rainbow', 'rainbow', 'rainbow', 'rainbow'] : w < 70 ? ['giant', 'rainbow', 'rainbow'] : ['colossal', 'giant'];
   return BALLOONS[type].children;
@@ -115,6 +115,66 @@ export const BEANS = [
     ups: [U('Longer Arcs', 'Jumps to 2 more balloons', { chain: 2 }), U('Charged', '+1 damage', { dmg: 1 }), U('Quick Charge', 'Zaps 20% faster', { rate: 1.2 }), U('Big Storm', '+2 range', { range: 2 }),
       U('Thunder', 'Jumps to 4 more, +1 damage', { chain: 4, dmg: 1 }), U('Static', 'Zaps 25% faster', { rate: 1.25 }), U('Mega Volt', '+2 damage', { dmg: 2 }),
       U('Wide Arcs', 'Jumps farther and to 4 more', { bounceR: 2, chain: 4 }), U('Storm Core', 'Zaps 30% faster', { rate: 1.3 }), U('Lightning Storm', '2 bolts at once, +6 jumps, +2 damage', { count: 1, chain: 6, dmg: 2 })] },
+  { id: 'thorn', name: 'Thorn Bean', kind: 'tack', proj: 'thorn', cost: 330, unlock: 300, target: 'first', icon: 'tack', colors: ['#7bd389', '#2d6a4f'], skins: [['#7bd389', '#2d6a4f'], ['#95d5b2', '#ff6fb5'], ['#b7e4c7', '#ffd23f']], badge: ['#9be15d', '#1b4332'],
+    desc: 'Shoots sharp thorns in every direction. Thorns go through 2 balloons.',
+    base: { range: 6.5, cd: 1.1, dmg: 1, pierce: 2, count: 6, speed: 28 },
+    ups: [U('Longer Thorns', '+1 range', { range: 1 }), U('Quick Growth', 'Shoots 20% faster', { rate: 1.2 }), U('More Thorns', '+3 thorns', { count: 3 }), U('Hard Thorns', '+1 pierce', { pierce: 1 }),
+      U('Rose Ring', '+1 damage, +2 pierce', { dmg: 1, pierce: 2 }), U('Fast Bloom', 'Shoots 30% faster', { rate: 1.3 }), U('Wild Vines', '+1.5 range', { range: 1.5 }),
+      U('Thorn Bush', '+4 thorns', { count: 4 }), U('Poison Tips', '+1 damage', { dmg: 1 }), U('Jungle Fury', 'Shoots 70% faster, +4 thorns, +3 pierce', { rate: 1.7, count: 4, pierce: 3 })] },
+  { id: 'archer', name: 'Archer Bean', kind: 'dart', proj: 'arrow', cost: 380, unlock: 450, target: 'first', icon: 'dart', colors: ['#bc6c25', '#606c38'], skins: [['#bc6c25', '#606c38'], ['#dda15e', '#283618'], ['#fefae0', '#bc6c25']], badge: ['#dda15e', '#606c38'],
+    desc: 'Long range arrows that fly through a whole row of balloons.',
+    base: { range: 13, cd: 1.05, dmg: 2, pierce: 4, count: 1, spread: 0.12, speed: 62 },
+    ups: [U('Steel Tips', '+2 pierce', { pierce: 2 }), U('Quick Draw', 'Shoots 20% faster', { rate: 1.2 }), U('Longbow', '+2 range', { range: 2 }), U('Heavy Arrows', '+1 damage', { dmg: 1 }),
+      U('Twin Arrows', 'Shoots 2 arrows', { count: 1 }), U('Fast Draw', 'Shoots 30% faster', { rate: 1.3 }), U('Piercing Arrows', '+5 pierce', { pierce: 5 }),
+      U('Hawk Eye', '+3 range', { range: 3 }), U('Barbed Arrows', '+2 damage', { dmg: 2 }), U('Arrow Rain', '4 arrows, 50% faster, x2 vs bosses', { count: 2, rate: 1.5, bossMul: 2 })] },
+  { id: 'fire', name: 'Fire Bean', kind: 'glue', proj: 'fire', cost: 450, unlock: 500, target: 'first', icon: 'bomb', colors: ['#ff6b35', '#ffd23f'], skins: [['#ff6b35', '#ffd23f'], ['#e63946', '#ff9f1c'], ['#9d0208', '#ffba08']], badge: ['#ff9f6b', '#9d0208'],
+    desc: 'Throws fireballs that set a group of balloons on fire. Burning balloons keep popping.',
+    base: { range: 8.5, cd: 1.25, dmg: 1, slow: 0.1, slowT: 3, area: 1.6, maxHits: 5, speed: 24, dot: 1 },
+    ups: [U('Hotter Fire', '+1 burn damage', { dot: 1 }), U('Bigger Flames', 'Burns a bigger area', { area: 0.6, maxHits: 3 }), U('Quick Fire', 'Throws 20% faster', { rate: 1.2 }), U('Long Throw', '+2 range', { range: 2 }),
+      U('Wildfire', '+2 burn damage, burns longer', { dot: 2, slowT: 2 }), U('Fire Storm', 'Burns even more balloons', { maxHits: 5, area: 0.6 }), U('Fast Fire', 'Throws 30% faster', { rate: 1.3 }),
+      U('Blue Flames', '+3 burn damage', { dot: 3 }), U('Big Bang', '+2 hit damage', { dmg: 2 }), U('Inferno', '+5 burn damage, burns 8 more', { dot: 5, maxHits: 8 })] },
+  { id: 'pirate', name: 'Pirate Bean', kind: 'cannon', proj: 'grape', cost: 520, unlock: 650, target: 'first', icon: 'cannon', colors: ['#264653', '#e76f51'], skins: [['#264653', '#e76f51'], ['#1d3557', '#ffd23f'], ['#0b090a', '#e63946']], badge: ['#e76f51', '#264653'],
+    desc: 'Fires two cannonballs at once that splash a little group of balloons.',
+    base: { range: 10, cd: 1.6, dmg: 2, radius: 1.7, maxHits: 8, speed: 36, count: 2, bossMul: 1 },
+    ups: [U('Gunpowder', '+1 damage', { dmg: 1 }), U('Wide Splash', 'Bigger splash', { radius: 0.5, maxHits: 4 }), U('Quick Crew', 'Fires 20% faster', { rate: 1.2 }), U('Spyglass', '+2 range', { range: 2 }),
+      U('Broadside', 'Fires 3 cannonballs', { count: 1 }), U('Iron Shot', '+2 damage', { dmg: 2 }), U('Fast Crew', 'Fires 30% faster', { rate: 1.3 }),
+      U('Chain Shot', 'Even bigger splash', { radius: 0.6, maxHits: 6 }), U('Treasure Ball', '+3 damage, x2 vs bosses', { dmg: 3, bossMul: 2 }), U('Pirate King', '5 cannonballs, 40% faster', { count: 2, rate: 1.4 })] },
+  { id: 'bee', name: 'Bee Bean', kind: 'magic', proj: 'bee', cost: 520, unlock: 750, target: 'first', icon: 'magic', colors: ['#ffd23f', '#2b2d42'], skins: [['#ffd23f', '#2b2d42'], ['#ffb703', '#6a4c93'], ['#fff3b0', '#ff4d6d']], badge: ['#ffe066', '#3d3f58'],
+    desc: 'Sends out bees that chase balloons by themselves and sting them.',
+    base: { range: 10.5, cd: 0.75, dmg: 1, pierce: 1, count: 2, speed: 17 },
+    ups: [U('Busy Bees', '+1 bee', { count: 1 }), U('Sharp Stings', '+1 pierce', { pierce: 1 }), U('Quick Hive', 'Sends bees 20% faster', { rate: 1.2 }), U('Far Flyers', '+2 range', { range: 2 }),
+      U('Swarm', '+2 bees, +1 damage', { count: 2, dmg: 1 }), U('Angry Bees', '+2 pierce', { pierce: 2 }), U('Fast Hive', 'Sends bees 30% faster', { rate: 1.3 }),
+      U('Royal Jelly', '+1 damage', { dmg: 1 }), U('Huge Hive', '+3 bees', { count: 3 }), U('Queen Bee', '+3 bees, +2 damage, 40% faster', { count: 3, dmg: 2, rate: 1.4 })] },
+  { id: 'gatling', name: 'Gatling Bean', kind: 'dart', proj: 'bullet', cost: 560, unlock: 700, target: 'first', icon: 'sniper', colors: ['#6c757d', '#ffd23f'], skins: [['#6c757d', '#ffd23f'], ['#495057', '#ff4d6d'], ['#212529', '#7df9ff']], badge: ['#adb5bd', '#343a40'],
+    desc: 'Sprays tiny bullets super fast. Each bullet is weak, but there are so many.',
+    base: { range: 10, cd: 0.22, dmg: 1, pierce: 1, count: 1, spread: 0.06, speed: 72 },
+    ups: [U('Oiled Gears', 'Fires 20% faster', { rate: 1.2 }), U('Long Barrel', '+1.5 range', { range: 1.5 }), U('Hard Bullets', '+1 pierce', { pierce: 1 }), U('Spin Up', 'Fires 20% faster', { rate: 1.2 }),
+      U('Twin Guns', 'Fires 2 bullets at once', { count: 1 }), U('Hot Bullets', '+1 damage', { dmg: 1 }), U('Big Drum', 'Fires 25% faster', { rate: 1.25 }),
+      U('Steel Core', '+2 pierce', { pierce: 2 }), U('Overdrive', 'Fires 30% faster', { rate: 1.3 }), U('Bullet Hose', '4 bullets, +1 damage', { count: 2, dmg: 1 })] },
+  { id: 'wind', name: 'Wind Bean', kind: 'wind', cost: 500, unlock: 900, target: 'first', icon: 'boomerang', colors: ['#caf0f8', '#0096c7'], skins: [['#caf0f8', '#0096c7'], ['#ade8f4', '#48cae4'], ['#ffffff', '#7b2cbf']], badge: ['#ade8f4', '#0077b6'],
+    desc: 'Blows a strong wind that pushes balloons back along the road. Bosses are too heavy.',
+    base: { range: 7, cd: 2.6, dmg: 0, push: 4, maxHits: 8 },
+    ups: [U('Strong Gust', 'Pushes 1.5 further', { push: 1.5 }), U('Big Breath', '+1 range', { range: 1 }), U('Quick Wind', 'Blows 20% faster', { rate: 1.2 }), U('Many Balloons', 'Pushes 6 more', { maxHits: 6 }),
+      U('Tornado', 'Pushes 2 further, +1 damage', { push: 2, dmg: 1 }), U('Fast Wind', 'Blows 25% faster', { rate: 1.25 }), U('Wide Storm', '+1.5 range, pushes 8 more', { range: 1.5, maxHits: 8 }),
+      U('Gale', 'Pushes 2 further', { push: 2 }), U('Sharp Wind', '+1 damage', { dmg: 1 }), U('Hurricane', 'Pushes 3 further, 40% faster, 12 more', { push: 3, rate: 1.4, maxHits: 12 })] },
+  { id: 'rocket', name: 'Rocket Bean', kind: 'bomb', proj: 'rocket', cost: 800, unlock: 1100, target: 'first', icon: 'bomb', colors: ['#f8f9fa', '#e63946'], skins: [['#f8f9fa', '#e63946'], ['#dee2e6', '#3a86ff'], ['#ffd23f', '#e63946']], badge: ['#ff8a8a', '#495057'],
+    desc: 'Fires rockets across most of the map with big explosions.',
+    base: { range: 22, cd: 2.4, dmg: 2, radius: 3.2, maxHits: 22, speed: 26 },
+    ups: [U('Bigger Warhead', 'Bigger explosions', { radius: 0.6, maxHits: 8 }), U('More Fuel', '+4 range', { range: 4 }), U('Quick Launch', 'Fires 20% faster', { rate: 1.2 }), U('Heavy Warhead', '+1 damage', { dmg: 1 }),
+      U('Cluster Rockets', 'Each explosion throws 5 mini bombs', { cluster: 5 }), U('Fast Launch', 'Fires 25% faster', { rate: 1.25 }), U('Mega Warhead', '+2 damage, bigger', { dmg: 2, radius: 0.6 }),
+      U('Boss Missile', 'Triple damage to bosses', { bossMul: 3 }), U('Rapid Launch', 'Fires 30% faster', { rate: 1.3 }), U('Moon Rocket', '+3 damage, giant explosions, 5 more mini bombs', { dmg: 3, radius: 1, cluster: 5 })] },
+  { id: 'drummer', name: 'Drummer Bean', kind: 'support', cost: 600, unlock: 1200, target: 'first', icon: 'team', colors: ['#d00000', '#ffd23f'], skins: [['#d00000', '#ffd23f'], ['#3a86ff', '#ffffff'], ['#7b2cbf', '#ffd23f']], badge: ['#ff8a8a', '#7a0000'],
+    desc: 'Does not pop balloons, but its drum beat makes every bean near it attack faster.',
+    base: { range: 7, cd: 0.6, dmg: 0, boost: 0.15, rangeUp: 0 },
+    ups: [U('Louder Drum', '+5% faster beans', { boost: 0.05 }), U('Big Drum', '+1.5 range', { range: 1.5 }), U('Good Rhythm', '+5% faster beans', { boost: 0.05 }), U('Far Beat', '+1.5 range', { range: 1.5 }),
+      U('War Drums', 'Beans near it see 1.5 further', { rangeUp: 1.5 }), U('Fast Beat', '+5% faster beans', { boost: 0.05 }), U('Huge Drum', '+2 range', { range: 2 }),
+      U('Battle March', '+10% faster beans', { boost: 0.1 }), U('Echo', 'Beans near it see 1 further', { rangeUp: 1 }), U('Thunder Drums', '+15% faster beans, +2 range', { boost: 0.15, range: 2 })] },
+  { id: 'super', name: 'Super Bean', kind: 'laser', proj: 'super', cost: 2400, unlock: 3000, target: 'first', icon: 'max', colors: ['#3a86ff', '#e63946'], skins: [['#3a86ff', '#e63946'], ['#1d3557', '#ffd23f'], ['#ffd23f', '#e63946']], badge: ['#8fc0ff', '#c1121f'],
+    desc: 'The strongest bean of all. Shoots heat beams from its eyes really fast.',
+    base: { range: 13, cd: 0.35, dmg: 2, pierce: 5, count: 1 },
+    ups: [U('Super Focus', '+1 damage', { dmg: 1 }), U('Super Speed', 'Shoots 20% faster', { rate: 1.2 }), U('Super Sight', '+2 range', { range: 2 }), U('Wide Beams', '+3 pierce', { pierce: 3 }),
+      U('Double Vision', '2 beams at once', { count: 1 }), U('Super Power', '+2 damage', { dmg: 2 }), U('Hyper Speed', 'Shoots 30% faster', { rate: 1.3 }),
+      U('Boss Breaker', 'x3 damage to bosses', { bossMul: 3 }), U('Mega Power', '+3 damage, +5 pierce', { dmg: 3, pierce: 5 }), U('Ultra Bean', '3 beams, 50% faster, +4 damage', { count: 1, rate: 1.5, dmg: 4 })] },
   { id: 'magic', name: 'Magic Bean', kind: 'magic', cost: 700, unlock: 1000, target: 'first', icon: 'magic', colors: ['#7b2cbf', '#ffd23f'], skins: [['#7b2cbf', '#ffd23f'], ['#5a189a', '#7df9ff'], ['#240046', '#ff6fd8']], badge: ['#c77dff', '#3c096c'],
     desc: 'Casts magic stars that chase balloons by themselves.',
     base: { range: 10, cd: 0.9, dmg: 1, pierce: 2, count: 1, speed: 18 },
@@ -195,8 +255,10 @@ function rand(seed) { let s = seed >>> 0 || 1; return () => { s ^= s << 13; s ^=
 export function waveInfo(w, rounds) { return { boss: w % 10 === 0 || w === rounds, final: w === rounds, type: (w % 10 === 0 || w === rounds) ? bossFor(w, rounds) : null }; }
 // after wave 20 tough balloons get more life and a little more speed; in Infinity mode it keeps growing after wave 50
 export function waveScale(w, diff) {
-  const mid = Math.max(0, w - 20), late = diff.infinite ? Math.max(0, w - 50) : 0;
-  return { hp: diff.hp * (1 + mid * 0.035) * (1 + late * 0.05), speed: diff.speed * Math.min(1.35, 1 + mid * 0.006) * Math.min(1.4, 1 + late * 0.01), count: diff.count * Math.pow(1.045, late) };
+  // Infinity: from wave 30 the balloons get a lot tougher every wave (more life, not just more balloons,
+  // because more balloons would also mean more money)
+  const mid = Math.max(0, w - 20), late = diff.infinite ? Math.max(0, w - 30) : 0;
+  return { hp: diff.hp * (1 + mid * 0.04) * (1 + late * 0.09) * Math.pow(1.025, late), speed: diff.speed * Math.min(1.35, 1 + mid * 0.006) * Math.min(1.6, 1 + late * 0.012), count: diff.count * Math.min(4, Math.pow(1.025, late)) };
 }
 export function makeWave(w, diff, rounds) {
   const groups = [], sc = waveScale(w, diff), info = waveInfo(w, rounds);
@@ -229,6 +291,6 @@ export function makeWave(w, diff, rounds) {
   return groups;
 }
 // money for finishing wave w
-export const waveBonus = (w) => 120 + 2 * w;
+export const waveBonus = (w) => 110 + Math.round(1.5 * w);
 // Bean Coins for the shop: more for harder difficulties and longer games
 export function coinsFor(cleared, diff, won, rounds) { return Math.round(cleared * 2.2 * diff.coins + (won ? Math.min(rounds, 100) * 1.3 * diff.coins + 20 : 0)); }

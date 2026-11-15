@@ -272,6 +272,134 @@ const COSTUMES = {
     b.extra.push((dt, t) => { st.rotation.y = t * 3; });
     b.weapon = wand; b.muzzle = new THREE.Object3D(); b.muzzle.position.set(0, 0.55, 0.05); wand.add(b.muzzle);
   },
+  thorn(b) {
+    // flower crown with leaves, and a thorny staff with a rose
+    const crown = new THREE.Group(); crown.position.y = -0.05; b.top.add(crown);
+    for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2; const pt = mesh(new THREE.SphereGeometry(0.1, 8, 6), std(i % 2 ? '#ff6fb5' : '#ffd23f'), Math.cos(a) * 0.36, 0.06, Math.sin(a) * 0.36, crown); pt.scale.set(1, 0.6, 1); }
+    for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2 + 0.3; const lf = mesh(new THREE.SphereGeometry(0.13, 8, 6), cloth('#2d6a4f'), Math.cos(a) * 0.43, 0, Math.sin(a) * 0.43, crown); lf.scale.set(1.5, 0.3, 0.7); lf.rotation.y = -a; }
+    const staff = new THREE.Group(); b.hand.add(staff); b.hand.rotation.x = 0.35;
+    mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.8, 6), std('#40916c'), 0, 0.22, 0.05, staff);
+    for (let i = 0; i < 4; i++) { const th = mesh(new THREE.ConeGeometry(0.03, 0.1, 4), std('#1b4332'), 0.05 * (i % 2 ? 1 : -1), i * 0.15, 0.05, staff); th.rotation.z = (i % 2 ? -1 : 1) * 1.3; }
+    const rose = mesh(new THREE.SphereGeometry(0.11, 10, 8), std('#e63946', { rough: 0.5 }), 0, 0.66, 0.05, staff); rose.scale.y = 0.8;
+    b.extra.push((dt, t) => { crown.rotation.y = Math.sin(t * 1.5) * 0.1; });
+    b.weapon = staff;
+  },
+  archer(b) {
+    // pointy cap with a red feather, a quiver and a bow
+    const hat = new THREE.Group(); hat.position.y = -0.12; b.top.add(hat);
+    const cap = mesh(new THREE.ConeGeometry(0.5, 0.6, 20), cloth('#606c38'), 0, 0.24, -0.06, hat); cap.rotation.x = -0.35;
+    mesh(new THREE.TorusGeometry(0.46, 0.05, 6, 24), cloth('#283618'), 0, 0.02, 0, hat).rotation.x = Math.PI / 2;
+    const fe = mesh(new THREE.ConeGeometry(0.07, 0.6, 6), std('#e63946'), 0.3, 0.36, -0.1, hat); fe.rotation.set(-0.6, 0, -0.5); fe.scale.z = 0.3;
+    const q = mesh(new THREE.CylinderGeometry(0.12, 0.1, 0.6, 10), wood(), -0.12, 0.05, -0.02, b.back); q.rotation.z = 0.35;
+    for (let i = 0; i < 3; i++) mesh(new THREE.ConeGeometry(0.05, 0.12, 4), std('#fefae0'), -0.05 + i * 0.05, 0.38, 0, q);
+    const bow = new THREE.Group(); b.hand.add(bow); b.hand.rotation.x = Math.PI / 2;
+    const arc = mesh(new THREE.TorusGeometry(0.42, 0.035, 6, 20, Math.PI), wood(), 0, 0.15, 0.05, bow); arc.rotation.set(Math.PI / 2, 0, Math.PI / 2);
+    const str = mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.84, 4), std('#fefae0'), 0, 0.15, 0.05, bow); str.rotation.x = Math.PI / 2;
+    b.weapon = bow;
+  },
+  fire(b) {
+    // flames for hair, a red bandana and a fireball in the hand
+    const fl = new THREE.Group(); fl.position.y = -0.05; b.top.add(fl);
+    const flames = [[0, 0.3, 0, 0.2, 0.6, '#ff5a00'], [0.17, 0.2, 0.05, 0.14, 0.42, '#ff9f1c'], [-0.17, 0.2, 0.05, 0.14, 0.42, '#ff9f1c'], [0, 0.18, 0.16, 0.12, 0.34, '#ffd23f']].map(([x, y, z, r, h, c]) => { const m = mesh(new THREE.ConeGeometry(r, h, 10), glowM(c, 1.6), x, y, z, fl); m.castShadow = false; return m; });
+    b.extra.push((dt, t) => flames.forEach((f, i) => { f.scale.y = 0.85 + Math.sin(t * 14 + i * 2) * 0.15; f.rotation.z = Math.sin(t * 9 + i) * 0.12; }));
+    const band = mesh(new THREE.TorusGeometry(0.47, 0.07, 8, 30), cloth('#d00000'), 0, 0.38, 0, b.pivot); band.rotation.x = Math.PI / 2;
+    const ball = new THREE.Group(); b.hand.add(ball); b.hand.rotation.x = 0.6;
+    const fb = mesh(new THREE.IcosahedronGeometry(0.17, 1), glowM('#ff8c42', 2.2), 0, 0.02, 0.12, ball); fb.castShadow = false;
+    b.extra.push((dt, t) => { fb.scale.setScalar(0.85 + Math.sin(t * 12) * 0.12); fb.rotation.y = t * 4; });
+    b.weapon = ball;
+  },
+  pirate(b) {
+    // three-cornered hat with a skull, an eye patch and a hand cannon
+    const hat = new THREE.Group(); hat.position.y = -0.1; b.top.add(hat);
+    mesh(new THREE.CylinderGeometry(0.64, 0.68, 0.06, 3), cloth('#14101c'), 0, 0, 0, hat).rotation.y = Math.PI / 6;
+    mesh(new THREE.CylinderGeometry(0.36, 0.44, 0.3, 20), cloth('#14101c'), 0, 0.16, 0, hat);
+    mesh(new THREE.TorusGeometry(0.42, 0.03, 6, 24), gold(), 0, 0.04, 0, hat).rotation.x = Math.PI / 2;
+    mesh(new THREE.SphereGeometry(0.07, 10, 8), std('#ffffff'), 0, 0.17, 0.4, hat);
+    const patch = mesh(new THREE.CircleGeometry(0.1, 14), BLACK, -0.155, 0.2, 0.475, b.pivot); patch.castShadow = false;
+    const strap = mesh(new THREE.TorusGeometry(0.485, 0.02, 6, 28), BLACK, 0, 0.24, 0, b.pivot); strap.rotation.set(Math.PI / 2, 0.35, 0);
+    const gun = new THREE.Group(); b.hand.add(gun); b.hand.rotation.x = Math.PI / 2;
+    mesh(new THREE.CylinderGeometry(0.1, 0.13, 0.55, 12), darkMetal(), 0, 0.25, 0.08, gun);
+    mesh(new THREE.TorusGeometry(0.11, 0.025, 6, 14), gold(), 0, 0.5, 0.08, gun).rotation.x = Math.PI / 2;
+    b.weapon = gun;
+  },
+  bee(b) {
+    // antennae, black stripes, buzzing wings and a honey pot
+    for (const sd of [-1, 1]) { const a = mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.4, 5), BLACK, 0.15 * sd, 0.2, 0.05, b.top); a.rotation.z = -0.4 * sd; mesh(new THREE.SphereGeometry(0.06, 8, 6), BLACK, 0.24 * sd, 0.38, 0.05, b.top); }
+    for (const y of [-0.12, -0.34]) { const st = mesh(new THREE.TorusGeometry(y > -0.2 ? 0.5 : 0.47, 0.06, 6, 30), BLACK, 0, y, 0, b.pivot); st.rotation.x = Math.PI / 2; }
+    const wm = new THREE.MeshPhysicalMaterial({ color: '#e0fbfc', transparent: true, opacity: 0.6, roughness: 0.1, side: THREE.DoubleSide });
+    const wings = [-1, 1].map(sd => { const w = mesh(new THREE.CircleGeometry(0.3, 14), wm, 0.22 * sd, 0.25, -0.1, b.back); w.scale.y = 0.6; w.castShadow = false; return w; });
+    b.extra.push((dt, t) => wings.forEach((w, i) => { w.rotation.y = (i ? 1 : -1) * (0.6 + Math.sin(t * 30) * 0.4); }));
+    const pot = new THREE.Group(); b.hand.add(pot); b.hand.rotation.x = 0.5;
+    mesh(new THREE.CylinderGeometry(0.14, 0.12, 0.2, 12), std('#d4a017'), 0, 0, 0.12, pot);
+    mesh(new THREE.TorusGeometry(0.13, 0.03, 6, 14), std('#ffd23f', { emissive: '#7a5200', ei: 0.4 }), 0, 0.11, 0.12, pot).rotation.x = Math.PI / 2;
+    b.weapon = pot;
+  },
+  gatling(b) {
+    // army helmet and a gatling gun with spinning barrels
+    const hat = new THREE.Group(); hat.position.y = -0.18; b.top.add(hat);
+    const dome = mesh(new THREE.SphereGeometry(0.53, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), std('#4b5320', { rough: 0.6 }), 0, 0, 0, hat); dome.scale.y = 0.75;
+    mesh(new THREE.CylinderGeometry(0.57, 0.57, 0.05, 24), std('#3b4218'), 0, 0.01, 0, hat);
+    const gun = new THREE.Group(); b.hand.add(gun); b.hand.rotation.x = Math.PI / 2;
+    const barrels = new THREE.Group(); barrels.position.set(0, 0.35, 0.08); gun.add(barrels);
+    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.7, 6), darkMetal(), Math.cos(a) * 0.08, 0, Math.sin(a) * 0.08, barrels); }
+    mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.22, 12), std('#6c757d', { metal: 0.6, rough: 0.3 }), 0, -0.05, 0.08, gun);
+    b.extra.push((dt) => { barrels.rotation.y += dt * 9; });
+    b.weapon = gun;
+  },
+  wind(b) {
+    // aviator cap, goggles, a long scarf and a pinwheel
+    const cap = mesh(new THREE.SphereGeometry(0.5, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), cloth('#8d5524'), 0, -0.2, 0, b.top); cap.scale.y = 0.8;
+    for (const sd of [-1, 1]) { const g = mesh(new THREE.TorusGeometry(0.09, 0.03, 8, 14), std('#ffd23f', { metal: 0.5 }), 0.13 * sd, 0.47, 0.38, b.pivot); g.rotation.x = -0.3; const l = mesh(new THREE.CircleGeometry(0.08, 14), glowM('#90e0ef', 0.6), 0.13 * sd, 0.47, 0.4, b.pivot); l.rotation.x = -0.3; l.castShadow = false; }
+    const scarf = mesh(new THREE.TorusGeometry(0.41, 0.07, 8, 24), cloth('#ffffff'), 0, -0.13, 0.03, b.pivot); scarf.rotation.x = Math.PI / 2 + 0.12;
+    const tail = mesh(new THREE.BoxGeometry(0.12, 0.45, 0.04), cloth('#ffffff'), -0.25, -0.15, -0.38, b.pivot);
+    b.extra.push((dt, t) => { tail.rotation.x = 0.8 + Math.sin(t * 8) * 0.3; });
+    const pw = new THREE.Group(); b.hand.add(pw); b.hand.rotation.x = 0.4;
+    mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.7, 6), wood(), 0, 0.2, 0.05, pw);
+    const wheel = new THREE.Group(); wheel.position.set(0, 0.58, 0.1); pw.add(wheel);
+    ['#ff4d6d', '#ffd23f', '#3a86ff', '#7bd389'].forEach((c, i) => { const holder = new THREE.Group(); holder.rotation.z = i * Math.PI / 2; wheel.add(holder); const bl = mesh(new THREE.ConeGeometry(0.12, 0.26, 3), std(c, { double: true }), 0, 0.12, 0, holder); bl.scale.z = 0.15; });
+    b.extra.push((dt) => { wheel.rotation.z += dt * 9; });
+    b.weapon = pw;
+  },
+  rocket(b) {
+    // space cap with a blinking light, a jet pack and a rocket launcher
+    const hat = new THREE.Group(); hat.position.y = -0.15; b.top.add(hat);
+    const dome = mesh(new THREE.SphereGeometry(0.52, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), std('#f8f9fa', { rough: 0.3 }), 0, 0, 0, hat); dome.scale.y = 0.85;
+    mesh(new THREE.TorusGeometry(0.5, 0.05, 8, 28), b.accMat, 0, 0.02, 0, hat).rotation.x = Math.PI / 2;
+    mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.35, 5), darkMetal(), 0.2, 0.55, 0, hat);
+    const light = mesh(new THREE.SphereGeometry(0.05, 8, 6), glowM('#ff4d6d', 2), 0.2, 0.74, 0, hat); light.castShadow = false;
+    b.extra.push((dt, t) => { light.visible = Math.sin(t * 6) > 0; });
+    mesh(new THREE.BoxGeometry(0.4, 0.45, 0.2), std('#adb5bd', { metal: 0.4 }), 0, 0, -0.08, b.back);
+    for (const sd of [-1, 1]) mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.2, 10), darkMetal(), 0.12 * sd, -0.3, -0.08, b.back);
+    const tube = new THREE.Group(); b.hand.add(tube); b.hand.rotation.x = Math.PI / 2;
+    mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.8, 12), std('#495057', { metal: 0.4 }), 0, 0.3, 0.1, tube);
+    mesh(new THREE.ConeGeometry(0.1, 0.18, 10), b.accMat, 0, 0.75, 0.1, tube);
+    b.weapon = tube;
+  },
+  drummer(b) {
+    // tall marching hat with a plume, a drum on the belly and a drum stick
+    const hat = new THREE.Group(); hat.position.y = -0.18; b.top.add(hat);
+    mesh(new THREE.CylinderGeometry(0.36, 0.42, 0.62, 20), cloth('#14101c'), 0, 0.3, 0, hat);
+    mesh(new THREE.CylinderGeometry(0.43, 0.43, 0.06, 20), gold(), 0, 0.02, 0, hat);
+    const plume = mesh(new THREE.SphereGeometry(0.13, 10, 8), cloth('#ffd23f'), 0, 0.75, 0.1, hat); plume.scale.y = 1.8;
+    mesh(new THREE.OctahedronGeometry(0.08), gold(), 0, 0.35, 0.4, hat);
+    const drum = mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.3, 20), b.accMat, 0, -0.32, 0.42, b.pivot); drum.rotation.x = Math.PI / 2 - 0.2;
+    mesh(new THREE.CylinderGeometry(0.33, 0.33, 0.04, 20), std('#ffffff'), 0, -0.29, 0.58, b.pivot).rotation.x = Math.PI / 2 - 0.2;
+    b.extra.push((dt, t) => { plume.rotation.z = Math.sin(t * 6) * 0.15; });
+    const stick = new THREE.Group(); b.hand.add(stick); b.hand.rotation.x = 0.8;
+    mesh(new THREE.CylinderGeometry(0.02, 0.025, 0.5, 6), wood(), 0, 0.15, 0.05, stick);
+    mesh(new THREE.SphereGeometry(0.05, 8, 6), std('#ffffff'), 0, 0.4, 0.05, stick);
+    b.weapon = stick;
+  },
+  super(b) {
+    // a mask around the eyes, a big red cape and a golden emblem
+    for (const sd of [-1, 1]) { const r = mesh(new THREE.RingGeometry(0.075, 0.15, 16), std('#14101c', { double: true }), 0.155 * sd, 0.2, 0.47, b.pivot); r.castShadow = false; }
+    const cape = mesh(new THREE.CylinderGeometry(0.5, 0.82, 1.3, 20, 1, true, Math.PI * 0.6, Math.PI * 0.8), std('#e63946', { rough: 0.6, double: true }), 0, -0.3, -0.05, b.pivot);
+    b.extra.push((dt, t) => { cape.rotation.x = 0.12 + Math.sin(t * 4) * 0.07; });
+    const em = mesh(new THREE.OctahedronGeometry(0.16), std('#ffd23f', { metal: 0.4 }), 0, -0.15, 0.46, b.pivot); em.scale.set(1, 0.8, 0.3);
+    mesh(new THREE.OctahedronGeometry(0.08), std('#e63946'), 0, -0.15, 0.5, b.pivot).scale.set(1, 0.8, 0.4);
+    const fist = new THREE.Group(); b.hand.add(fist);
+    b.weapon = fist;
+  },
   cannon(b) {
     // pirate hat, eye patch and a little cannon
     const hat = new THREE.Group(); hat.position.y = -0.1; b.top.add(hat);

@@ -34,6 +34,7 @@
   var MAX_VALUE = 150000;     // skip giant entries (worlds live in IndexedDB anyway)
 
   var GAMES = {
+    'crown-clash': 'Crown Clash',
     'beans-tower-defense': 'Beans Tower Defense',
     'bean-of-legends': 'Bean of Legends',
     'wobble-dash': 'Wobble Dash',

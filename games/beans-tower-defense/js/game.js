@@ -19,7 +19,15 @@ const GEO = {
   boom: (() => { const s = new THREE.Shape(); s.moveTo(-0.7, 0.15); s.quadraticCurveTo(0, 0.9, 0.7, 0.15); s.lineTo(0.55, -0.05); s.quadraticCurveTo(0, 0.55, -0.55, -0.05); s.closePath(); const g = new THREE.ExtrudeGeometry(s, { depth: 0.08, bevelEnabled: false }); g.rotateX(Math.PI / 2); g.center(); return g; })(),
   bomb: new THREE.SphereGeometry(0.32, 14, 10), ball: new THREE.SphereGeometry(0.28, 14, 10),
   ice: new THREE.OctahedronGeometry(0.3), glue: new THREE.IcosahedronGeometry(0.28, 1), magic: new THREE.OctahedronGeometry(0.26),
-  glow: new THREE.SphereGeometry(0.5, 10, 8)
+  glow: new THREE.SphereGeometry(0.5, 10, 8),
+  arrow: (() => { const g = new THREE.CylinderGeometry(0.035, 0.035, 1.1, 5); g.rotateX(Math.PI / 2); return g; })(),
+  arrowHead: (() => { const g = new THREE.ConeGeometry(0.08, 0.22, 5); g.rotateX(Math.PI / 2); g.translate(0, 0, 0.62); return g; })(),
+  bullet: (() => { const g = new THREE.CapsuleGeometry(0.07, 0.28, 3, 6); g.rotateX(Math.PI / 2); return g; })(),
+  thorn: (() => { const g = new THREE.ConeGeometry(0.08, 0.5, 4); g.rotateX(Math.PI / 2); return g; })(),
+  bee: new THREE.SphereGeometry(0.18, 10, 8), wing: new THREE.CircleGeometry(0.14, 10),
+  rocket: (() => { const g = new THREE.CapsuleGeometry(0.16, 0.6, 4, 8); g.rotateX(Math.PI / 2); return g; })(),
+  nose: (() => { const g = new THREE.ConeGeometry(0.16, 0.3, 8); g.rotateX(Math.PI / 2); g.translate(0, 0, 0.55); return g; })(),
+  fireball: new THREE.IcosahedronGeometry(0.3, 1)
 };
 const add = (c, o = 0.4) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false });
 const MATS = {
@@ -29,8 +37,21 @@ const MATS = {
   bomb: new THREE.MeshStandardMaterial({ color: '#2b2d42', roughness: 0.3 }), ball: new THREE.MeshStandardMaterial({ color: '#343a40', metalness: 0.6, roughness: 0.3 }),
   ice: new THREE.MeshStandardMaterial({ color: '#bfe8ff', emissive: '#4cc9f0', emissiveIntensity: 0.9, roughness: 0.1 }), iceGlow: add('#7df9ff', 0.35),
   glue: new THREE.MeshPhysicalMaterial({ color: '#c5f277', roughness: 0.15, clearcoat: 1, emissive: '#4f7a00', emissiveIntensity: 0.3 }), glueGlow: add('#c5f277', 0.25),
-  magic: new THREE.MeshStandardMaterial({ color: '#fff3b0', emissive: '#ffd23f', emissiveIntensity: 1.6 }), magicGlow: add('#ff6fd8', 0.45)
+  magic: new THREE.MeshStandardMaterial({ color: '#fff3b0', emissive: '#ffd23f', emissiveIntensity: 1.6 }), magicGlow: add('#ff6fd8', 0.45),
+  arrow: new THREE.MeshStandardMaterial({ color: '#8d5524', roughness: 0.6 }), arrowHead: new THREE.MeshStandardMaterial({ color: '#dfe6ee', metalness: 0.7, roughness: 0.25 }),
+  bullet: new THREE.MeshStandardMaterial({ color: '#ffd23f', metalness: 0.8, roughness: 0.2, emissive: '#7a5200', emissiveIntensity: 0.6 }),
+  thorn: new THREE.MeshStandardMaterial({ color: '#2d6a4f', roughness: 0.5 }),
+  bee: new THREE.MeshStandardMaterial({ color: '#ffd23f', roughness: 0.4 }), beeWing: new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.7, side: THREE.DoubleSide }),
+  rocket: new THREE.MeshStandardMaterial({ color: '#f1f3f5', metalness: 0.3, roughness: 0.35 }), nose: new THREE.MeshStandardMaterial({ color: '#e63946', roughness: 0.4 }),
+  fire: new THREE.MeshStandardMaterial({ color: '#ffd23f', emissive: '#ff5a00', emissiveIntensity: 2 }), fireGlow: add('#ff8c42', 0.55)
 };
+// a bee with a stripe and two wings
+function beeMesh() {
+  const g = new THREE.Group(); const body = new THREE.Mesh(GEO.bee, MATS.bee); body.scale.set(1, 0.9, 1.35); g.add(body);
+  const band = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.05, 6, 12), MATS.bomb); band.position.z = -0.05; g.add(band);
+  for (const s of [-1, 1]) { const w = new THREE.Mesh(GEO.wing, MATS.beeWing); w.position.set(0.14 * s, 0.14, 0); w.rotation.set(-Math.PI / 2, 0, 0.5 * s); w.userData.s = s; g.add(w); g.userData.wings = (g.userData.wings || []).concat(w); }
+  return g;
+}
 let POP_TEX = null;
 function popTex() { return POP_TEX || (POP_TEX = canvasTex(128, 64, (g, w, h) => { g.translate(w / 2, h / 2); g.fillStyle = '#ffd23f'; g.beginPath(); for (let i = 0; i < 18; i++) { const a = i / 18 * Math.PI * 2, r = i % 2 ? 22 : 34; g.lineTo(Math.cos(a) * r * 1.6, Math.sin(a) * r * 0.85); } g.closePath(); g.fill(); g.strokeStyle = '#2a1546'; g.lineWidth = 4; g.stroke(); g.fillStyle = '#ff4d6d'; g.font = '30px Lilita One, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 6; g.strokeText('POP!', 0, 2); g.fillText('POP!', 0, 2); })); }
 
@@ -221,7 +242,7 @@ export class Game {
     if (cost === null || this.money < cost || this.over) return false;
     this.money -= cost; t.spent += cost; t.lvl++;
     const skin = skinFor(t.lvl), p = _v.set(t.x, t.y, t.z);
-    if (t.isFarm) { t.model.setSkin(skin); t.model.pop(); }
+    if (t.isFarm) { t.model.setSkin(skin); for (let i = 0; i < 4; i++) this.fx.dollar(_w.set(t.x + (Math.random() - 0.5) * 2, t.y + 2.2, t.z + (Math.random() - 0.5) * 1.5), 1.3, i * 0.1); }
     else {
       t.stats = beanStats(t.def, t.lvl);
       const newLook = skin > t.model.skin;
@@ -258,8 +279,8 @@ export class Game {
   farmFx(t, amount, big) {
     const p = _v.set(t.x, t.y + 1.2, t.z);
     this.fx.burst(p, '#ffd23f', big ? 22 : 10, big ? 4 : 2.5, 0.2, big ? 9 : 6, 0.8); this.fx.sparks(p, '#fff3b0', big ? 10 : 4);
-    if (big) this.fx.ring(_w.set(t.x, t.y + 0.1, t.z), '#ffd23f', 0.5, 3, 0.5);
-    t.model.pop();
+    if (big) this.fx.ring(_w.set(t.x, t.y + 0.1, t.z), '#5bd16b', 0.5, 3, 0.5);
+    for (let i = 0; i < (big ? 3 : 1); i++) this.fx.dollar(_w.set(t.x + (Math.random() - 0.5) * 1.6, t.y + 2 + i * 0.4, t.z + (Math.random() - 0.5) * 1.2), big ? 1.2 : 0.9, i * 0.12);
     this.sound('coin', big ? 1 : 0.5);
     this.emit('farm', { t, amount: Math.round(amount) });
   }
@@ -285,21 +306,32 @@ export class Game {
     t.facing = Math.atan2(b.x - t.x, b.z - t.z); t.atk = 0;
     const dist = Math.hypot(b.x - t.x, b.z - t.z);
     if (k === 'dart') {
-      const star = t.def.proj === 'star', aim = this.lead(b, dist / s.speed, new THREE.Vector3()), base = Math.atan2(aim.x - t.x, aim.z - t.z);
+      const pj = t.def.proj, star = pj === 'star', aim = this.lead(b, dist / s.speed, new THREE.Vector3()), base = Math.atan2(aim.x - t.x, aim.z - t.z);
       for (let i = 0; i < s.count; i++) {
         const a = base + (i - (s.count - 1) / 2) * s.spread;
-        let m; if (star) m = new THREE.Mesh(GEO.star, MATS.star); else { m = new THREE.Group(); m.add(new THREE.Mesh(GEO.dart, MATS.dart)); m.add(new THREE.Mesh(GEO.fin, MATS.fin)); }
-        this.addProj({ kind: 'dart', x: t.x, z: t.z, y: t.y + 1.7, dx: Math.sin(a), dz: Math.cos(a), speed: s.speed, life: (s.range + 3) / s.speed, pierce: s.pierce, dmg: s.dmg, r: 0.55, tower: t, mesh: m, spin: star, trail: star ? '#c77dff' : '#ffffff' });
+        let m;
+        if (star) m = new THREE.Mesh(GEO.star, MATS.star);
+        else if (pj === 'arrow') { m = new THREE.Group(); m.add(new THREE.Mesh(GEO.arrow, MATS.arrow)); m.add(new THREE.Mesh(GEO.arrowHead, MATS.arrowHead)); const f = new THREE.Mesh(GEO.fin, MATS.fin); f.position.z = -0.2; m.add(f); }
+        else if (pj === 'bullet') m = new THREE.Mesh(GEO.bullet, MATS.bullet);
+        else { m = new THREE.Group(); m.add(new THREE.Mesh(GEO.dart, MATS.dart)); m.add(new THREE.Mesh(GEO.fin, MATS.fin)); }
+        this.addProj({ kind: 'dart', x: t.x, z: t.z, y: t.y + 1.7, dx: Math.sin(a), dz: Math.cos(a), speed: s.speed, life: (s.range + 3) / s.speed, pierce: s.pierce, dmg: s.dmg, r: pj === 'bullet' ? 0.45 : 0.55, tower: t, mesh: m, spin: star, trail: star ? '#c77dff' : pj === 'bullet' ? (Math.random() < 0.5 ? '#ffd23f' : null) : '#ffffff' });
       }
-      this.fx.burst(hand, star ? '#c77dff' : '#ffffff', 6, 3, 0.12, 2, 0.25);
-      if (star) this.fx.slash(_w.set(t.x, t.y + 1.4, t.z), t.facing, '#c77dff', 1.6, 2.2, 0.3, 0.18);
-      this.sound('throw', 0.55);
+      if (pj === 'bullet') { this.fx.flash(hand, '#ffd23f', 0.7, 0.07); this.fx.emit({ p: hand, v: _w.set(Math.cos(t.facing) * 3, 3, -Math.sin(t.facing) * 3), life: 0.5, size: 0.06, color: '#d4a017', g: -16 }); if (Math.random() < 0.5) this.sound('throw', 0.25); }
+      else {
+        this.fx.burst(hand, star ? '#c77dff' : '#ffffff', 6, 3, 0.12, 2, 0.25);
+        if (star) this.fx.slash(_w.set(t.x, t.y + 1.4, t.z), t.facing, '#c77dff', 1.6, 2.2, 0.3, 0.18);
+        if (pj === 'arrow') this.fx.slash(_w.set(t.x, t.y + 1.5, t.z), t.facing, '#fefae0', 1.2, 1.4, 0.2, 0.15);
+        this.sound('throw', 0.55);
+      }
     } else if (k === 'tack') {
       for (let i = 0; i < s.count; i++) {
         const a = t.facing + i / s.count * Math.PI * 2;
-        this.addProj({ kind: 'dart', x: t.x, z: t.z, y: t.y + 1.1, dx: Math.sin(a), dz: Math.cos(a), speed: s.speed, life: (s.range + 0.8) / s.speed, pierce: s.pierce, dmg: s.dmg, r: 0.5, tower: t, mesh: new THREE.Mesh(GEO.tack, s.dmg > 1 ? MATS.blaze : MATS.tack), trail: s.dmg > 1 ? '#ff8c42' : '#ffffff' });
+        const thorn = t.def.proj === 'thorn';
+        this.addProj({ kind: 'dart', x: t.x, z: t.z, y: t.y + 1.1, dx: Math.sin(a), dz: Math.cos(a), speed: s.speed, life: (s.range + 0.8) / s.speed, pierce: s.pierce, dmg: s.dmg, r: 0.5, tower: t, mesh: new THREE.Mesh(thorn ? GEO.thorn : GEO.tack, thorn ? MATS.thorn : s.dmg > 1 ? MATS.blaze : MATS.tack), trail: thorn ? '#95d5b2' : s.dmg > 1 ? '#ff8c42' : '#ffffff' });
       }
-      this.fx.ring(_v.set(t.x, t.y + 0.9, t.z), '#ffffff', 0.4, 2.2, 0.25, 0.7); this.fx.sparks(_v.set(t.x, t.y + 1.1, t.z), '#e9ecef', 8);
+      const ringC = t.def.proj === 'thorn' ? '#95d5b2' : '#ffffff';
+      this.fx.ring(_v.set(t.x, t.y + 0.9, t.z), ringC, 0.4, 2.2, 0.25, 0.7); this.fx.sparks(_v.set(t.x, t.y + 1.1, t.z), t.def.proj === 'thorn' ? '#7bd389' : '#e9ecef', 8);
+      if (t.def.proj === 'thorn') this.fx.burst(_v.set(t.x, t.y + 1.2, t.z), '#ff6fb5', 5, 3, 0.14, 3, 0.4);
       this.sound('throw', 0.5);
     } else if (k === 'hitscan') {
       const hit = new Set([b.id]); let cur = b, from = hand.clone();
@@ -328,16 +360,20 @@ export class Game {
       for (let i = 0; i < (s.count || 1); i++) {
         const time = cannon ? Math.max(0.12, dist / s.speed) : Math.max(0.35, dist / s.speed), aim = this.lead(b, time, new THREE.Vector3());
         const off = (i - ((s.count || 1) - 1) / 2) * 0.9;
-        this.addProj({ kind: 'bomb', cannon, sx: hand.x, sz: hand.z, sy: hand.y, tx: aim.x + Math.cos(t.facing) * off, tz: aim.z - Math.sin(t.facing) * off, s: 0, dur: time + i * 0.06, x: hand.x, z: hand.z, y: hand.y, tower: t, mesh: new THREE.Mesh(cannon ? GEO.ball : GEO.bomb, cannon ? MATS.ball : MATS.bomb) });
+        const rocket = t.def.proj === 'rocket';
+        let mesh; if (rocket) { mesh = new THREE.Group(); mesh.add(new THREE.Mesh(GEO.rocket, MATS.rocket)); mesh.add(new THREE.Mesh(GEO.nose, MATS.nose)); for (let f = 0; f < 3; f++) { const fin = new THREE.Mesh(GEO.fin, MATS.nose); fin.rotation.z = f * 2.1; fin.position.z = -0.25; mesh.add(fin); } } else mesh = new THREE.Mesh(cannon ? GEO.ball : GEO.bomb, cannon ? MATS.ball : MATS.bomb);
+        this.addProj({ kind: 'bomb', cannon, rocket, sx: hand.x, sz: hand.z, sy: hand.y, tx: aim.x + Math.cos(t.facing) * off, tz: aim.z - Math.sin(t.facing) * off, s: 0, dur: time + i * 0.06, x: hand.x, z: hand.z, y: hand.y, tower: t, mesh });
       }
-      if (cannon) { this.fx.flash(hand, '#ffd23f', 1.6, 0.14); this.fx.smoke(hand, '#adb5bd', 10, 0.8); this.fx.burst(hand, '#ff8c42', 10, 5, 0.16, 2, 0.3); t.model.hit(); this.sound('boom', 0.35); }
+      if (t.def.proj === 'rocket') { this.fx.smoke(hand, '#dee2e6', 12, 1); this.fx.flash(hand, '#ff8c42', 1.4, 0.15); this.fx.burst(hand, '#ffd23f', 12, 4, 0.16, 3, 0.35); t.model.hit(); this.sound('launch', 0.7); }
+      else if (cannon) { this.fx.flash(hand, '#ffd23f', 1.6, 0.14); this.fx.smoke(hand, '#adb5bd', 10, 0.8); this.fx.burst(hand, '#ff8c42', 10, 5, 0.16, 2, 0.3); t.model.hit(); this.sound('boom', 0.35); }
       else { this.fx.sparks(hand, '#ffd23f', 6); this.sound('lob', 0.55); }
     } else if (k === 'ice' || k === 'glue') {
-      const glue = k === 'glue', aim = this.lead(b, dist / s.speed, new THREE.Vector3()), l = Math.hypot(aim.x - t.x, aim.z - t.z) || 1;
-      const m = new THREE.Group(); m.add(new THREE.Mesh(glue ? GEO.glue : GEO.ice, glue ? MATS.glue : MATS.ice)); const gl = new THREE.Mesh(GEO.glow, glue ? MATS.glueGlow : MATS.iceGlow); gl.scale.setScalar(0.9); m.add(gl);
-      this.addProj({ kind: glue ? 'glue' : 'ice', x: hand.x, z: hand.z, y: hand.y, dx: (aim.x - hand.x) / l, dz: (aim.z - hand.z) / l, speed: s.speed, life: (l + 2) / s.speed, tower: t, mesh: m, trail: glue ? '#c5f277' : '#bfe8ff' });
-      this.fx.burst(hand, glue ? '#c5f277' : '#bfe8ff', 8, 3, 0.15, 2, 0.35);
-      this.sound(glue ? 'splat' : 'freeze', 0.5);
+      const glue = k === 'glue', fire = t.def.proj === 'fire', aim = this.lead(b, dist / s.speed, new THREE.Vector3()), l = Math.hypot(aim.x - t.x, aim.z - t.z) || 1;
+      const m = new THREE.Group(); m.add(new THREE.Mesh(fire ? GEO.fireball : glue ? GEO.glue : GEO.ice, fire ? MATS.fire : glue ? MATS.glue : MATS.ice)); const gl = new THREE.Mesh(GEO.glow, fire ? MATS.fireGlow : glue ? MATS.glueGlow : MATS.iceGlow); gl.scale.setScalar(fire ? 1.3 : 0.9); m.add(gl);
+      this.addProj({ kind: glue ? 'glue' : 'ice', x: hand.x, z: hand.z, y: hand.y, dx: (aim.x - hand.x) / l, dz: (aim.z - hand.z) / l, speed: s.speed, life: (l + 2) / s.speed, tower: t, mesh: m, trail: fire ? '#ff8c42' : glue ? '#c5f277' : '#bfe8ff', fire });
+      this.fx.burst(hand, fire ? '#ff8c42' : glue ? '#c5f277' : '#bfe8ff', 8, 3, 0.15, 2, 0.35);
+      if (fire) this.fx.flames(hand, 4, 0.3);
+      this.sound(fire ? 'boomerang' : glue ? 'splat' : 'freeze', 0.5);
     } else if (k === 'laser') {
       const targets = [b]; if (s.count > 1) { const skip = new Set([b.id]); for (let i = 1; i < s.count; i++) { const o = this.findTarget(t, s.range, skip); if (!o) break; targets.push(o); skip.add(o.id); } }
       for (const tg of targets) this.laser(t, tg, hand);
@@ -348,14 +384,32 @@ export class Game {
       for (let i = 0; i < (s.count || 1) && first; i++) { this.chain(t, first, hand, skip); first = this.findTarget(t, s.range, skip); }
       this.fx.flash(hand, '#caf0f8', 1.2, 0.15);
       this.sound('zap', 0.6);
+    } else if (k === 'wind') {
+      // a gust that blows balloons back along the road (bosses are too heavy)
+      let n = 0;
+      const list = []; this.near(t.x, t.z, s.range, x => { list.push(x); });
+      list.sort((a, c) => c.d - a.d);
+      for (const x of list) {
+        if (n++ >= s.maxHits) break;
+        if (!x.def.boss) x.d = Math.max(0, x.d - s.push * (x.def.tough ? 0.6 : 1));
+        x.slowT = Math.max(x.slowT, 1.2); x.slowPct = Math.max(x.slowPct, 0.3);
+        if (s.dmg) this.damage(x, s.dmg, t);
+        this.fx.burst(_v.set(x.x, 1.9, x.z), '#e0fbfc', 4, 2.5, 0.14, 2, 0.35);
+      }
+      const c = _v.set(t.x, t.y + 0.4, t.z);
+      this.fx.ring(c, '#e0fbfc', 0.6, s.range, 0.55, 0.7); this.fx.ring(c, '#90e0ef', 0.4, s.range * 0.7, 0.45, 0.5);
+      for (let i = 0; i < 26; i++) { const a = i / 26 * Math.PI * 2, r = 0.8 + Math.random() * s.range * 0.6; this.fx.emit({ p: _w.set(t.x + Math.cos(a) * r, t.y + 0.6 + Math.random() * 2, t.z + Math.sin(a) * r), v: _u.set(-Math.sin(a) * 9 + Math.cos(a) * 3, 0.6, Math.cos(a) * 9 + Math.sin(a) * 3), life: 0.55, size: 0.14, color: i % 3 ? '#e0fbfc' : '#90e0ef', g: 0, drag: 1.2 }); }
+      t.hop = 0.6;
+      this.sound('freeze', 0.4);
     } else if (k === 'magic') {
       for (let i = 0; i < s.count; i++) {
         const a = t.facing + (i - (s.count - 1) / 2) * 0.7;
-        const m = new THREE.Group(); m.add(new THREE.Mesh(GEO.magic, MATS.magic)); const gl = new THREE.Mesh(GEO.glow, MATS.magicGlow); gl.scale.setScalar(1.1); m.add(gl);
-        this.addProj({ kind: 'magic', x: hand.x, z: hand.z, y: hand.y, dx: Math.sin(a), dz: Math.cos(a), speed: s.speed, life: 3, pierce: s.pierce, dmg: s.dmg, r: 0.6, tower: t, mesh: m, target: b, hit: new Set() });
+        const bee = t.def.proj === 'bee';
+        let m; if (bee) m = beeMesh(); else { m = new THREE.Group(); m.add(new THREE.Mesh(GEO.magic, MATS.magic)); const gl = new THREE.Mesh(GEO.glow, MATS.magicGlow); gl.scale.setScalar(1.1); m.add(gl); }
+        this.addProj({ kind: 'magic', bee, x: hand.x, z: hand.z, y: hand.y, dx: Math.sin(a), dz: Math.cos(a), speed: s.speed * (bee ? 0.85 + Math.random() * 0.3 : 1), life: bee ? 4 : 3, pierce: s.pierce, dmg: s.dmg, r: 0.6, tower: t, mesh: m, target: b, hit: new Set() });
       }
-      this.fx.burst(hand, '#ffd23f', 10, 3, 0.15, 3, 0.4); this.fx.burst(hand, '#ff6fd8', 6, 2.5, 0.13, 3, 0.4);
-      this.sound('magic', 0.5);
+      if (t.def.proj === 'bee') { this.fx.burst(hand, '#ffd23f', 8, 3, 0.12, 3, 0.4); this.sound('zap', 0.25); }
+      else { this.fx.burst(hand, '#ffd23f', 10, 3, 0.15, 3, 0.4); this.fx.burst(hand, '#ff6fd8', 6, 2.5, 0.13, 3, 0.4); this.sound('magic', 0.5); }
     }
   }
   laser(t, b, from) {
@@ -367,9 +421,11 @@ export class Game {
     });
     hits.sort((a, c) => a.along - c.along);
     const n = Math.min(hits.length, s.pierce), endA = n ? hits[n - 1].along + 1 : len;
-    for (let i = 0; i < n; i++) { const o = hits[i].o; this.damage(o, s.dmg, t); this.fx.sparks(_v.set(o.x, 1.9, o.z), '#ff6fb5', 4); }
+    for (let i = 0; i < n; i++) { const o = hits[i].o; this.damage(o, s.dmg, t); this.fx.sparks(_v.set(o.x, 1.9, o.z), t.def.proj === 'super' ? '#ffd23f' : '#ff6fb5', 4); }
     const to = new THREE.Vector3(t.x + ux * endA, 1.8, t.z + uz * endA);
-    this.fx.beam(from, to, '#ff006e', 0.5, 0.22); this.fx.beam(from, to, '#ffffff', 0.16, 0.18); this.fx.flash(from, '#ff6fb5', 0.9, 0.12); this.fx.flash(to, '#ff006e', 1, 0.15);
+    const sup = t.def.proj === 'super', c1 = sup ? '#ff4d1a' : '#ff006e', c2 = sup ? '#ffd23f' : '#ff6fb5';
+    if (sup) from = _u.set(t.x + Math.sin(t.facing) * 0.6, t.y + 2.2, t.z + Math.cos(t.facing) * 0.6).clone();
+    this.fx.beam(from, to, c1, sup ? 0.36 : 0.5, 0.22); this.fx.beam(from, to, '#ffffff', 0.16, 0.18); this.fx.flash(from, c2, 0.9, 0.12); this.fx.flash(to, c1, 1, 0.15);
     this.fx.decal(_v.set(to.x, 0.05, to.z), '#3a1020', 0.6, 1.5, 0.35);
   }
   chain(t, b, from, skip) {
@@ -401,13 +457,13 @@ export class Game {
   later(time, fn) { this.timers.push({ t: time, fn }); }
   // freeze or glue an area
   splash(x, z, t, primary, glue) {
-    const s = t.stats; let n = 0;
+    const s = t.stats, fire = t.def.proj === 'fire'; let n = 0;
     const list = [];
     this.near(x, z, s.area, b => { list.push(b); });
     list.sort((a, b) => ((a.x - x) ** 2 + (a.z - z) ** 2) - ((b.x - x) ** 2 + (b.z - z) ** 2));
     for (const b of list) {
       if (n++ >= s.maxHits) break;
-      if (glue) { b.slowT = Math.max(b.slowT, s.slowT); b.slowPct = Math.max(b.slowPct, b.def.boss ? s.slow * 0.5 : s.slow); b.glueT = s.slowT; b.dot = Math.max(b.dot, s.dot || 0); b.dotSrc = t; }
+      if (glue) { b.slowT = Math.max(b.slowT, s.slowT); b.slowPct = Math.max(b.slowPct, b.def.boss ? s.slow * 0.5 : s.slow); b.glueT = s.slowT; b.dot = Math.max(b.dot, s.dot || 0); b.dotSrc = t; if (fire) b.burnT = s.slowT; if (s.dmg && n === 1) this.damage(b, s.dmg, t); }
       else {
         if (!b.def.boss) b.frozenT = Math.max(b.frozenT, s.freeze);
         b.slowT = Math.max(b.slowT, s.freeze + s.slowT); b.slowPct = Math.max(b.slowPct, b.def.boss ? s.slow * 0.6 : s.slow);
@@ -416,7 +472,8 @@ export class Game {
       }
     }
     const p = _v.set(x, 1.6, z), g = _w.set(x, 0.12, z);
-    if (glue) { this.fx.burst(p, '#c5f277', 16, s.area * 3, 0.2, 3, 0.5); this.fx.decal(g, '#9bd447', s.area, 3, 0.55); this.fx.ring(g, '#c5f277', 0.3, s.area + 0.3, 0.3); }
+    if (fire) { this.fx.burst(p, '#ff8c42', 18, s.area * 3, 0.22, 4, 0.5); this.fx.flames(g, 10, s.area * 1.2); this.fx.flash(p, '#ff8c42', s.area * 0.8, 0.2); this.fx.decal(g, '#2a1a12', s.area, 2.5, 0.45); this.fx.ring(g, '#ffd23f', 0.3, s.area + 0.3, 0.3); this.fx.light(p, '#ff8c42', 20, 0.3, 8); }
+    else if (glue) { this.fx.burst(p, '#c5f277', 16, s.area * 3, 0.2, 3, 0.5); this.fx.decal(g, '#9bd447', s.area, 3, 0.55); this.fx.ring(g, '#c5f277', 0.3, s.area + 0.3, 0.3); }
     else { this.fx.burst(p, '#bfe8ff', 18, s.area * 3, 0.2, 3, 0.5); this.fx.burst(p, '#ffffff', 8, s.area * 2, 0.14, 2, 0.4); this.fx.ring(g, '#7df9ff', 0.3, s.area + 0.4, 0.35); this.fx.smoke(g, '#e6f7ff', 4, s.area); this.fx.decal(g, '#dff6ff', s.area * 0.9, 2, 0.5); }
   }
 
@@ -457,6 +514,8 @@ export class Game {
     // a boss that gets through hurts a lot, but only the King takes everything
     const cap = { boss1: 0.25, giant: 0.4, colossal: 0.6, king: 1 }[b.type];
     if (cap) lost = Math.min(lost, Math.ceil(this.diff.lives * cap));
+    // a boss with 1% life left only does 1% of its damage
+    if (b.def.boss) lost = Math.max(1, Math.round(lost * Math.max(0, b.hp) / b.maxHp));
     this.lives = Math.max(0, this.lives - lost); this.stats.leaked += lost;
     this.fx.burst(_v.set(b.x, 2, b.z), '#ff4d6d', 10, 3, 0.2, 4, 0.4);
     this.sound('leak', 0.6);
@@ -464,16 +523,30 @@ export class Game {
     if (this.lives <= 0 && !this.over) { this.over = true; this.won = false; this.sound('defeat'); this.emit('gameover'); }
   }
   updateTowers(dt) {
+    for (const t of this.towers) { t.buff = 0; t.buffR = 0; }
+    for (const d of this.towers) {
+      if (d.isFarm || d.def.kind !== 'support') continue;
+      const r2 = d.stats.range * d.stats.range;
+      for (const t of this.towers) if (t !== d && !t.isFarm && t.def.kind !== 'support' && (t.x - d.x) ** 2 + (t.z - d.z) ** 2 <= r2) { t.buff = Math.max(t.buff, d.stats.boost); t.buffR = Math.max(t.buffR, d.stats.rangeUp || 0); }
+      // the beat
+      d.beatT = (d.beatT || 0) + dt;
+      if (d.beatT >= d.stats.cd) {
+        d.beatT = 0; d.atk = 0; d.hop = 0.5;
+        if (this.waveActive) { this.fx.ring(_v.set(d.x, d.y + 0.2, d.z), d.def.colors[1], 0.5, d.stats.range, 0.5, 0.45); if (Math.random() < 0.35) this.sound('click', 0.25); }
+        for (const t of this.towers) if (t.buff > 0 && Math.random() < 0.25) this.fx.emit({ p: _w.set(t.x, t.y + 2.4, t.z), v: _u.set(0, 1.5, 0), life: 0.7, size: 0.13, color: '#ffd23f', g: 0, drag: 0.5 }, true);
+      }
+    }
     for (const t of this.towers) {
       if (t.isFarm) {
         if (this.waveActive && t.drops < FARM_DROPS) { t.dropT -= dt; if (t.dropT <= 0) { t.dropT = 3.5 + Math.random() * 1.5; t.drops++; const amt = farmIncome(t.def, t.lvl, this.diff) * 0.5 / FARM_DROPS; this.money += amt; t.earned += amt; this.farmFx(t, amt, false); } }
         continue;
       }
       const s = t.stats;
-      t.cd -= dt;
+      if (t.def.kind === 'support') continue;
+      t.cd -= dt * (1 + (t.buff || 0));
       if (s.blizzard) { t.blizT += dt; if (t.blizT >= 3) { t.blizT = 0; let any = false; this.near(t.x, t.z, s.range, b => { any = true; if (!b.def.boss) b.frozenT = Math.max(b.frozenT, s.freeze * 0.7); b.slowT = Math.max(b.slowT, s.freeze + s.slowT); b.slowPct = Math.max(b.slowPct, s.slow); }); if (any) { this.fx.ring(_v.set(t.x, 0.3, t.z), '#bfe8ff', 0.5, s.range, 0.6, 0.7); this.fx.burst(_v.set(t.x, 2, t.z), '#ffffff', 30, s.range * 0.8, 0.18, 3, 0.8); this.fx.smoke(_v.set(t.x, 0.3, t.z), '#e6f7ff', 10, s.range * 0.8); this.sound('freeze', 0.8); } } }
       if (t.cd <= 0) {
-        const b = this.findTarget(t, s.range);
+        const b = this.findTarget(t, s.range + (t.buffR || 0));
         if (b) { this.attack(t, b); t.cd = s.cd; } else t.cd = 0.05;
       }
     }
@@ -504,8 +577,12 @@ export class Game {
         p.x += p.dx * p.speed * dt; p.z += p.dz * p.speed * dt; p.life -= dt;
         this.near(p.x, p.z, p.r, b => { if (p.hit.has(b.id) || b.skip === p.id) return; p.hit.add(b.id); this.damage(b, p.dmg, p.tower, p.id); this.fx.burst(_v.set(b.x, 1.9, b.z), '#ffd23f', 6, 3, 0.13, 3, 0.3); if (b === p.target) p.target = null; if (--p.pierce <= 0) { alive = false; return false; } });
         if (p.life <= 0) alive = false;
-        if (p.mesh) { p.mesh.position.set(p.x, p.y + Math.sin(p.life * 12) * 0.15, p.z); p.mesh.rotation.y += dt * 8; }
-        if (Math.random() < 0.8) this.fx.trail(_v.set(p.x, p.y, p.z), Math.random() < 0.5 ? '#ffd23f' : '#ff6fd8', 0.16);
+        if (p.mesh) {
+          p.mesh.position.set(p.x, p.y + Math.sin(p.life * 12) * 0.15, p.z);
+          if (p.bee) { p.mesh.rotation.y = Math.atan2(p.dx, p.dz); for (const w of p.mesh.userData.wings) w.rotation.y = Math.sin(this.time * 60 + p.id) * 0.8 * w.userData.s; }
+          else p.mesh.rotation.y += dt * 8;
+        }
+        if (!p.bee && Math.random() < 0.8) this.fx.trail(_v.set(p.x, p.y, p.z), Math.random() < 0.5 ? '#ffd23f' : '#ff6fd8', 0.16);
       } else if (p.kind === 'boom') {
         p.s += dt / p.dur;
         const fwd = Math.sin(Math.PI * Math.min(1, p.s)) * p.D, lat = Math.sin(Math.PI * 2 * Math.min(1, p.s)) * p.D * 0.42 * p.side, ca = Math.cos(p.a), sa = Math.sin(p.a);
@@ -520,8 +597,13 @@ export class Game {
         p.x = p.sx + (p.tx - p.sx) * k; p.z = p.sz + (p.tz - p.sz) * k; p.y = p.sy * (1 - k) + 1.2 * k + (p.cannon ? 0 : Math.sin(Math.PI * k) * 3.2);
         let early = false;
         if (k > (p.cannon ? 0.2 : 0.55)) this.near(p.x, p.z, 0.35, () => { early = true; return false; });
-        if (p.mesh) { p.mesh.position.set(p.x, p.y, p.z); p.mesh.rotation.x += dt * 8; }
-        if (Math.random() < 0.7) this.fx.trail(_v.set(p.x, p.y + (p.cannon ? 0 : 0.35), p.z), p.cannon ? '#adb5bd' : '#ffd23f', p.cannon ? 0.2 : 0.14);
+        if (p.mesh) {
+          if (p.rocket) { p.mesh.lookAt(p.x + (p.tx - p.sx) * 0.01, p.sy * (1 - Math.min(1, p.s + 0.01)) + 1.2 * Math.min(1, p.s + 0.01) + Math.sin(Math.PI * Math.min(1, p.s + 0.01)) * 3.2, p.z + (p.tz - p.sz) * 0.01); }
+          else p.mesh.rotation.x += dt * 8;
+          p.mesh.position.set(p.x, p.y, p.z);
+        }
+        if (p.rocket) { if (Math.random() < 0.3) this.fx.emit({ p: _v.set(p.x, p.y, p.z), v: _w.set(0, 0.6, 0), life: 0.6, size: 0.22, color: '#f1f3f5', g: 0, drag: 1, grow: 0.8 }); this.fx.trail(_v.set(p.x, p.y, p.z), '#ff8c42', 0.22); }
+        else if (Math.random() < 0.7) this.fx.trail(_v.set(p.x, p.y + (p.cannon ? 0 : 0.35), p.z), p.cannon ? '#adb5bd' : '#ffd23f', p.cannon ? 0.2 : 0.14);
         if (early || p.s >= 1) { this.explode(p.x, p.z, p.tower, p.tower.stats.radius, false, p.cannon); alive = false; }
       }
       if (alive) keep.push(p); else if (p.mesh) p.mesh.removeFromParent();
@@ -550,7 +632,8 @@ export class Game {
       m.root.position.y = tw.y + Math.sin(tw.hop * Math.PI) * 0.8 + dy;
       // glued balloons drip, frozen ones sparkle a little
     }
-    for (const b of this.balloons) if (b.alive && Math.random() < dt * 3) { if (b.glueT > 0) this.fx.emit({ p: _v.set(b.x, 1.3, b.z), v: _w.set(0, -1, 0), life: 0.5, size: 0.1, color: '#c5f277', g: -8 }); else if (b.frozenT > 0) this.fx.sparks(_v.set(b.x, 2, b.z), '#ffffff', 1); }
+    for (const b of this.balloons) if (b.alive && b.burnT > 0 && b.glueT > 0 && Math.random() < dt * 8) this.fx.flames(_v.set(b.x, 1.6, b.z), 1, 0.5);
+    for (const b of this.balloons) if (b.alive && Math.random() < dt * 3) { if (b.glueT > 0 && !(b.burnT > 0)) this.fx.emit({ p: _v.set(b.x, 1.3, b.z), v: _w.set(0, -1, 0), life: 0.5, size: 0.1, color: '#c5f277', g: -8 }); else if (b.frozenT > 0) this.fx.sparks(_v.set(b.x, 2, b.z), '#ffffff', 1); }
     this.view.update(this.balloons, t);
   }
   dispose() {

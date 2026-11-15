@@ -3,17 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#000000">
 <title>B10GAMES</title>
 <meta name="description" content="B10GAMES – gratis spil direkte i browseren.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23000'/%3E%3Ctext x='16' y='22' font-family='Arial,sans-serif' font-weight='900' font-size='14' fill='%23fff' text-anchor='middle'%3EB10%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23fff'/%3E%3Ctext x='16' y='22' font-family='Arial,sans-serif' font-weight='900' font-size='14' fill='%23000' text-anchor='middle'%3EB10%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;700&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #ffffff;
-    --ink: #000000;
-    --muted: #555555;
+    --bg: #000000;
+    --ink: #ffffff;
+    --muted: #a8a8a8;
+    --line: #333333;
     --live: #16a34a;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -58,7 +61,7 @@
   .search:focus-within { transform: translate(-2px,-2px); box-shadow: 4px 4px 0 var(--ink); }
   .search svg { flex: none; }
   .search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font: 500 16px "Space Grotesk", sans-serif; }
-  .search input::placeholder { color: #888; }
+  .search input::placeholder { color: #777; }
   .card[hidden] { display: none; }
   .empty { display: none; font: 700 15px "Space Mono", monospace; padding: 8px 0 24px; }
   .empty.on { display: block; }
@@ -73,7 +76,7 @@
   .card:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
   .card img {
     display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover;
-    border-bottom: 2px solid var(--ink); background: #eee;
+    border-bottom: 2px solid var(--ink); background: #111;
   }
   .body { padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
   .body h3 { font-family: "Archivo Black", sans-serif; font-size: 24px; line-height: 1.1; }
@@ -84,7 +87,7 @@
   }
   .cstats span { display: inline-flex; align-items: center; gap: 6px; }
   .cstats .dot { width: 8px; height: 8px; }
-  .cstats .off { background: #bbb; animation: none; }
+  .cstats .off { background: #555; animation: none; }
   .play {
     align-self: flex-start;
     font-family: "Space Mono", monospace; font-weight: 700; font-size: 13px; letter-spacing: .06em;
@@ -137,6 +140,8 @@
 <script>
   // Add a new game here.
   var GAMES = [
+    { id: 'crown-clash', title: 'Crown Clash',
+      desc: 'Kortkamp med bønner. Byg et deck med 8 kort, brug eliksir, send tropper over broerne og vælt tårnene. 15 kort, 4 arenaer og en modstander på easy, medium eller hard.' },
     { id: 'beans-tower-defense', title: 'Beans Tower Defense',
       desc: 'Sæt bønner langs vejen og pop ballonerne, før de slipper igennem. 12 bønner, farme, 6 baner, bosser og en uendelig Infinity mode.' },
     { id: 'bean-of-legends', title: 'Bean of Legends',
