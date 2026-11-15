@@ -80,7 +80,7 @@
   }
   // POST as text/plain: a "simple" request, so no CORS preflight and keepalive works.
   function put(key, obj, keep) {
-    var body = JSON.stringify(obj);
+    var body = obj === '' ? '' : JSON.stringify(obj);
     return fetch(API + NS + '-' + key, {
       method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: body,
       keepalive: !!keep && body.length < 60000
@@ -277,6 +277,20 @@
     persist(); setStatus('out'); emit('change');
   }
 
+  // Delete the account for good: profile, friends, online saves and friend requests.
+  // The games on this device keep their progress.
+  function deleteAccount() {
+    if (!acct) return Promise.resolve();
+    var me = acct;
+    return Promise.all(['d-' + me.dk, 'p-' + me.id, 'o-' + me.id, 'i-' + me.id].map(function (k) { return put(k, ''); }))
+      .catch(function () { throw netError(); })
+      .then(function () {
+        if (acct !== me) return;
+        acct = null; base = {}; ready = false; metaDirty = false;
+        persist(); setStatus('out'); emit('change');
+      });
+  }
+
   function setSkin(n) {
     if (!acct) return;
     acct.skin = n | 0; metaDirty = true; persist(); emit('change');
@@ -295,7 +309,7 @@
     if (isFriend(name)) return Promise.reject(new Error(name + ' er allerede din ven.'));
     var id, me = acct;
     return idOf(name).then(function (h) { id = h; return get('p-' + id).catch(function () { throw netError(); }); }).then(function (prof) {
-      if (!prof) throw new Error('Der findes ingen account med navnet "' + name + '".');
+      if (!prof) { var e = new Error('Der findes ingen account med navnet "' + name + '".'); e.gone = true; throw e; }
       if (acct !== me) return null;
       me.friends = me.friends.concat([prof.name || name]);
       metaDirty = true; persist(); emit('change'); sync();
@@ -332,7 +346,10 @@
     }).catch(function () {});
   }
   function acceptRequest(name) {
-    return addFriend(name).catch(function (e) { if (!isFriend(name)) throw e; }).then(function () { return dropRequest(name); });
+    return addFriend(name).catch(function (e) {
+      if (e.gone) { dropRequest(name); throw e; }
+      if (!isFriend(name)) throw e;
+    }).then(function () { return dropRequest(name); });
   }
 
   // Where are my friends? [{ name, skin, online, game, gameName, party, at }]
@@ -375,7 +392,7 @@
     get lastSync() { return lastSync; },
     get party() { return party; },
     games: GAMES,
-    login: login, logout: logout, setSkin: setSkin,
+    login: login, logout: logout, deleteAccount: deleteAccount, setSkin: setSkin,
     addFriend: addFriend, removeFriend: removeFriend, isFriend: isFriend,
     requests: requests, acceptRequest: acceptRequest, declineRequest: dropRequest,
     friends: friends, joinUrl: joinUrl, sync: function () { return sync(); },

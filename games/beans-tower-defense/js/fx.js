@@ -141,6 +141,30 @@ export class FX {
     m.position.set(pos.x, pos.y, pos.z); m.scale.set(r, h, r); this.scene.add(m);
     this.temps.push({ m, life, max: life, up: k => { m.material.opacity = 0.55 * (1 - k); m.scale.x = m.scale.z = r * (1 + k * 0.3); } });
   }
+  // run fn after a delay in game time (so it waits while the game is paused)
+  later(delay, fn) { let done = false; this.temp(new THREE.Object3D(), delay, k => { if (k >= 1 && !done) { done = true; fn(); } }); }
+  // a rocket that flies up with a sparkly tail and bursts into a ball of glowing sparks
+  firework(x, z, color, height = 15) {
+    const p = new THREE.Vector3(x, 0.6, z), v = new THREE.Vector3((Math.random() - 0.5) * 3, height * 1.2, (Math.random() - 0.5) * 3);
+    let done = false;
+    this.temp(new THREE.Object3D(), 1.0, (k, dt) => {
+      if (done) return;
+      p.addScaledVector(v, dt || 0); v.y -= 12 * (dt || 0);
+      this.emit({ p, v: _p.set((Math.random() - 0.5) * 0.8, -1.5, (Math.random() - 0.5) * 0.8), life: 0.5, size: 0.17, color: '#ffe9a8', g: -3, drag: 1 }, true);
+      if (k >= 1) { done = true; this.fwBurst(p, color); }
+    });
+  }
+  fwBurst(p, color) {
+    const n = Math.ceil(110 * this.quality), c2 = color === '#ffd23f' ? '#ff4d6d' : '#ffffff';
+    for (let i = 0; i < n; i++) {
+      const u = Math.random() * 2 - 1, a = Math.random() * Math.PI * 2, r = Math.sqrt(1 - u * u), sp = 10 + Math.random() * 4;
+      this.emit({ p, v: _p.set(r * Math.cos(a) * sp, u * sp + 1.5, r * Math.sin(a) * sp), life: 1.2 + Math.random() * 0.7, size: 0.36, color: i % 4 ? color : c2, g: -4.5, drag: 1.4 }, true);
+    }
+    // a ring of slower white glitter in the middle
+    for (let i = 0; i < Math.ceil(24 * this.quality); i++) { const a = i / 24 * Math.PI * 2; this.emit({ p, v: _p.set(Math.cos(a) * 5, Math.sin(a * 2) * 1.5, Math.sin(a) * 5), life: 1.4, size: 0.28, color: '#ffffff', g: -2, drag: 1.8 }, true); }
+    this.flash(p, color, 4.5, 0.35); this.light(p, color, 50, 0.6, 38);
+    if (this.onBurst) this.onBurst();
+  }
   // a mesh that lives for a while; up(k, dt) is called with k going 0 -> 1
   temp(m, life, up) { this.scene.add(m); this.temps.push({ m, life, max: life, up: up || (() => {}) }); }
   update(dt) {

@@ -3,14 +3,15 @@
 // Distances are in world units (the playable field is about 82 x 52), times in seconds.
 
 // ---------- difficulties ----------
+// Every difficulty uses the Easy prices (cost 0.85) for beans, farms and upgrades.
 export const DIFFS = {
-  easy: { id: 'easy', name: 'Easy', lives: 200, money: 650, rounds: 30, speed: 0.88, hp: 0.9, count: 0.8, cost: 0.85, cash: 1.05, coins: 1, color: '#7bd389',
-    desc: 'Slower, weaker balloons and fewer of them. Fewest Bean Coins.' },
-  medium: { id: 'medium', name: 'Medium', lives: 100, money: 500, rounds: 40, speed: 1.0, hp: 1.1, count: 1.05, cost: 1.0, cash: 1.0, coins: 1.6, color: '#ffd23f',
-    desc: 'Normal speed, more and stronger balloons. More Bean Coins.' },
-  hard: { id: 'hard', name: 'Hard', lives: 50, money: 450, rounds: 50, speed: 1.05, hp: 1.2, count: 1.14, cost: 1.05, cash: 0.95, coins: 2.4, color: '#ff4d6d',
-    desc: 'Fast, tough balloons in huge groups. Most Bean Coins.' },
-  infinity: { id: 'infinity', name: 'Infinity', lives: 50, money: 450, rounds: Infinity, speed: 1.05, hp: 1.2, count: 1.14, cost: 1.05, cash: 0.95, coins: 2.8, color: '#b15cff', infinite: true,
+  easy: { id: 'easy', name: 'Easy', lives: 250, money: 800, rounds: 30, speed: 0.8, hp: 0.8, count: 0.72, cost: 0.85, cash: 1.1, coins: 1, color: '#7bd389',
+    desc: 'Slow, weak balloons and only a few of them. Fewest Bean Coins.' },
+  medium: { id: 'medium', name: 'Medium', lives: 150, money: 700, rounds: 40, speed: 0.9, hp: 0.95, count: 0.9, cost: 0.85, cash: 1.05, coins: 1.6, color: '#ffd23f',
+    desc: 'Normal speed and more balloons. More Bean Coins.' },
+  hard: { id: 'hard', name: 'Hard', lives: 100, money: 600, rounds: 50, speed: 0.97, hp: 1.05, count: 1.0, cost: 0.85, cash: 1.0, coins: 2.4, color: '#ff4d6d',
+    desc: 'Fast, tough balloons in big groups. Most Bean Coins.' },
+  infinity: { id: 'infinity', name: 'Infinity', lives: 100, money: 600, rounds: Infinity, speed: 0.97, hp: 1.05, count: 1.0, cost: 0.85, cash: 1.0, coins: 2.8, color: '#b15cff', infinite: true,
     desc: 'Endless waves on Hard. They keep getting harder, forever. How far can you get?' }
 };
 export const ROUND_OPTIONS = [10, 20, 30, 40, 50, 60, 80, 100];
@@ -41,7 +42,7 @@ export function rbe(type, hpMul = 1) {
 // which boss a boss wave brings, how many, how tough and what comes out of it
 export function bossFor(w, rounds) { return w === rounds ? 'king' : w <= 10 ? 'boss1' : w <= 30 ? 'giant' : 'colossal'; }
 export function bossCount(type, w) { return type === 'king' ? 1 : type === 'giant' ? (w >= 30 ? 2 : 1) : type === 'colossal' ? Math.min(6, 1 + Math.floor((w - 40) / 15)) : 1; }
-export function bossHpScale(type, w) { return type === 'king' ? Math.max(0.035, Math.pow(w / 50, 2)) : Math.max(0.3, Math.pow(w / BALLOONS[type].ref, 1.15)); }
+export function bossHpScale(type, w) { return type === 'king' ? Math.max(0.03, 0.8 * Math.pow(w / 50, 2)) : 0.85 * Math.max(0.3, Math.pow(w / BALLOONS[type].ref, 1.15)); }
 export function bossChildren(type, w) {
   if (type === 'king') return w < 20 ? ['purple', 'purple', 'purple', 'purple'] : w < 35 ? ['rainbow', 'rainbow', 'rainbow', 'rainbow'] : w < 70 ? ['giant', 'rainbow', 'rainbow'] : ['colossal', 'giant'];
   return BALLOONS[type].children;
@@ -228,6 +229,6 @@ export function makeWave(w, diff, rounds) {
   return groups;
 }
 // money for finishing wave w
-export const waveBonus = (w) => 100 + w;
+export const waveBonus = (w) => 120 + 2 * w;
 // Bean Coins for the shop: more for harder difficulties and longer games
 export function coinsFor(cleared, diff, won, rounds) { return Math.round(cleared * 2.2 * diff.coins + (won ? Math.min(rounds, 100) * 1.3 * diff.coins + 20 : 0)); }

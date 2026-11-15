@@ -150,6 +150,9 @@ export class Audio {
       case 'place': this.hit(o, t, 180, 70, 0.18, 0.3 * v); this.noiseHit(o, t, 0.12, 0.12 * v, 800); [660, 880].forEach((f, i) => this.tone(o, 'triangle', f, t + 0.05 + i * 0.06, 0.12, 0.07 * v)); break;
       case 'upgrade': [523, 659, 784, 1046, 1318].forEach((f, i) => this.tone(o, 'square', f, t + i * 0.055, 0.18, 0.08 * v)); break;
       case 'sell': [1318, 988, 784].forEach((f, i) => this.tone(o, 'square', f, t + i * 0.07, 0.14, 0.07 * v)); break;
+      case 'drop': this.hit(o, t, 1700, 380, 0.4, 0.045 * v, 'sine'); break;
+      case 'launch': this.noiseHit(o, t, 0.5, 0.05 * v, 5000); this.hit(o, t, 300, 1100, 0.5, 0.025 * v, 'sine'); break;
+      case 'firework': this.hit(o, t, 240, 50, 0.45, 0.16 * v); this.noiseHit(o, t, 0.6, 0.12 * v, 2200); for (let i = 0; i < 7; i++) this.noiseHit(o, t + 0.18 + i * 0.06 + Math.random() * 0.04, 0.03, 0.05 * v, 6500); break;
       case 'leak': this.hit(o, t, 300, 90, 0.3, 0.2 * v, 'sawtooth'); break;
       case 'wave': [392, 523, 659, 784].forEach((f, i) => this.tone(o, 'triangle', f, t + i * 0.09, 0.28, 0.12 * v)); this.hit(o, t, 120, 60, 0.3, 0.25 * v); break;
       case 'waveDone': [784, 988, 1175, 1568].forEach((f, i) => this.tone(o, 'square', f, t + i * 0.06, 0.16, 0.08 * v)); break;

@@ -11,6 +11,11 @@ import { BalloonView } from './balloons.js';
 import { Bean, TowerBean, FarmModel, ACCESSORIES, setFace, dance, DANCES } from './bean.js';
 import { icon, fillIcons } from './icons.js';
 import { UI, $ } from './ui.js';
+import { Ambient } from './ambient.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 const load = (k, d) => { try { return Object.assign(d, JSON.parse(localStorage.getItem(k)) || {}); } catch (e) { return d; } };
 const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
@@ -28,6 +33,27 @@ const writeSave = () => save('btd-save', app.save);
 const canvas = $('gl');
 const renderer = app.renderer = createRenderer(canvas, app.settings.quality);
 const camera = app.camera = new THREE.PerspectiveCamera(36, innerWidth / innerHeight, 1, 700);
+// ---------- glow: on High graphics bright things (lasers, sparks, fireworks, lava, magic) shine ----------
+// If the device cannot keep up, the glow switches itself off.
+const post = { composer: null, render: null, bloom: null, ok: true, frames: 0, slow: 0 };
+const GLOW = { valley: 0.95, candy: 1.0, dunes: 1.0, frost: 1.3, lava: 1.2, swamp: 0.75 };
+function postOn() { return app.settings.quality !== 'low' && post.ok; }
+function sizePost() { if (!post.composer) return; post.composer.setPixelRatio(renderer.getPixelRatio()); post.composer.setSize(innerWidth, innerHeight); }
+function makePost() {
+  const rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 });
+  post.composer = new EffectComposer(renderer, rt);
+  post.render = new RenderPass(new THREE.Scene(), camera);
+  post.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.55, 0.42, 0.95);
+  post.composer.addPass(post.render); post.composer.addPass(post.bloom); post.composer.addPass(new OutputPass());
+  sizePost();
+}
+function draw(scene, dt) {
+  if (!postOn()) { renderer.render(scene, camera); return; }
+  if (!post.composer) makePost();
+  post.render.scene = scene;
+  post.bloom.threshold = GLOW[app.mapObj && app.mapObj.def.theme] || 0.95;
+  post.composer.render(dt);
+}
 const pmrem = new THREE.PMREMGenerator(renderer);
 const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 app.ui = new UI(app);
@@ -225,7 +251,8 @@ class Input {
     this.pointers = new Map(); this.drag = null; this.pinch = null;
     canvas.addEventListener('contextmenu', e => e.preventDefault());
     canvas.addEventListener('pointerdown', e => this.down(e));
-    canvas.addEventListener('pointermove', e => this.move(e));
+    canvas.addEventListener('pointermove', e => { this.mouseHover = e.pointerType === 'mouse'; this.move(e); });
+    canvas.addEventListener('pointerleave', () => { this.mouseHover = false; });
     canvas.addEventListener('pointerup', e => this.up(e));
     canvas.addEventListener('pointercancel', e => { this.pointers.delete(e.pointerId); this.pinch = null; this.drag = null; });
     canvas.addEventListener('wheel', e => { if (app.state !== 'game') return; e.preventDefault(); app.cam.wheel(e.deltaY, this.ground); }, { passive: false });
@@ -348,16 +375,27 @@ class Input {
       if (this.placingFarm) ghost.update(dt); else ghost.update(dt, { speed: 0 });
       r = this.placingFarm ? 2.1 : def.base.range; show = true;
       canvas.style.cursor = ok ? 'pointer' : 'not-allowed';
-    } else if (sel && !sel.isFarm) { x = sel.x; z = sel.z; r = sel.stats.range > 100 ? 0 : sel.stats.range; show = r > 0; }
-    else canvas.style.cursor = this.towerAt(this.ground.x, this.ground.z) ? 'pointer' : 'default';
+    }
+    // the mouse over a bean shows how far it reaches (and makes it grow a little)
+    const hov = !ghost && this.mouseHover && !this.drag ? this.towerAt(this.ground.x, this.ground.z) : null;
+    g.hover = hov;
+    if (!ghost) {
+      canvas.style.cursor = hov ? 'pointer' : 'default';
+      const rt = hov && !hov.isFarm ? hov : sel && !sel.isFarm ? sel : null;
+      if (rt) { x = rt.x; z = rt.z; r = rt.stats.range > 100 ? 0 : rt.stats.range; show = r > 0; }
+    }
     this.rangeDisc.visible = this.rangeRing.visible = show;
     if (show) {
       const col = ghost ? (ok ? '#5bd16b' : '#ff4d6d') : '#ffffff';
       this.rangeDisc.material.color.set(col); this.rangeRing.material.color.set(col);
       this.rangeDisc.material.opacity = ghost && !ok ? 0.3 : 0.16;
+      // the circle grows out from the bean when you point at a new one
+      if (this.rangeFor !== (ghost ? 'ghost' : x + ',' + z)) { this.rangeFor = ghost ? 'ghost' : x + ',' + z; this.rangeK = ghost ? 1 : 0; }
+      this.rangeK = Math.min(1, (this.rangeK || 0) + dt * 6);
+      const e = 1 - Math.pow(1 - this.rangeK, 3), pulse = 1 + Math.sin(app.animT * 4) * 0.008;
       this.rangeDisc.position.set(x, 0.12, z); this.rangeRing.position.set(x, 0.14, z);
-      this.rangeDisc.scale.setScalar(r); this.rangeRing.scale.setScalar(r);
-    }
+      this.rangeDisc.scale.setScalar(r * e); this.rangeRing.scale.setScalar(r * e * pulse);
+    } else this.rangeFor = null;
     // rings under every selected bean in Select mode (and under the one you clicked)
     const list = this.multi ? this.picked : sel ? [sel] : [];
     while (this.selRings.length < list.length) { const m = new THREE.Mesh(this.selRingGeo, this.selMat); m.renderOrder = 5; app.mapObj.scene.add(m); this.selRings.push(m); }
@@ -394,6 +432,8 @@ function startGame(mapId = app.sel.map, diffId = app.sel.diff, rounds = app.sel.
     const map = app.mapObj = buildMap(MAP[mapId], app.settings.quality);
     map.scene.environment = envTex; map.scene.environmentIntensity = 0.38;
     app.fx = new FX(map.scene); app.fx.quality = app.settings.quality === 'low' ? 0.6 : 1; app.fx.initLights(app.settings.quality === 'low' ? 0 : 3);
+    app.fx.onBurst = () => app.audio.sfx('firework', 0.45);
+    app.ambient = new Ambient(map.scene, MAP[mapId].theme);
     const view = new BalloonView(map.scene); view.camQ = camera.quaternion;
     const diff = DIFFS[diffId];
     const g = app.game = new Game({ map, diff, rounds, fx: app.fx, audio: app.audio, view });
@@ -412,6 +452,7 @@ function startGame(mapId = app.sel.map, diffId = app.sel.diff, rounds = app.sel.
 }
 function endGame() {
   if (app.game) { app.game.dispose(); app.game = null; }
+  if (app.ambient) { app.ambient.dispose(); app.ambient = null; }
   app.input.clearGhost(); app.input.deselect(); app.input.multi = false; app.input.picked = [];
   if (app.mapObj) { disposeScene(app.mapObj.scene); app.mapObj = null; }
   app.ui.stop();
@@ -432,12 +473,25 @@ function awardCoins(g) {
 function onGameEvent(type, d) {
   const g = app.game;
   if (type === 'wave') {
+    // a burst of light where the balloons come in
+    const sp = g.map.path.at(5, new THREE.Vector3()); sp.y = g.map.heightAt(sp.x, sp.z);
+    app.fx.column(sp, d.boss ? '#ff4d6d' : '#ffffff', 2.2, 10, 0.9); app.fx.ring(sp, d.boss ? '#ff4d6d' : '#ffd23f', 0.5, 7, 0.7); app.fx.burst(sp.clone().setY(sp.y + 1), '#ffffff', 24, 6, 0.2, 6, 0.6);
     app.ui.banner(d.final ? 'FINAL WAVE!' : 'WAVE ' + d.wave, d.boss ? (d.type === 'king' ? 'THE KING BALLOON IS COMING!' : 'BOSS WAVE: ' + BALLOONS[d.type].name.toUpperCase()) : d.count + ' balloons', 2.4, d.boss ? '#ff7aa2' : null);
     if (d.boss) app.audio.play(MUSIC.boss);
   } else if (type === 'money') {
     saveRun(g);
+  } else if (type === 'land') {
+    app.cam.shakeT = Math.max(app.cam.shakeT, 0.1);
   } else if (type === 'waveEnd') {
     saveRun(g);
+    // fireworks over the field for every wave you beat (more for later waves and bosses)
+    const cols = ['#ff4d6d', '#ffd23f', '#3a86ff', '#7bd389', '#ff6fd8', '#b15cff', '#7df9ff'];
+    const n = Math.min(9, 3 + Math.floor(d.wave / 8) + (d.wave % 10 === 0 ? 3 : 0));
+    for (let i = 0; i < n; i++) app.fx.later(0.15 + i * 0.32 + Math.random() * 0.15, () => {
+      if (app.game !== g) return;
+      app.fx.firework((Math.random() - 0.5) * 64, (Math.random() - 0.5) * 34, cols[(i + d.wave) % cols.length], 13 + Math.random() * 5);
+      app.audio.sfx('launch', 0.5);
+    });
     const p = $('sMoney').getBoundingClientRect(); app.ui.float(p.left + 30, p.bottom + 4, `+${icon('coin')}${d.bonus}`);
     if (app.audio.music && app.audio.music.params === MUSIC.boss) app.audio.play(MUSIC.game);
   } else if (type === 'boss') {
@@ -449,6 +503,10 @@ function onGameEvent(type, d) {
   } else if (type === 'newLook') {
     const p = app.toScreen(d.x, 4, d.z); app.ui.float(p.x - 40, p.y, `${icon('max')}NEW LOOK!`);
   } else if (type === 'leak') {
+    const h = $('hurtFx'); h.classList.remove('on'); void h.offsetWidth; h.classList.add('on');
+    app.cam.shakeT = Math.max(app.cam.shakeT, 0.3);
+    const ep = g.map.path.at(g.map.path.len - 5, new THREE.Vector3()); ep.y = g.map.heightAt(ep.x, ep.z) + 1.5;
+    app.fx.burst(ep, '#ff4d6d', 18, 6, 0.22, 5, 0.5); app.fx.flash(ep, '#ff4d6d', 1.6, 0.25);
     const p = $('sLives').getBoundingClientRect(); app.ui.float(p.left + 30, p.bottom + 4, `-${icon('heart')}${d.lost}`, true);
   } else if (type === 'victory') {
     clearRun();
@@ -475,7 +533,7 @@ function openSettings() {
   const v = app.audio.vol;
   for (const [id, k] of [['setMaster', 'master'], ['setMusic', 'music'], ['setSfx', 'sfx']]) { $(id).value = v[k]; $(id).oninput = () => app.audio.setVolume(k, +$(id).value); }
   seg('setMute', v.mute ? 1 : 0, x => app.audio.setVolume('mute', x === '1'));
-  seg('setQuality', app.settings.quality, q => { app.settings.quality = q; save('btd-settings', app.settings); applyQuality(renderer, q); onResize(); if (app.fx) app.fx.quality = q === 'low' ? 0.6 : 1; for (const s of [app.mapObj && app.mapObj.scene, app.lobby && app.lobby.scene]) if (s) s.userData.sun.castShadow = q !== 'low'; });
+  seg('setQuality', app.settings.quality, q => { app.settings.quality = q; post.ok = true; save('btd-settings', app.settings); applyQuality(renderer, q); onResize(); if (app.fx) app.fx.quality = q === 'low' ? 0.6 : 1; for (const s of [app.mapObj && app.mapObj.scene, app.lobby && app.lobby.scene]) if (s) s.userData.sun.castShadow = q !== 'low'; });
   modal('settings', true);
 }
 
@@ -517,7 +575,7 @@ function wire() {
   document.addEventListener('dblclick', e => e.preventDefault());
   $('balList').innerHTML = BALLOON_ORDER.map(k => `<div>${icon('b_' + k)}${BALLOONS[k].name.replace(' Balloon', '')}</div>`).join('');
 }
-function onResize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); if (app.state === 'game') app.cam.fit(); }
+function onResize() { renderer.setSize(innerWidth, innerHeight, false); sizePost(); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); if (app.state === 'game') app.cam.fit(); }
 addEventListener('resize', onResize);
 
 // ---------- loop ----------
@@ -531,17 +589,27 @@ function step(dt) {
     for (const f of app.mapObj.anim) f(app.animT);
     g.visuals(vdt, app.animT);
     app.fx.update(vdt);
+    if (app.ambient) app.ambient.update(vdt);
     app.cam.update(dt);
     if (app.cam.shakeT > 0) { app.cam.shakeT -= dt; const a = app.cam.shakeT * 1.2; camera.position.x += Math.sin(app.animT * 47) * a; camera.position.y += Math.sin(app.animT * 61) * a * 0.6; }
     app.input.update(dt);
     app.ui.update();
-    renderer.render(app.mapObj.scene, camera);
+    draw(app.mapObj.scene, dt);
   } else if (app.lobby) {
     app.lobby.update(dt, innerWidth / innerHeight);
     renderer.render(app.lobby.scene, app.lobby.camera);
   }
 }
-function frame(now) { requestAnimationFrame(frame); const dt = Math.min(0.05, (now - last) / 1000); last = now; step(dt); }
+function frame(now) {
+  requestAnimationFrame(frame);
+  const raw = (now - last) / 1000, dt = Math.min(0.05, raw); last = now;
+  step(dt);
+  // the glow costs the most: if a game keeps running slowly with it on, switch it off
+  if (app.state === 'game' && postOn() && document.visibilityState === 'visible' && raw < 0.25) {
+    post.frames++; if (raw > 1 / 38) post.slow++;
+    if (post.frames >= 180) { if (post.slow > 120) { post.ok = false; console.info('Glow switched off to keep the game smooth'); } post.frames = post.slow = 0; }
+  }
+}
 
 // ---------- boot ----------
 async function boot() {
@@ -564,4 +632,4 @@ async function boot() {
 boot().catch(e => { console.error(e); $('bootTxt').textContent = 'Something went wrong: ' + e.message; });
 
 // test hooks
-window.BTD = { app, step, startGame, goLobby, goMaps, goShop, startWave, awardCoins, readRun, get game() { return app.game; } };
+window.BTD = { app, step, startGame, goLobby, goMaps, goShop, startWave, awardCoins, readRun, post, makePost, get game() { return app.game; } };

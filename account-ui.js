@@ -126,6 +126,15 @@
     '.acct-skin.on{border-color:#000;box-shadow:3px 3px 0 #000}',
     '.acct-out{margin-top:18px;width:100%;height:44px;border:2px solid #000;background:#fff;color:#000;font:700 13px "Space Mono",monospace;text-transform:uppercase;letter-spacing:.06em;cursor:pointer}',
     '.acct-out:hover{background:#000;color:#fff}',
+    '.acct-del{margin-top:10px;width:100%;height:40px;border:0;background:none;color:#b91c1c;font:700 12px "Space Mono",monospace;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;text-decoration:underline;text-underline-offset:3px}',
+    '.acct-del:hover{background:#fef2f2}',
+    '.acct-del-box{margin-top:12px;border:2px solid #b91c1c;padding:12px;background:#fef2f2}',
+    '.acct-del-box b{display:block;font-size:15px;color:#7f1d1d}',
+    '.acct-del-box p{margin-top:6px;font-size:13px}',
+    '.acct-del-row{display:flex;gap:8px;margin-top:10px}',
+    '.acct-del-row button{flex:1;margin:0;height:42px}',
+    '.acct-del-yes{border:2px solid #b91c1c;background:#b91c1c;color:#fff;font:700 13px "Space Mono",monospace;text-transform:uppercase;letter-spacing:.04em;cursor:pointer}',
+    '.acct-del-yes:disabled{opacity:.6}',
     '.acct-add{display:flex;gap:8px}',
     '.acct-add input{margin:0;flex:1;min-width:0}',
     '.acct-add button{flex:none;height:46px;padding:0 14px;border:2px solid #000;background:#000;color:#fff;font:700 13px "Space Mono",monospace;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;gap:6px}',
@@ -178,14 +187,14 @@
   var box = document.createElement('div'); box.className = 'acct-box';
   box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', 'Account');
   back.appendChild(box); document.body.appendChild(back);
-  var open = false, tab = 'profile', reqs = [], friendData = null, poll = null;
+  var open = false, tab = 'profile', reqs = [], friendData = null, poll = null, confirmDel = false;
 
   function show() {
     open = true; back.classList.add('on'); render(true);
     refresh();
     clearInterval(poll); poll = setInterval(refresh, 15000);
   }
-  function hide() { open = false; back.classList.remove('on'); clearInterval(poll); btn.focus(); }
+  function hide() { open = false; confirmDel = false; back.classList.remove('on'); clearInterval(poll); btn.focus(); }
   btn.addEventListener('click', function () { if (open) hide(); else show(); });
   back.addEventListener('mousedown', function (e) { if (e.target === back) hide(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && open) hide(); });
@@ -211,6 +220,10 @@
       html += '<div class="acct-label">Vælg dit profilbillede</div><div class="acct-skins">' +
         SKINS.map(function (s, i) { return '<button type="button" class="acct-skin' + (i === u.skin ? ' on' : '') + '" data-skin="' + i + '" aria-label="' + esc(s.name) + '">' + bean(i) + '<span>' + esc(s.name) + '</span></button>'; }).join('') +
         '</div><button type="button" class="acct-out" data-out>Log ud</button>' +
+        (confirmDel
+          ? '<div class="acct-del-box"><b>Vil du slette din account "' + esc(u.name) + '"?</b><p>Dit navn, dit profilbillede, dine venner og dit gemte progress online bliver slettet for altid. Spillene på denne enhed beholder deres progress.</p>' +
+            '<div class="acct-del-row"><button type="button" class="acct-del-yes" data-delyes>Ja, slet den</button><button type="button" class="acct-out" data-delno>Fortryd</button></div><p class="acct-err" data-delmsg></p></div>'
+          : '<button type="button" class="acct-del" data-del>Slet account</button>') +
         '<p class="acct-small">Dit progress i alle spil bliver gemt på din account, så du kan fortsætte hvor du slap – også på en anden computer eller iPad.</p>';
     } else {
       html += '<div class="acct-label">Tilføj en ven</div>' +
@@ -291,6 +304,19 @@
     if (t.classList.contains('acct-x')) return hide();
     if (t.dataset.tab) { tab = t.dataset.tab; render(true); if (tab === 'friends') refresh(); return; }
     if (t.dataset.skin != null) { A.setSkin(+t.dataset.skin); return; }
+    if (t.hasAttribute('data-del')) { confirmDel = true; render(); var bx = box.querySelector('.acct-del-box'); if (bx) bx.scrollIntoView({ block: 'nearest' }); return; }
+    if (t.hasAttribute('data-delno')) { confirmDel = false; render(); return; }
+    if (t.hasAttribute('data-delyes')) {
+      t.disabled = true; t.textContent = 'Sletter…';
+      A.deleteAccount().then(function () {
+        confirmDel = false; reqs = []; friendData = null; badge.hidden = true; render(true);
+        var m = box.querySelector('[data-msg]'); if (m) { m.className = 'acct-ok'; m.textContent = 'Din account er slettet.'; }
+      }, function (err) {
+        t.disabled = false; t.textContent = 'Ja, slet den';
+        var m = box.querySelector('[data-delmsg]'); if (m) m.textContent = err.message;
+      });
+      return;
+    }
     if (t.hasAttribute('data-out')) { A.logout(); reqs = []; friendData = null; badge.hidden = true; render(true); return; }
     if (t.dataset.join) {
       var f = (friendData || []).filter(function (x) { return x.name === t.dataset.join; })[0];

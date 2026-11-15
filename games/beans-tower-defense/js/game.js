@@ -34,6 +34,7 @@ const MATS = {
 let POP_TEX = null;
 function popTex() { return POP_TEX || (POP_TEX = canvasTex(128, 64, (g, w, h) => { g.translate(w / 2, h / 2); g.fillStyle = '#ffd23f'; g.beginPath(); for (let i = 0; i < 18; i++) { const a = i / 18 * Math.PI * 2, r = i % 2 ? 22 : 34; g.lineTo(Math.cos(a) * r * 1.6, Math.sin(a) * r * 0.85); } g.closePath(); g.fill(); g.strokeStyle = '#2a1546'; g.lineWidth = 4; g.stroke(); g.fillStyle = '#ff4d6d'; g.font = '30px Lilita One, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 6; g.strokeText('POP!', 0, 2); g.fillText('POP!', 0, 2); })); }
 
+const DROP = 0.42;   // seconds a new bean falls before it lands
 export class Game {
   constructor({ map, diff, rounds, fx, audio, view }) {
     this.map = map; this.diff = diff; this.rounds = diff.infinite ? Infinity : rounds; this.fx = fx; this.audio = audio; this.view = view; this.scene = map.scene;
@@ -170,14 +171,26 @@ export class Game {
       this.scene.add(model.root);
       t = { id: this.nextId++, def, x, z, y, r, lvl: 0, spent: cost, cd: 0.2, target: def.target, model, facing: Math.PI, atk: -1, pops: 0, blizT: 0, cheerT: 0, hop: 0, stats: beanStats(def, 0) };
     }
+    t.base = t.model.root.scale.x;
     this.towers.push(t);
     if (free) return t;
+    // it drops in from the sky and lands with a thump (see land)
+    t.dropT = DROP; t.model.root.position.y = y + 9;
     const p = _v.set(x, y, z);
-    this.fx.dust(p, 16); this.fx.ring(p, '#ffffff', 0.4, r * 2.4, 0.45); this.fx.burst(_w.set(x, y + 0.5, z), isFarm ? '#9be15d' : (def.colors || ['#ffd23f'])[0], 14, 4, 0.18, 5, 0.5);
-    if (!isFarm) t.model.hit();
-    this.sound('place');
+    this.fx.ring(p, '#ffffff', r * 2.2, 0.3, DROP, 0.5);
+    this.fx.sparks(_w.set(x, y + 6, z), '#ffffff', 6);
+    this.sound('drop');
     this.emit('money');
     return t;
+  }
+  land(t) {
+    const p = _v.set(t.x, t.y, t.z), c = t.isFarm ? '#9be15d' : (t.def.colors || ['#ffd23f'])[0];
+    t.squash = 1;
+    this.fx.dust(p, 22); this.fx.ring(p, '#ffffff', 0.4, t.r * 2.8, 0.5); this.fx.ring(p, c, 0.3, t.r * 2, 0.4, 0.7);
+    this.fx.burst(_w.set(t.x, t.y + 0.5, t.z), c, 16, 4.5, 0.18, 5, 0.55); this.fx.decal(p, '#5a4632', 1.6, 1.6, 0.25);
+    if (!t.isFarm) t.model.hit();
+    this.sound('place');
+    this.emit('land', t);
   }
   // ---------- saving a game you are in the middle of (between waves) ----------
   runState() {
@@ -519,7 +532,14 @@ export class Game {
   visuals(dt, t) {
     for (const tw of this.towers) {
       const m = tw.model;
-      if (tw.isFarm) { m.update(dt); continue; }
+      // dropping in from the sky, a squash when it lands, and a little grow when the mouse is on it
+      let dy = 0;
+      if (tw.dropT > 0) { tw.dropT -= dt; const k = Math.max(0, tw.dropT / DROP); dy = k * k * 9; if (tw.dropT <= 0) this.land(tw); }
+      if (tw.squash > 0) tw.squash = Math.max(0, tw.squash - dt * 2.6);
+      tw.hoverK = (tw.hoverK || 0) + ((this.hover === tw ? 1 : 0) - (tw.hoverK || 0)) * Math.min(1, dt * 12);
+      const sq = tw.squash > 0 ? Math.cos((1 - tw.squash) * Math.PI * 2.5) * tw.squash : 0, grow = (tw.base || 1) * (1 + tw.hoverK * 0.09);
+      m.root.scale.set(grow * (1 + sq * 0.2), grow * (1 - sq * 0.28), grow * (1 + sq * 0.2));
+      if (tw.isFarm) { m.update(dt); m.root.position.y = tw.y + dy; continue; }
       let d = tw.facing - m.root.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d));
       m.root.rotation.y += d * Math.min(1, dt * 14);
       if (tw.atk >= 0) { tw.atk += dt / Math.min(0.4, Math.max(0.16, tw.stats.cd * 0.6)); if (tw.atk > 1) tw.atk = -1; }
@@ -527,7 +547,7 @@ export class Game {
       if (tw.hop > 0) tw.hop = Math.max(0, tw.hop - dt * 2.5);
       const k = tw.def.kind, cast = k === 'chain' || k === 'magic';
       m.update(dt, { speed: 0, attack: cast || k === 'tack' ? -1 : tw.atk, cast: cast ? tw.atk : -1, spin: k === 'tack' && tw.atk >= 0 ? tw.atk : -1, melee: k === 'dart' || k === 'boom' || k === 'bomb', dance: this.won || tw.cheerT > 0 });
-      m.root.position.y = tw.y + Math.sin(tw.hop * Math.PI) * 0.8;
+      m.root.position.y = tw.y + Math.sin(tw.hop * Math.PI) * 0.8 + dy;
       // glued balloons drip, frozen ones sparkle a little
     }
     for (const b of this.balloons) if (b.alive && Math.random() < dt * 3) { if (b.glueT > 0) this.fx.emit({ p: _v.set(b.x, 1.3, b.z), v: _w.set(0, -1, 0), life: 0.5, size: 0.1, color: '#c5f277', g: -8 }); else if (b.frozenT > 0) this.fx.sparks(_v.set(b.x, 2, b.z), '#ffffff', 1); }
