@@ -1,7 +1,7 @@
 // The tower defense itself: waves of balloons and bosses walking the path, beans that find targets and attack,
 // projectiles, popping layers into smaller balloons, farms, money, lives, upgrades and selling. Fixed time step.
 import { THREE, canvasTex } from './engine.js';
-import { BALLOONS, BEAN, FARM, beanStats, priceOf, upgradePrice, skinFor, rbe, makeWave, waveBonus, waveInfo, waveScale, bossHpScale, bossChildren, farmIncome, UP_COST } from './data.js';
+import { BALLOONS, BEAN, FARM, TARGETS, beanStats, priceOf, upgradePrice, skinFor, rbe, makeWave, waveBonus, waveInfo, waveScale, bossHpScale, bossChildren, farmIncome, UP_COST } from './data.js';
 import { TowerBean, FarmModel } from './bean.js';
 
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _u = new THREE.Vector3();
@@ -57,9 +57,14 @@ function popTex() { return POP_TEX || (POP_TEX = canvasTex(128, 64, (g, w, h) =>
 
 const DROP = 0.42;   // seconds a new bean falls before it lands
 export class Game {
-  constructor({ map, diff, rounds, fx, audio, view }) {
+  constructor({ map, diff, rounds, fx, audio, view, players, me, seed }) {
     this.map = map; this.diff = diff; this.rounds = diff.infinite ? Infinity : rounds; this.fx = fx; this.audio = audio; this.view = view; this.scene = map.scene;
-    this.money = diff.money; this.lives = diff.lives; this.wave = 0; this.cleared = 0; this.waveActive = false;
+    // Everyone has their own money. Alone there is just one wallet; in a party one per player.
+    this.players = players && players.length ? players.slice() : ['me']; this.me = me || this.players[0];
+    this.wallets = {}; for (const p of this.players) this.wallets[p] = diff.money;
+    // the same seed and the same actions at the same tick give the same game on every computer in a party
+    this.tick = 0; this.rs = (seed >>> 0) || 1;
+    this.lives = diff.lives; this.wave = 0; this.cleared = 0; this.waveActive = false;
     this.balloons = []; this.towers = []; this.projectiles = []; this.timers = [];
     this.queue = []; this.qi = 0; this.waveT = 0; this.time = 0; this.scale = waveScale(1, diff);
     this.over = false; this.won = false; this.auto = false; this.autoT = -1;
@@ -67,6 +72,20 @@ export class Game {
     this.listeners = []; this.nextId = 1; this.pops = 0;
     this.grid = Array.from({ length: GW * GH }, () => []);
     this.leakAt = map.path.len - 6;
+  }
+  get money() { return this.wallets[this.me] || 0; }
+  set money(v) { this.wallets[this.me] = v; }
+  pay(owner, amt) { if (!(owner in this.wallets)) owner = this.players[0]; this.wallets[owner] += amt; }
+  rnd() { let x = this.rs; x ^= x << 13; x ^= x >>> 17; x ^= x << 5; this.rs = x >>> 0 || 1; return (this.rs % 100000) / 100000; }
+  towerById(id) { for (const t of this.towers) if (t.id === id) return t; return null; }
+  addPlayer(id, money) { if (id in this.wallets) return; this.players.push(id); this.wallets[id] = money ?? this.diff.money; this.emit('money'); }
+  // a player who leaves hands their beans and money to the party leader
+  removePlayer(id) {
+    if (!(id in this.wallets) || this.players[0] === id) return;
+    const to = this.players[0];
+    for (const t of this.towers) if (t.owner === id) t.owner = to;
+    this.wallets[to] += this.wallets[id]; delete this.wallets[id]; this.players = this.players.filter(p => p !== id);
+    this.emit('money');
   }
   on(fn) { this.listeners.push(fn); }
   emit(type, d) { for (const f of this.listeners) f(type, d); }
@@ -77,25 +96,28 @@ export class Game {
     if (this.waveActive || this.over) return false;
     this.wave++;
     this.scale = waveScale(this.wave, this.diff);
-    const groups = makeWave(this.wave, this.diff, this.rounds), q = [];
-    for (const g of groups) for (let i = 0; i < g.n; i++) q.push({ t: (g.at || 0) + i * g.gap, type: g.t });
-    q.sort((a, b) => a.t - b.t);
+    const q = this.buildQueue(this.wave);
     this.queue = q; this.qi = 0; this.waveT = 0; this.waveActive = true; this.autoT = -1;
-    for (const t of this.towers) if (t.isFarm) { t.drops = 0; t.dropT = 1 + Math.random() * 2; }
+    for (const t of this.towers) if (t.isFarm) { t.drops = 0; t.dropT = 1 + this.rnd() * 2; }
     const info = waveInfo(this.wave, this.rounds);
     this.sound(info.boss ? 'boss' : 'wave');
     this.emit('wave', { wave: this.wave, boss: info.boss, final: info.final, type: info.type, count: q.length });
     return true;
   }
+  buildQueue(w) {
+    const q = [];
+    for (const g of makeWave(w, this.diff, this.rounds)) for (let i = 0; i < g.n; i++) q.push({ t: (g.at || 0) + i * g.gap, type: g.t });
+    return q.sort((a, b) => a.t - b.t);
+  }
   endWave() {
     if (this.over) return;
     this.waveActive = false; this.cleared = this.wave;
     const bonus = Math.round(waveBonus(this.wave) * this.diff.cash);
-    this.money += bonus;
+    for (const p of this.players) this.wallets[p] += bonus;
     // farms pay out what they did not drop during the wave
     for (const t of this.towers) if (t.isFarm) {
       const inc = farmIncome(t.def, t.lvl, this.diff), pay = Math.round(inc * 0.5 + (FARM_DROPS - t.drops) * inc * 0.5 / FARM_DROPS);
-      this.money += pay; t.earned += pay; this.farmFx(t, pay, true);
+      this.pay(t.owner, pay); t.earned += pay; this.farmFx(t, pay, true);
     }
     for (const t of this.towers) if (!t.isFarm) t.cheerT = 1.3;
     this.sound('waveDone');
@@ -108,7 +130,7 @@ export class Game {
   spawn(type, d = 0, parent = null) {
     const def = BALLOONS[type], sc = this.scale;
     const hp = Math.max(1, Math.round(def.hp * (def.boss ? bossHpScale(type, this.wave) * sc.hp : def.tough ? sc.hp : 1)));
-    const b = { id: this.nextId++, type, def, d, hp, maxHp: hp, speed: def.speed * sc.speed, x: 0, z: 0, alive: true, frozenT: 0, slowT: 0, slowPct: 0, glueT: 0, dot: 0, dotT: 0, hitT: 0, spawnT: parent ? 1 : 0, heading: 0, skip: 0,
+    const b = { id: this.nextId++, type, def, d, hp, maxHp: hp, speed: def.speed * sc.speed, x: 0, z: 0, alive: true, frozenT: 0, stunT: 0, slowT: 0, slowPct: 0, glueT: 0, dot: 0, dotT: 0, hitT: 0, spawnT: parent ? 1 : 0, heading: 0, skip: 0,
       kids: def.boss ? bossChildren(type, this.wave) : def.children };
     if (parent) { b.slowT = parent.slowT; b.slowPct = parent.slowPct; b.glueT = parent.glueT; b.dot = parent.dot; }
     this.map.path.at(d, _v); b.x = _v.x; b.z = _v.z;
@@ -124,7 +146,7 @@ export class Game {
     if (b.hp > 0) { if (b.def.tough) this.fx.sparks(_v.set(b.x, 2 + b.def.size * 0.5, b.z), b.def.boss ? '#ffd23f' : '#ffffff', b.def.boss ? 4 : 2); return; }
     const over = -b.hp;
     b.alive = false;
-    this.money += b.def.cash * this.diff.cash;
+    this.pay(src && src.owner, b.def.cash * this.diff.cash);
     this.stats.popped++; if (src) src.pops++;
     if (b.def.boss) this.stats.bosses++;
     this.popFx(b);
@@ -175,15 +197,16 @@ export class Game {
 
   // ---------- beans and farms ----------
   price(def) { return priceOf(def.cost, this.diff); }
-  place(id, x, z, isFarm = false, free = false) {
+  place(id, x, z, isFarm = false, free = false, owner = this.me) {
     const def = isFarm ? FARM[id] : BEAN[id], cost = free ? 0 : this.price(def), r = isFarm ? 1.75 : 1.1;
     if (!def) return null;
-    if (!free && (this.over || this.money < cost || !this.map.canPlace(x, z, this.towers, r))) return null;
-    this.money -= cost;
+    if (!(owner in this.wallets)) owner = this.players[0];
+    if (!free && (this.over || this.wallets[owner] < cost || !this.map.canPlace(x, z, this.towers, r))) return null;
+    this.wallets[owner] -= cost;
     const y = this.map.heightAt(x, z);
     let t;
     if (isFarm) {
-      const model = new FarmModel(id); model.root.position.set(x, y, z); model.root.rotation.y = Math.round(Math.random() * 3) * Math.PI / 2; this.scene.add(model.root);
+      const model = new FarmModel(id); model.root.position.set(x, y, z); model.root.rotation.y = (this.nextId % 4) * Math.PI / 2; this.scene.add(model.root);
       t = { id: this.nextId++, isFarm: true, def, x, z, y, r, lvl: 0, spent: cost, model, drops: 0, dropT: 2, earned: 0, pops: 0 };
     } else {
       const model = new TowerBean(id, def.colors); model.root.scale.setScalar(1.75);
@@ -192,7 +215,7 @@ export class Game {
       this.scene.add(model.root);
       t = { id: this.nextId++, def, x, z, y, r, lvl: 0, spent: cost, cd: 0.2, target: def.target, model, facing: Math.PI, atk: -1, pops: 0, blizT: 0, cheerT: 0, hop: 0, stats: beanStats(def, 0) };
     }
-    t.base = t.model.root.scale.x;
+    t.base = t.model.root.scale.x; t.owner = owner;
     this.towers.push(t);
     if (free) return t;
     // it drops in from the sky and lands with a thump (see land)
@@ -236,11 +259,76 @@ export class Game {
     this.restoring = false;
     this.emit('money');
   }
+  // ---------- actions (what a player does), the same on every computer in a party ----------
+  act(a) {
+    const p = a.p in this.wallets ? a.p : null, t = a.t ? this.towerById(a.t) : null, mine = t && t.owner === p;
+    switch (a.k) {
+      case 'place': return p ? this.place(a.id, a.x, a.z, !!a.f, false, p) : null;
+      case 'up': return mine ? this.upgrade(t) : false;
+      case 'sell': return mine ? this.sell(t) : 0;
+      case 'tgt': if (mine && TARGETS.includes(a.v)) t.target = a.v; return mine;
+      case 'upall': return p ? this.upgradeAll((a.ts || []).map(id => this.towerById(id)).filter(Boolean), p) : 0;
+      case 'sellall': { let v = 0; for (const id of a.ts || []) { const x = this.towerById(id); if (x && x.owner === p) v += this.sell(x); } return v; }
+      case 'wave': return this.startWave();
+      case 'auto': this.auto = !!a.v; if (this.auto && !this.waveActive && this.wave > 0 && !this.over) this.autoT = 0.6; return true;
+      case 'join': this.addPlayer(a.p, a.m); return true;
+      case 'leave': this.removePlayer(a.p); return true;
+    }
+    return null;
+  }
+  // ---------- the whole game as plain data (for a friend who joins late, or to fix a party that drifted apart) ----------
+  snapshot() {
+    return {
+      k: this.tick, tm: this.time, w: this.wave, c: this.cleared, wa: this.waveActive, qi: this.qi, wt: this.waveT, nid: this.nextId, au: this.auto, at: this.autoT,
+      ov: this.over, won: this.won, li: this.lives, wal: { ...this.wallets }, pl: this.players.slice(), st: { ...this.stats }, rs: this.rs,
+      tw: this.towers.map(t => [t.id, t.owner, t.def.id, t.isFarm ? 1 : 0, t.x, t.z, t.lvl, t.spent, t.target || '', t.cd || 0, t.blizT || 0, t.beatT || 0, t.drops || 0, t.dropT || 0, t.earned || 0, t.pops || 0, t.facing || 0]),
+      bl: this.balloons.filter(b => b.alive).map(b => [b.id, b.type, b.d, b.hp, b.maxHp, b.speed, b.frozenT, b.slowT, b.slowPct, b.glueT, b.dot, b.dotT, b.dotSrc ? b.dotSrc.id : 0, b.burnT || 0, b.spawnT, b.skip || 0, b.kids, b.stunT || 0])
+    };
+  }
+  load(s) {
+    for (const t of this.towers) t.model.root.removeFromParent();
+    for (const p of this.projectiles) if (p.mesh) p.mesh.removeFromParent();
+    this.towers = []; this.projectiles = []; this.timers = []; this.balloons = [];
+    this.players = s.pl.slice(); this.wallets = {}; for (const p of this.players) this.wallets[p] = 0;
+    if (!(this.me in this.wallets)) this.me = this.players[0];
+    this.wave = s.w; this.cleared = s.c; this.waveActive = s.wa; this.waveT = s.wt; this.time = s.tm;
+    this.scale = waveScale(Math.max(1, this.wave), this.diff);
+    this.queue = this.waveActive ? this.buildQueue(this.wave) : []; this.qi = s.qi;
+    this.restoring = true;
+    for (const r of s.tw) {
+      const t = this.place(r[2], r[4], r[5], !!r[3], true, r[1] in this.wallets ? r[1] : this.players[0]);
+      if (!t) continue;
+      t.id = r[0]; t.lvl = r[6]; t.spent = r[7]; t.cd = r[9]; t.blizT = r[10]; t.beatT = r[11]; t.drops = r[12]; t.dropT = r[13]; t.earned = r[14]; t.pops = r[15]; t.facing = r[16];
+      const skin = skinFor(t.lvl);
+      if (t.isFarm) { t.model.root.rotation.y = (t.id % 4) * Math.PI / 2; if (t.lvl) t.model.setSkin(skin); }
+      else { if (r[8]) t.target = r[8]; t.stats = beanStats(t.def, t.lvl); if (t.lvl) t.model.setSkin(skin, t.def.skins[skin - 1]); t.model.root.rotation.y = t.facing; }
+    }
+    this.restoring = false;
+    const path = this.map.path;
+    for (const r of s.bl) {
+      const def = BALLOONS[r[1]]; if (!def) continue;
+      const b = { id: r[0], type: r[1], def, d: r[2], hp: r[3], maxHp: r[4], speed: r[5], x: 0, z: 0, alive: true, frozenT: r[6], slowT: r[7], slowPct: r[8], glueT: r[9], dot: r[10], dotT: r[11], dotSrc: r[12] ? this.towerById(r[12]) : null, burnT: r[13], hitT: 0, spawnT: r[14], heading: 0, skip: r[15], kids: r[16], stunT: r[17] || 0 };
+      path.at(b.d, _v); b.x = _v.x; b.z = _v.z; if (def.boss) b.heading = path.heading(b.d);
+      this.balloons.push(b);
+    }
+    this.tick = s.k; this.nextId = s.nid; this.auto = s.au; this.autoT = s.at; this.over = s.ov; this.won = s.won; this.lives = s.li; this.rs = s.rs;
+    Object.assign(this.wallets, s.wal); Object.assign(this.stats, s.st);
+    this.rebuildGrid();
+    this.emit('money');
+  }
+  // a short fingerprint of the game, to notice when two computers no longer agree
+  checksum() {
+    let h = (this.lives * 7 + this.towers.length * 17 + this.nextId * 3 + this.wave * 101) | 0;
+    for (const p of this.players) h = (h * 31 + Math.round(this.wallets[p] * 10)) | 0;
+    for (const t of this.towers) h = (h * 31 + t.id * 7 + t.lvl) | 0;
+    for (const b of this.balloons) if (b.alive) h = (h * 31 + Math.round(b.d * 100) + Math.round(b.hp * 10) * 7 + b.id) | 0;
+    return h;
+  }
   upgradeCost(t) { return t.isFarm ? (t.lvl >= 10 ? null : priceOf(t.def.cost * UP_COST[t.lvl], this.diff)) : upgradePrice(t.def, t.lvl, this.diff); }
   upgrade(t, quiet) {
     const cost = this.upgradeCost(t);
-    if (cost === null || this.money < cost || this.over) return false;
-    this.money -= cost; t.spent += cost; t.lvl++;
+    if (cost === null || this.wallets[t.owner] < cost || this.over) return false;
+    this.wallets[t.owner] -= cost; t.spent += cost; t.lvl++;
     const skin = skinFor(t.lvl), p = _v.set(t.x, t.y, t.z);
     if (t.isFarm) { t.model.setSkin(skin); for (let i = 0; i < 3; i++) this.fx.coin(_w.set(t.x + (i - 1) * 0.9, t.y + 1.2, t.z), 1, i * 0.12); }
     else {
@@ -257,9 +345,9 @@ export class Game {
   }
   // upgrade several at once, one level each, only if all of them can be paid for
   upgradeAllCost(list) { let sum = 0; for (const t of list) { const c = this.upgradeCost(t); if (c !== null) sum += c; } return sum; }
-  upgradeAll(list) {
-    const ready = list.filter(t => this.upgradeCost(t) !== null), cost = this.upgradeAllCost(ready);
-    if (!ready.length || this.money < cost || this.over) return 0;
+  upgradeAll(list, owner = this.me) {
+    const ready = list.filter(t => t.owner === owner && this.upgradeCost(t) !== null), cost = this.upgradeAllCost(ready);
+    if (!ready.length || this.wallets[owner] < cost || this.over) return 0;
     for (const t of ready) this.upgrade(t, true);
     this.sound('upgrade');
     return ready.length;
@@ -269,7 +357,7 @@ export class Game {
   sell(t) {
     const i = this.towers.indexOf(t); if (i < 0) return 0;
     const v = this.sellValue(t);
-    this.money += v; this.towers.splice(i, 1);
+    this.pay(t.owner, v); this.towers.splice(i, 1);
     this.fx.burst(_v.set(t.x, t.y + 1, t.z), '#ffd23f', 24, 5, 0.2, 5, 0.6); this.fx.smoke(_v.set(t.x, t.y, t.z), '#e8e1d6', 10, 1.4);
     t.model.root.removeFromParent();
     this.sound('sell');
@@ -297,7 +385,7 @@ export class Game {
     });
     return best;
   }
-  effSpeed(b) { return b.frozenT > 0 ? (b.def.boss ? b.speed * 0.5 : 0) : b.slowT > 0 ? b.speed * (1 - b.slowPct) : b.speed; }
+  effSpeed(b) { return b.stunT > 0 && !b.def.boss ? 0 : b.frozenT > 0 ? (b.def.boss ? b.speed * 0.5 : 0) : b.slowT > 0 ? b.speed * (1 - b.slowPct) : b.speed; }
   lead(b, time, out) { return this.map.path.at(Math.min(this.leakAt, b.d + this.effSpeed(b) * time), out); }
   handPos(t, out) { if (t.model.muzzle) return t.model.muzzle.getWorldPosition(out); return out.set(t.x + Math.sin(t.facing) * 0.9, t.y + 1.7, t.z + Math.cos(t.facing) * 0.9); }
 
@@ -334,6 +422,13 @@ export class Game {
       this.fx.ring(_v.set(t.x, t.y + 0.9, t.z), ringC, 0.4, 2.2, 0.25, 0.7); this.fx.sparks(_v.set(t.x, t.y + 1.1, t.z), t.def.proj === 'thorn' ? '#7bd389' : '#e9ecef', 8);
       if (t.def.proj === 'thorn') this.fx.burst(_v.set(t.x, t.y + 1.2, t.z), '#ff6fb5', 5, 3, 0.14, 3, 0.4);
       this.sound('throw', 0.5);
+    } else if (k === 'tazer') {
+      const targets = [b];
+      if ((s.count || 1) > 1) { const skip = new Set([b.id]); for (let i = 1; i < s.count; i++) { const o = this.findTarget(t, s.range + (t.buffR || 0), skip); if (!o) break; targets.push(o); skip.add(o.id); } }
+      for (const tg of targets) this.zap(t, tg, hand);
+      this.fx.flash(hand, '#7df9ff', 1.1, 0.12); this.fx.sparks(hand, '#fff3b0', 6); this.fx.light(hand, '#7df9ff', 18, 0.12, 8);
+      t.model.hit();
+      this.sound('zap', 0.75);
     } else if (k === 'hitscan') {
       const hit = new Set([b.id]); let cur = b, from = hand.clone();
       for (let n = 0; n <= (s.ricochet || 0) && cur; n++) {
@@ -407,10 +502,32 @@ export class Game {
         const a = t.facing + (i - (s.count - 1) / 2) * 0.7;
         const bee = t.def.proj === 'bee';
         let m; if (bee) m = beeMesh(); else { m = new THREE.Group(); m.add(new THREE.Mesh(GEO.magic, MATS.magic)); const gl = new THREE.Mesh(GEO.glow, MATS.magicGlow); gl.scale.setScalar(1.1); m.add(gl); }
-        this.addProj({ kind: 'magic', bee, x: hand.x, z: hand.z, y: hand.y, dx: Math.sin(a), dz: Math.cos(a), speed: s.speed * (bee ? 0.85 + Math.random() * 0.3 : 1), life: bee ? 4 : 3, pierce: s.pierce, dmg: s.dmg, r: 0.6, tower: t, mesh: m, target: b, hit: new Set() });
+        this.addProj({ kind: 'magic', bee, x: hand.x, z: hand.z, y: hand.y, dx: Math.sin(a), dz: Math.cos(a), speed: s.speed * (bee ? 0.85 + this.rnd() * 0.3 : 1), life: bee ? 4 : 3, pierce: s.pierce, dmg: s.dmg, r: 0.6, tower: t, mesh: m, target: b, hit: new Set() });
       }
       if (t.def.proj === 'bee') { this.fx.burst(hand, '#ffd23f', 8, 3, 0.12, 3, 0.4); this.sound('zap', 0.25); }
       else { this.fx.burst(hand, '#ffd23f', 10, 3, 0.15, 3, 0.4); this.fx.burst(hand, '#ff6fd8', 6, 2.5, 0.13, 3, 0.4); this.sound('magic', 0.5); }
+    }
+  }
+  // one electric shock: big damage, a short stun, and with Arc Jump it hops on to balloons next to it
+  zap(t, b, from) {
+    const s = t.stats, to = new THREE.Vector3(b.x, 1.9 + (b.def.boss ? 2.4 : 0), b.z);
+    this.fx.lightning(from, to, '#ffd23f', 0.3); this.fx.lightning(from, to, '#ffffff', 0.16); this.fx.lightning(from, to, '#7df9ff', 0.22);
+    this.fx.flash(to, '#fff3b0', 1.2, 0.16); this.fx.sparks(to, '#7df9ff', 8); this.fx.ring(_v.set(b.x, 0.25, b.z), '#ffd23f', 0.3, 1.9, 0.25, 0.8);
+    if (s.stun) b.stunT = Math.max(b.stunT || 0, s.stun);
+    let px = b.x, pz = b.z;
+    this.damage(b, s.dmg, t);
+    if (!s.arc) return;
+    const hit = new Set([b.id]); let prev = to;
+    for (let i = 0; i < s.arc; i++) {
+      let nb = null, bd = 1e9;
+      this.near(px, pz, 4, o => { if (hit.has(o.id)) return; const d = (o.x - px) ** 2 + (o.z - pz) ** 2; if (d < bd) { bd = d; nb = o; } });
+      if (!nb) break;
+      hit.add(nb.id);
+      const nt = new THREE.Vector3(nb.x, 1.9 + (nb.def.boss ? 2.4 : 0), nb.z);
+      this.fx.lightning(prev, nt, '#7df9ff', 0.2); this.fx.lightning(prev, nt, '#ffffff', 0.12); this.fx.sparks(nt, '#ffd23f', 4);
+      if (s.stun) nb.stunT = Math.max(nb.stunT || 0, s.stun * 0.5);
+      px = nb.x; pz = nb.z; prev = nt;
+      this.damage(nb, Math.ceil(s.dmg / 2), t);
     }
   }
   laser(t, b, from) {
@@ -480,6 +597,7 @@ export class Game {
 
   // ---------- one fixed step ----------
   update(dt) {
+    this.tick++;
     if (this.over) return;
     this.time += dt;
     if (this.autoT > 0) { this.autoT -= dt; if (this.autoT <= 0) this.startWave(); }
@@ -494,6 +612,7 @@ export class Game {
       if (b.spawnT < 1) b.spawnT += dt * 3;
       if (b.hitT > 0) b.hitT -= dt;
       if (b.frozenT > 0) b.frozenT -= dt;
+      if (b.stunT > 0) b.stunT -= dt;
       if (b.slowT > 0) { b.slowT -= dt; if (b.slowT <= 0) { b.slowPct = 0; b.dot = 0; } }
       if (b.glueT > 0) b.glueT -= dt;
       if (b.dot > 0 && b.glueT > 0) { b.dotT += dt; if (b.dotT >= 1) { b.dotT = 0; this.damage(b, b.dot, b.dotSrc); if (!b.alive) continue; } }
@@ -539,7 +658,7 @@ export class Game {
     }
     for (const t of this.towers) {
       if (t.isFarm) {
-        if (this.waveActive && t.drops < FARM_DROPS) { t.dropT -= dt; if (t.dropT <= 0) { t.dropT = 3.5 + Math.random() * 1.5; t.drops++; const amt = farmIncome(t.def, t.lvl, this.diff) * 0.5 / FARM_DROPS; this.money += amt; t.earned += amt; this.farmFx(t, amt, false); } }
+        if (this.waveActive && t.drops < FARM_DROPS) { t.dropT -= dt; if (t.dropT <= 0) { t.dropT = 3.5 + this.rnd() * 1.5; t.drops++; const amt = farmIncome(t.def, t.lvl, this.diff) * 0.5 / FARM_DROPS; this.pay(t.owner, amt); t.earned += amt; this.farmFx(t, amt, false); } }
         continue;
       }
       const s = t.stats;
@@ -633,6 +752,7 @@ export class Game {
       m.root.position.y = tw.y + Math.sin(tw.hop * Math.PI) * 0.8 + dy;
       // glued balloons drip, frozen ones sparkle a little
     }
+    for (const b of this.balloons) if (b.alive && b.stunT > 0 && Math.random() < dt * 14) this.fx.sparks(_v.set(b.x + (Math.random() - 0.5), 1.6 + Math.random(), b.z + (Math.random() - 0.5)), Math.random() < 0.5 ? '#7df9ff' : '#fff3b0', 2);
     for (const b of this.balloons) if (b.alive && b.burnT > 0 && b.glueT > 0 && Math.random() < dt * 8) this.fx.flames(_v.set(b.x, 1.6, b.z), 1, 0.5);
     for (const b of this.balloons) if (b.alive && Math.random() < dt * 3) { if (b.glueT > 0 && !(b.burnT > 0)) this.fx.emit({ p: _v.set(b.x, 1.3, b.z), v: _w.set(0, -1, 0), life: 0.5, size: 0.1, color: '#c5f277', g: -8 }); else if (b.frozenT > 0) this.fx.sparks(_v.set(b.x, 2, b.z), '#ffffff', 1); }
     this.view.update(this.balloons, t);

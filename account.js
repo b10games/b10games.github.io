@@ -49,7 +49,7 @@
     'yellow-circle-clicker': 'Yellow Circle Clicker'
   };
   // Games where friends can play together with a party code.
-  var PARTY = { 'b10games-wobble-': 'wobble-dash', 'b10games-apex-party-': 'apex-horizon', 'b10games-buttcraft-': 'buttcraft' };
+  var PARTY = { 'b10games-wobble-': 'wobble-dash', 'b10games-apex-party-': 'apex-horizon', 'b10games-buttcraft-': 'buttcraft', 'b10games-btd-': 'beans-tower-defense' };
 
   // ---------- small helpers ----------
   function read(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }

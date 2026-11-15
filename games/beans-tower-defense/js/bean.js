@@ -212,14 +212,40 @@ const COSTUMES = {
     b.weapon = star;
   },
   tack(b) {
-    // a spiky helmet and a tack shooter on the back
-    const helm = mesh(new THREE.SphereGeometry(0.5, 24, 12, 0, Math.PI * 2, 0, Math.PI * 0.4), metal(), 0, 0.24, 0, b.pivot); helm.scale.set(1.05, 1, 1.05);
-    for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2; const sp = mesh(new THREE.ConeGeometry(0.06, 0.24, 6), b.accMat, Math.cos(a) * 0.32, 0.6, Math.sin(a) * 0.32, b.pivot); sp.rotation.set(Math.sin(a) * 0.6, 0, -Math.cos(a) * 0.6); }
-    mesh(new THREE.ConeGeometry(0.07, 0.3, 6), b.accMat, 0, 0.8, 0, b.pivot);
-    const pack = mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.4, 12), darkMetal(), 0, 0.05, -0.05, b.back); pack.rotation.x = Math.PI / 2;
-    const ring = new THREE.Group(); ring.position.set(0, 0.05, -0.26); b.back.add(ring);
-    for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; const t = mesh(new THREE.ConeGeometry(0.035, 0.16, 5), metal(), Math.cos(a) * 0.2, Math.sin(a) * 0.2, 0, ring); t.rotation.z = a - Math.PI / 2; }
-    b.extra.push((dt, t, st) => { ring.rotation.z += dt * (st && st.attack >= 0 ? 14 : 1.5); });
+    // the Tazer Bean: a safety helmet with a lightning bolt, glowing goggles, a battery pack and a crackling tazer
+    const helm = mesh(new THREE.SphereGeometry(0.5, 24, 12, 0, Math.PI * 2, 0, Math.PI * 0.42), b.accMat, 0, 0.22, 0, b.pivot); helm.scale.set(1.06, 1, 1.06);
+    const rim = mesh(new THREE.TorusGeometry(0.5, 0.045, 8, 32), b.accMat, 0, 0.36, 0, b.pivot); rim.rotation.x = Math.PI / 2; rim.scale.set(1.06, 1.06, 1);
+    const stripe = mesh(new THREE.TorusGeometry(0.515, 0.05, 6, 30, Math.PI * 0.84), std('#ffd23f', { emissive: '#7a5200', ei: 0.4 }), 0, 0.22, 0, b.pivot); stripe.rotation.set(0, Math.PI / 2, Math.PI * 0.08);
+    // lightning bolt badge on the front of the helmet
+    const bolt = new THREE.Shape(); [[0.02, 0.16], [-0.09, -0.01], [-0.01, -0.01], [-0.05, -0.16], [0.09, 0.03], [0.01, 0.03], [0.06, 0.16]].forEach(([x, y], i) => bolt[i ? 'lineTo' : 'moveTo'](x, y));
+    const boltG = new THREE.ExtrudeGeometry(bolt, { depth: 0.04, bevelEnabled: false }); boltG.translate(0, 0, -0.02);
+    const glowY = std('#fff3b0', { emissive: '#ffd23f', ei: 1.6 });
+    const badge = mesh(boltG, glowY, 0.2, 0.5, 0.39, b.pivot); badge.rotation.set(-0.7, 0.45, 0); badge.scale.setScalar(0.8);
+    // goggles
+    const band = mesh(new THREE.TorusGeometry(0.5, 0.035, 6, 30), std('#1b1036', { rough: 0.6 }), 0, 0.4, 0, b.pivot); band.rotation.x = Math.PI / 2;
+    const lensM = std('#7df9ff', { emissive: '#4cc9f0', ei: 1.1, rough: 0.1 });
+    for (const s2 of [-1, 1]) { const l = mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.05, 16), lensM, 0.13 * s2, 0.44, 0.45, b.pivot); l.rotation.x = Math.PI / 2 - 0.55; const f = mesh(new THREE.TorusGeometry(0.09, 0.022, 6, 16), darkMetal(), 0.13 * s2, 0.445, 0.465, b.pivot); f.rotation.x = -0.55; }
+    // battery pack with glowing coils
+    const pack = mesh(new THREE.BoxGeometry(0.44, 0.5, 0.22), darkMetal(), 0, 0.02, -0.06, b.back);
+    const coilM = std('#7df9ff', { emissive: '#4cc9f0', ei: 1.4 });
+    const coils = [0, 1, 2].map(i => { const c = mesh(new THREE.TorusGeometry(0.09, 0.022, 6, 16), coilM.clone(), -0.12 + i * 0.12, 0.12, -0.13, b.back); return c; });
+    mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.2, 6), metal(), 0.15, 0.32, -0.06, b.back);
+    // the tazer: a grip and two metal prongs with a spark jumping between them
+    const tz = new THREE.Group(); b.hand.add(tz); b.hand.rotation.x = Math.PI / 2;
+    mesh(new THREE.BoxGeometry(0.12, 0.3, 0.16), std('#2b2d42', { rough: 0.5 }), 0, 0.1, 0.05, tz);
+    mesh(new THREE.BoxGeometry(0.13, 0.08, 0.17), std('#ffd23f', { rough: 0.4 }), 0, 0.22, 0.05, tz);
+    for (const s2 of [-1, 1]) mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.16, 6), metal(), 0.04 * s2, 0.33, 0.05, tz);
+    const arc = mesh(new THREE.BoxGeometry(0.1, 0.025, 0.025), new THREE.MeshBasicMaterial({ color: '#e0fbfc', transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }), 0, 0.4, 0.05, tz); arc.castShadow = false;
+    const halo = mesh(new THREE.SphereGeometry(0.09, 8, 6), new THREE.MeshBasicMaterial({ color: '#7df9ff', transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }), 0, 0.4, 0.05, tz); halo.castShadow = false;
+    b.weapon = tz; b.muzzle = new THREE.Object3D(); b.muzzle.position.set(0, 0.42, 0.05); tz.add(b.muzzle);
+    let flick = 0;
+    b.extra.push((dt, t, st) => {
+      const hot = st && st.attack >= 0 ? 1 : 0;
+      flick -= dt; if (flick <= 0) { flick = 0.03 + Math.random() * 0.06; arc.visible = Math.random() < (hot ? 1 : 0.7); arc.rotation.z = (Math.random() - 0.5) * 0.9; arc.scale.set(0.8 + Math.random() * 0.5, 1 + Math.random() * 1.5, 1); }
+      halo.scale.setScalar(0.8 + Math.sin(t * 40) * 0.2 + hot * 1.2);
+      coils.forEach((c, i) => { c.material.emissiveIntensity = 0.8 + Math.max(0, Math.sin(t * 6 - i * 1.2)) * 1.4 + hot; });
+      glowY.emissiveIntensity = 1.2 + Math.sin(t * 5) * 0.4 + hot * 1.5;
+    });
   },
   glue(b) {
     // yellow rain hat and a squeezy glue bottle
