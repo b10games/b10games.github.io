@@ -114,8 +114,13 @@ let st='menu',speed=14,dist=0,coins=0,tm=0,fx=0,px=0,tl=1,py=0,vy=0,sl=0,spawn=0
 const MSG={tall:'Du løb ind i en kæmpe håndcreme.',low:'Du ramte soft mud wax-krukken.',bar:'Du ramte bordet.'};
 function start(){for(const o of obs)S.remove(o.m);obs.length=0;
  speed=14;dist=coins=tm=fx=0;tl=1;py=vy=sl=0;row(-55);spawn=0;st='play';$('ov').hidden=true;$('hud').style.display='grid'}
+/* rekord og mønter i alt bliver gemt (og følger din B10GAMES account) */
+const REC=(()=>{try{const r=JSON.parse(localStorage.getItem('ms-record'));if(r&&typeof r.best==='number')return r}catch(e){}return{best:0,coins:0}})();
+function recText(){const f=n=>n.toLocaleString('da-DK');return REC.best?' Din rekord: '+f(REC.best)+' m. Matas-mønter i alt: '+f(REC.coins)+'.':''}
+if(REC.best)$('msg').textContent+=recText();
 function die(k){st='over';const f=n=>n.toLocaleString('da-DK');$('t').textContent='Løbet sluttede';
- $('msg').textContent=MSG[k]+' Du fik '+Math.floor(dist/1000)+' point ('+f(Math.floor(dist))+' m) og '+coins+' Matas-'+(coins==1?'mønt':'mønter')+'.';$('go').textContent='Løb igen';$('ov').hidden=false}
+ const nb=Math.floor(dist)>REC.best;if(nb)REC.best=Math.floor(dist);REC.coins+=coins;try{localStorage.setItem('ms-record',JSON.stringify(REC))}catch(e){}
+ $('msg').textContent=MSG[k]+' Du fik '+Math.floor(dist/1000)+' point ('+f(Math.floor(dist))+' m) og '+coins+' Matas-'+(coins==1?'mønt':'mønter')+'.'+(nb?' Ny rekord!':'')+recText();$('go').textContent='Løb igen';$('ov').hidden=false}
 function loop(ts){
  requestAnimationFrame(loop);
  const dt=Math.min((ts-last)/1000||0,.05);last=ts;
@@ -170,5 +175,6 @@ addEventListener('pointerup',e=>{const dx=e.clientX-sx,dy=e.clientY-sy;
 $('go').onclick=start;
 </script>
 <script src="/stats.js" data-game="matas-surfers" defer></script>
+<script src="/account.js" defer></script>
 </body>
 </html>

@@ -153,9 +153,10 @@ export class Game {
 
   // ---------- beans and farms ----------
   price(def) { return priceOf(def.cost, this.diff); }
-  place(id, x, z, isFarm = false) {
-    const def = isFarm ? FARM[id] : BEAN[id], cost = this.price(def), r = isFarm ? 1.75 : 1.1;
-    if (this.over || this.money < cost || !this.map.canPlace(x, z, this.towers, r)) return null;
+  place(id, x, z, isFarm = false, free = false) {
+    const def = isFarm ? FARM[id] : BEAN[id], cost = free ? 0 : this.price(def), r = isFarm ? 1.75 : 1.1;
+    if (!def) return null;
+    if (!free && (this.over || this.money < cost || !this.map.canPlace(x, z, this.towers, r))) return null;
     this.money -= cost;
     const y = this.map.heightAt(x, z);
     let t;
@@ -170,12 +171,36 @@ export class Game {
       t = { id: this.nextId++, def, x, z, y, r, lvl: 0, spent: cost, cd: 0.2, target: def.target, model, facing: Math.PI, atk: -1, pops: 0, blizT: 0, cheerT: 0, hop: 0, stats: beanStats(def, 0) };
     }
     this.towers.push(t);
+    if (free) return t;
     const p = _v.set(x, y, z);
     this.fx.dust(p, 16); this.fx.ring(p, '#ffffff', 0.4, r * 2.4, 0.45); this.fx.burst(_w.set(x, y + 0.5, z), isFarm ? '#9be15d' : (def.colors || ['#ffd23f'])[0], 14, 4, 0.18, 5, 0.5);
     if (!isFarm) t.model.hit();
     this.sound('place');
     this.emit('money');
     return t;
+  }
+  // ---------- saving a game you are in the middle of (between waves) ----------
+  runState() {
+    return {
+      wave: this.cleared, money: Math.round(this.money), lives: this.lives, stats: { ...this.stats },
+      towers: this.towers.map(t => ({ b: t.def.id, f: t.isFarm ? 1 : 0, x: +t.x.toFixed(2), z: +t.z.toFixed(2), lvl: t.lvl, spent: t.spent, target: t.target, earned: t.earned || 0, pops: t.pops || 0 }))
+    };
+  }
+  restore(s) {
+    this.restoring = true;
+    this.wave = this.cleared = s.wave | 0; this.money = +s.money || 0; this.lives = s.lives | 0 || this.lives;
+    Object.assign(this.stats, s.stats || {});
+    this.scale = waveScale(Math.max(1, this.wave), this.diff);
+    for (const r of s.towers || []) {
+      const t = this.place(r.b, r.x, r.z, !!r.f, true);
+      if (!t) continue;
+      t.lvl = Math.max(0, Math.min(10, r.lvl | 0)); t.spent = r.spent || t.spent; t.pops = r.pops || 0;
+      const skin = skinFor(t.lvl);
+      if (t.isFarm) { t.earned = r.earned || 0; if (t.lvl) t.model.setSkin(skin); }
+      else { if (r.target) t.target = r.target; t.stats = beanStats(t.def, t.lvl); if (t.lvl) t.model.setSkin(skin, t.def.skins[skin - 1]); }
+    }
+    this.restoring = false;
+    this.emit('money');
   }
   upgradeCost(t) { return t.isFarm ? (t.lvl >= 10 ? null : priceOf(t.def.cost * UP_COST[t.lvl], this.diff)) : upgradePrice(t.def, t.lvl, this.diff); }
   upgrade(t, quiet) {

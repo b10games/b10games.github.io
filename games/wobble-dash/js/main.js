@@ -265,6 +265,16 @@ $('copyCode').onclick = () => {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(done, () => { prompt('Kopiér koden:', code); });
   else { prompt('Kopiér koden:', code); }
 };
+// Came from "Join" on a friend in the B10GAMES account menu: ?join=<party code>
+{
+  const jq = new URLSearchParams(location.search).get('join') || '';
+  if (/^\d{5}$/.test(jq)) {
+    history.replaceState(null, '', location.pathname);
+    $('partyMsg').textContent = 'Joiner din vens party…';
+    net.join(jq).then(() => { $('partyMsg').textContent = ''; toast('Du er med i din vens party!', 'good'); audio.sfx('join'); },
+      e => { $('partyMsg').textContent = e.message; toast(e.message, 'bad'); }).then(renderParty);
+  }
+}
 $('btnDance').onclick = () => { if (lobby) { lobby.dance = !lobby.dance; $('btnDance').textContent = lobby.dance ? '✋ STOP' : '💃 DANS'; net.send({ t: 'emote', r: 1, id: me.id }); } };
 document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
   document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));

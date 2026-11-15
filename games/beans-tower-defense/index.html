@@ -198,6 +198,12 @@
   #shopBtn svg { width: 28px; height: 28px; }
   #shopBtn:hover { transform: translateX(-50%) translateY(-2px); } #shopBtn:active { transform: translateX(-50%) translateY(3px); }
   #playBtn { bottom: calc(13vh + 12px) !important; }
+  #contBtn { position: absolute; left: 50%; bottom: calc(13vh + 122px); transform: translateX(-50%); font-size: 24px; padding: 8px 26px 8px 18px; border-radius: 16px; white-space: nowrap; }
+  #contBtn[hidden] { display: none; }
+  #contBtn svg { width: 28px; height: 28px; }
+  #contBtn span { display: flex; flex-direction: column; align-items: flex-start; line-height: 1; }
+  #contBtn small { font-size: 13px; letter-spacing: .02em; opacity: .92; margin-top: 4px; }
+  #contBtn:hover { transform: translateX(-50%) translateY(-2px); } #contBtn:active { transform: translateX(-50%) translateY(3px); }
   .coinchip { position: absolute; top: 18px; right: 18px; display: flex; align-items: center; gap: 8px; font-family: "Lilita One"; font-size: 24px; background: rgba(42,21,70,.82); border: 3px solid var(--line); border-radius: 18px; padding: 6px 16px 6px 8px; }
   .coinchip svg { width: 32px; height: 32px; }
   .coinchip.big { position: static; }
@@ -264,7 +270,7 @@
   @media (max-width: 1100px) { #info { width: 320px; } .bcard { grid-template-columns: 52px 1fr; } .bcard img { width: 52px; height: 52px; } .bcard .ds { display: none; } .bcard .nm { font-size: 16px; } #shop { padding: 10px; } #shop h2 { font-size: 20px; } .stat { font-size: 21px; padding: 5px 12px 5px 8px; } .stat svg { width: 26px; height: 26px; } #teamBar { grid-template-columns: repeat(7, 1fr); gap: 6px; } }
   @media (max-width: 900px) { .mapgrid { grid-template-columns: repeat(2, 1fr); } .diffgrid { grid-template-columns: 1fr 1fr; } .infslot { grid-column: 2; } #topbar { gap: 6px; } #diffBadge { display: none; } .stat small { display: none; } }
   @media (max-width: 760px) { .bcard .pr { position: static; } .bcard { grid-template-columns: 1fr; text-align: center; justify-items: center; } #controls .ctl span { display: none; } #info { width: calc(100% - var(--shopw) - 24px); } .tool span { display: none; } }
-  @media (max-height: 640px) { #playBtn { font-size: 34px; padding: 12px 44px; } #shopBtn { font-size: 20px; padding: 8px 24px; } }
+  @media (max-height: 640px) { #playBtn { font-size: 34px; padding: 12px 44px; } #shopBtn { font-size: 20px; padding: 8px 24px; } #contBtn { font-size: 19px; bottom: calc(13vh + 96px); } }
 </style>
 </head>
 <body>
@@ -311,6 +317,7 @@
   <svg class="logo" viewBox="0 0 1000 360"><use href="#logoArt"/></svg>
   <button class="btn green" id="playBtn"><i data-ic="play"></i>PLAY</button>
   <button class="btn pink" id="shopBtn"><i data-ic="shop"></i>SHOP</button>
+  <button class="btn blue" id="contBtn" hidden><i data-ic="play"></i><span>CONTINUE<small id="contInfo"></small></span></button>
   <div class="coinchip"><i data-ic="beancoin"></i><span class="coinCount">0</span></div>
   <div class="corner left">
     <button class="btn ghost round" id="lSettings" title="Settings"><i data-ic="gear"></i></button>
@@ -428,5 +435,6 @@
 
 <script type="module" src="js/main.js"></script>
 <script src="/stats.js" data-game="beans-tower-defense" defer></script>
+<script src="/account.js" defer></script>
 </body>
 </html>

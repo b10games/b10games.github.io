@@ -466,5 +466,25 @@
 
   window.addEventListener('beforeunload', function () { if (P) leaveParty(); });
 
+  // Came from "Join" on a friend in the B10GAMES account menu: ?join=<party code>
+  (function () {
+    var code = (location.search.match(/[?&]join=(\d{5})(?:&|$)/) || [])[1];
+    if (!code) return;
+    history.replaceState(null, '', location.pathname);
+    var tries = 0;
+    var wait = setInterval(function () {
+      var L = window.__apexLobby;
+      if (!(L && L.handlers && L.handlers.freeDrive) && ++tries < 80) return;   // wait for the main menu
+      clearInterval(wait);
+      toast('Joining your friend\'s party ' + code + '…', 'gold');
+      joinParty(code, function (problem) {
+        if (problem) { toast(problem, 'bad'); return; }
+        toast('You joined party ' + code + '!', 'good');
+        var L2 = window.__apexLobby;
+        if (!curFD && L2 && L2.handlers && L2.handlers.freeDrive) L2.handlers.freeDrive();
+      });
+    }, 500);
+  })();
+
   window.__apexParty = { tick: tick, leaveWorld: leaveWorld, make: makeParty, join: joinParty, leave: leaveParty, get party() { return P; } };
 })();

@@ -356,4 +356,19 @@
       return new P2PConn();
     };
   };
+  // Came from "Join" on a friend in the B10GAMES account menu: ?join=<world code>.
+  // Open Multiplayer, type the code and press Join Server, like a player would.
+  (function () {
+    var code = (location.search.match(/[?&]join=(\d{5})(?:&|$)/) || [])[1];
+    if (!code) return;
+    history.replaceState(null, '', location.pathname);
+    var tries = 0, opened = false;
+    var t = setInterval(function () {
+      if (++tries > 150) { clearInterval(t); return; }
+      var input = document.querySelector('#mpcode'), go = document.querySelector('#mpjoin');
+      if (input && go) { input.value = code; go.click(); clearInterval(t); return; }
+      var mp = document.querySelector('#mp');
+      if (mp && !opened) { opened = true; mp.click(); }
+    }, 300);
+  })();
 })();

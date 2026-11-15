@@ -386,6 +386,7 @@
                 // Re-render button to update cost/count text, and check disabled states
                 renderUpgrades();
                 updateDisplays();
+                saveGame();
             }
         }
 
@@ -408,6 +409,7 @@
             rebirthContainer.classList.add('hidden');
             renderUpgrades();
             updateDisplays();
+            saveGame();
         });
 
         function gameLoop(currentTime) {
@@ -429,6 +431,29 @@
             requestAnimationFrame(gameLoop);
         }
 
+        // --- SAVE: progress stays when you leave (and follows your B10GAMES account) ---
+        const SAVE_KEY = 'ycc-save';
+        function saveGame() {
+            try { localStorage.setItem(SAVE_KEY, JSON.stringify({ score: Math.floor(score), rebirths: rebirths, counts: upgrades.map(u => u.count) })); } catch (e) {}
+        }
+        function loadGame() {
+            let s = null;
+            try { s = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) {}
+            if (!s) return;
+            score = Math.max(0, +s.score || 0);
+            rebirths = Math.max(0, s.rebirths | 0);
+            baseCps = 0;
+            upgrades.forEach((u, i) => {
+                u.count = Math.max(0, (s.counts && s.counts[i]) | 0);
+                u.cost = Math.floor(u.baseCost * Math.pow(1.15, u.count));
+                baseCps += u.baseCpsBoost * u.count;
+            });
+        }
+        loadGame();
+        setInterval(saveGame, 3000);
+        addEventListener('pagehide', saveGame);
+        document.addEventListener('visibilitychange', () => { if (document.hidden) saveGame(); });
+
         // Initialize Game
         renderUpgrades();
         updateDisplays();
@@ -436,5 +461,6 @@
 
     </script>
 <script src="/stats.js" data-game="yellow-circle-clicker" defer></script>
+<script src="/account.js" defer></script>
 </body>
 </html>

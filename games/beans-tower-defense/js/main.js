@@ -34,7 +34,7 @@ app.ui = new UI(app);
 
 // ---------- screens ----------
 const SCREENS = ['boot', 'lobby', 'maps', 'shopScreen'];
-function screen(id) { for (const s of SCREENS) $(s).classList.toggle('on', s === id); }
+function screen(id) { for (const s of SCREENS) $(s).classList.toggle('on', s === id); if (id === 'lobby') refreshContinue(); }
 function modal(id, on) { $(id).classList.toggle('on', on); }
 const click = () => app.audio.sfx('click');
 function refreshCoins() { document.querySelectorAll('.coinCount').forEach(el => { el.textContent = fmt(app.save.coins); }); }
@@ -365,9 +365,26 @@ class Input {
   }
 }
 
+// ---------- a game you left halfway: saved after every wave, CONTINUE in the lobby ----------
+const RUN = 'btd-run';
+function readRun() { try { const r = JSON.parse(localStorage.getItem(RUN)); return r && MAP[r.map] && DIFFS[r.diff] ? r : null; } catch (e) { return null; } }
+function saveRun(g) {
+  if (!g || g.over || g.restoring || g.waveActive || app.game !== g) return;
+  if (!g.cleared && !g.towers.length) return;
+  save(RUN, { map: g.map.def.id, diff: g.diff.id, rounds: app.sel.rounds, paid: g.paid || 0, at: Date.now(), ...g.runState() });
+}
+function clearRun() { try { localStorage.removeItem(RUN); } catch (e) {} }
+function refreshContinue() {
+  const r = readRun(), b = $('contBtn');
+  if (!b) return;
+  b.hidden = !r;
+  if (r) $('contInfo').textContent = `${MAP[r.map].name} · ${DIFFS[r.diff].name} · Wave ${r.wave + 1}${DIFFS[r.diff].infinite ? '' : ' of ' + r.rounds}`;
+}
+
 // ---------- starting and ending a game ----------
-function startGame(mapId = app.sel.map, diffId = app.sel.diff, rounds = app.sel.rounds) {
+function startGame(mapId = app.sel.map, diffId = app.sel.diff, rounds = app.sel.rounds, run = null) {
   if (app.game && !app.game.over) awardCoins(app.game);
+  if (!run) clearRun();
   app.sel.map = mapId; app.sel.diff = diffId; app.sel.rounds = rounds;
   screen('boot'); $('bootTxt').textContent = 'Building ' + MAP[mapId].name + '…'; $('bootBar').style.width = '70%';
   modal('victory', false); modal('gameover', false); modal('pauseMenu', false);
@@ -380,7 +397,8 @@ function startGame(mapId = app.sel.map, diffId = app.sel.diff, rounds = app.sel.
     const view = new BalloonView(map.scene); view.camQ = camera.quaternion;
     const diff = DIFFS[diffId];
     const g = app.game = new Game({ map, diff, rounds, fx: app.fx, audio: app.audio, view });
-    g.coinsGiven = false;
+    g.coinsGiven = false; g.paid = 0;
+    if (run) { g.restore(run); g.paid = Math.min(run.paid | 0, g.cleared); }
     g.on((type, d) => onGameEvent(type, d));
     app.input.attach(map.scene);
     app.speed = 1; app.paused = false; app.acc = 0; app.animT = 0;
@@ -388,7 +406,8 @@ function startGame(mapId = app.sel.map, diffId = app.sel.diff, rounds = app.sel.
     app.ui.start(g, app.save.team, app.save.farms);
     screen(null); app.state = 'game';
     app.audio.play(MUSIC.game);
-    app.ui.banner(MAP[mapId].name.toUpperCase(), `${diff.name} · ${diff.infinite ? 'endless waves' : rounds + ' waves'} · place some beans, then press START WAVE`, 3.2);
+    if (run) app.ui.banner('WELCOME BACK!', `${MAP[mapId].name} · ${diff.name} · wave ${g.cleared + 1}${diff.infinite ? '' : ' of ' + rounds} · press START WAVE`, 3.2);
+    else app.ui.banner(MAP[mapId].name.toUpperCase(), `${diff.name} · ${diff.infinite ? 'endless waves' : rounds + ' waves'} · place some beans, then press START WAVE`, 3.2);
   }, 40);
 }
 function endGame() {
@@ -401,8 +420,11 @@ function endGame() {
 function awardCoins(g) {
   if (!g || g.coinsGiven) return 0;
   g.coinsGiven = true;
-  const coins = coinsFor(g.cleared, g.diff, g.won, g.rounds);
+  // A continued game only pays for the waves cleared since you last left it.
+  const coins = Math.max(0, coinsFor(g.cleared, g.diff, g.won, g.rounds) - coinsFor(g.paid || 0, g.diff, false, g.rounds));
   app.save.coins += coins;
+  g.paid = g.cleared;
+  if (!g.over) { const r = readRun(); if (r && r.map === g.map.def.id && r.diff === g.diff.id) { r.paid = g.paid; save(RUN, r); } }
   if (g.diff.infinite) app.save.best[g.map.def.id] = Math.max(app.save.best[g.map.def.id] || 0, g.wave);
   writeSave(); refreshCoins();
   return coins;
@@ -412,7 +434,10 @@ function onGameEvent(type, d) {
   if (type === 'wave') {
     app.ui.banner(d.final ? 'FINAL WAVE!' : 'WAVE ' + d.wave, d.boss ? (d.type === 'king' ? 'THE KING BALLOON IS COMING!' : 'BOSS WAVE: ' + BALLOONS[d.type].name.toUpperCase()) : d.count + ' balloons', 2.4, d.boss ? '#ff7aa2' : null);
     if (d.boss) app.audio.play(MUSIC.boss);
+  } else if (type === 'money') {
+    saveRun(g);
   } else if (type === 'waveEnd') {
+    saveRun(g);
     const p = $('sMoney').getBoundingClientRect(); app.ui.float(p.left + 30, p.bottom + 4, `+${icon('coin')}${d.bonus}`);
     if (app.audio.music && app.audio.music.params === MUSIC.boss) app.audio.play(MUSIC.game);
   } else if (type === 'boss') {
@@ -426,11 +451,13 @@ function onGameEvent(type, d) {
   } else if (type === 'leak') {
     const p = $('sLives').getBoundingClientRect(); app.ui.float(p.left + 30, p.bottom + 4, `-${icon('heart')}${d.lost}`, true);
   } else if (type === 'victory') {
+    clearRun();
     const pr = app.progress[g.map.def.id] = app.progress[g.map.def.id] || {}; pr[g.diff.id] = true; save('btd-progress', app.progress);
     for (const t of g.towers) app.fx.confetti(new THREE.Vector3(t.x, 2, t.z), 30, 3);
     const coins = awardCoins(g);
     setTimeout(() => { if (app.game !== g) return; app.ui.results(true, coins); modal('victory', true); app.audio.play(MUSIC.lobby); }, 1800);
   } else if (type === 'gameover') {
+    clearRun();
     const coins = awardCoins(g);
     setTimeout(() => { if (app.game !== g) return; app.ui.results(false, coins); modal('gameover', true); app.audio.stop(); }, 1400);
   }
@@ -457,6 +484,7 @@ function wire() {
   fillIcons();
   $('playBtn').onclick = () => { app.audio.unlock(); app.audio.sfx('select'); goMaps(); };
   $('shopBtn').onclick = () => { app.audio.unlock(); app.audio.sfx('select'); goShop(); };
+  $('contBtn').onclick = () => { const r = readRun(); if (!r) return refreshContinue(); app.audio.unlock(); app.audio.sfx('wave'); startGame(r.map, r.diff, r.rounds, r); };
   $('shopBack').onclick = () => { click(); app.state = 'lobby'; screen('lobby'); refreshCoins(); app.audio.play(MUSIC.lobby); };
   $('lSettings').onclick = () => { app.audio.unlock(); click(); openSettings(); };
   $('lHow').onclick = () => { app.audio.unlock(); click(); modal('howto', true); };
@@ -536,4 +564,4 @@ async function boot() {
 boot().catch(e => { console.error(e); $('bootTxt').textContent = 'Something went wrong: ' + e.message; });
 
 // test hooks
-window.BTD = { app, step, startGame, goLobby, goMaps, goShop, startWave, awardCoins, get game() { return app.game; } };
+window.BTD = { app, step, startGame, goLobby, goMaps, goShop, startWave, awardCoins, readRun, get game() { return app.game; } };
