@@ -196,7 +196,7 @@ export class Game {
     this.towers.push(t);
     if (free) return t;
     // it drops in from the sky and lands with a thump (see land)
-    t.dropT = DROP; t.model.root.position.y = y + 9;
+    t.fallT = DROP; t.model.root.position.y = y + 9;
     const p = _v.set(x, y, z);
     this.fx.ring(p, '#ffffff', r * 2.2, 0.3, DROP, 0.5);
     this.fx.sparks(_w.set(x, y + 6, z), '#ffffff', 6);
@@ -242,7 +242,7 @@ export class Game {
     if (cost === null || this.money < cost || this.over) return false;
     this.money -= cost; t.spent += cost; t.lvl++;
     const skin = skinFor(t.lvl), p = _v.set(t.x, t.y, t.z);
-    if (t.isFarm) { t.model.setSkin(skin); for (let i = 0; i < 4; i++) this.fx.dollar(_w.set(t.x + (Math.random() - 0.5) * 2, t.y + 2.2, t.z + (Math.random() - 0.5) * 1.5), 1.3, i * 0.1); }
+    if (t.isFarm) { t.model.setSkin(skin); for (let i = 0; i < 3; i++) this.fx.coin(_w.set(t.x + (i - 1) * 0.9, t.y + 1.2, t.z), 1, i * 0.12); }
     else {
       t.stats = beanStats(t.def, t.lvl);
       const newLook = skin > t.model.skin;
@@ -278,9 +278,10 @@ export class Game {
   }
   farmFx(t, amount, big) {
     const p = _v.set(t.x, t.y + 1.2, t.z);
-    this.fx.burst(p, '#ffd23f', big ? 22 : 10, big ? 4 : 2.5, 0.2, big ? 9 : 6, 0.8); this.fx.sparks(p, '#fff3b0', big ? 10 : 4);
+    this.fx.sparks(p, '#fff3b0', big ? 8 : 3);
     if (big) this.fx.ring(_w.set(t.x, t.y + 0.1, t.z), '#5bd16b', 0.5, 3, 0.5);
-    for (let i = 0; i < (big ? 3 : 1); i++) this.fx.dollar(_w.set(t.x + (Math.random() - 0.5) * 1.6, t.y + 2 + i * 0.4, t.z + (Math.random() - 0.5) * 1.2), big ? 1.2 : 0.9, i * 0.12);
+    if (big) for (let i = 0; i < 3; i++) this.fx.coin(_w.set(t.x + (i - 1) * 0.9, t.y + 1.2, t.z + (Math.random() - 0.5) * 0.4), 1.1, i * 0.14);
+    else this.fx.coin(_w.set(t.x, t.y + 1.2, t.z), 1);
     this.sound('coin', big ? 1 : 0.5);
     this.emit('farm', { t, amount: Math.round(amount) });
   }
@@ -616,7 +617,7 @@ export class Game {
       const m = tw.model;
       // dropping in from the sky, a squash when it lands, and a little grow when the mouse is on it
       let dy = 0;
-      if (tw.dropT > 0) { tw.dropT -= dt; const k = Math.max(0, tw.dropT / DROP); dy = k * k * 9; if (tw.dropT <= 0) this.land(tw); }
+      if (tw.fallT > 0) { tw.fallT -= dt; const k = Math.max(0, tw.fallT / DROP); dy = k * k * 9; if (tw.fallT <= 0) this.land(tw); }
       if (tw.squash > 0) tw.squash = Math.max(0, tw.squash - dt * 2.6);
       tw.hoverK = (tw.hoverK || 0) + ((this.hover === tw ? 1 : 0) - (tw.hoverK || 0)) * Math.min(1, dt * 12);
       const sq = tw.squash > 0 ? Math.cos((1 - tw.squash) * Math.PI * 2.5) * tw.squash : 0, grow = (tw.base || 1) * (1 + tw.hoverK * 0.09);
