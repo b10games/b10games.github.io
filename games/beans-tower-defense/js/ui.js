@@ -65,9 +65,11 @@ export class UI {
   // the other players' money (in a party everyone has their own)
   mates(g) {
     const others = g.players.filter(p => p !== g.me);
-    const key = others.map(p => p + ':' + Math.floor(g.wallets[p] || 0) + ':' + this.app.nameOf(p)).join('|');
+    const key = g.mul + '#' + others.map(p => p + ':' + Math.floor(g.wallets[p] || 0) + ':' + this.app.nameOf(p)).join('|');
     if (key === this.last.mates) return; this.last.mates = key;
-    $('mates').innerHTML = others.map(p => `<div class="stat mate" style="--pc:${this.app.colorOf(p)}"><span class="pdot"></span><div><small>${esc(this.app.nameOf(p))} MONEY</small><div class="v">${fmt(g.wallets[p] || 0)}</div></div></div>`).join('');
+    // more players = tougher balloons
+    const hard = g.mul > 1 ? `<div class="stat hardx" title="${g.mul} players: the balloons have ${g.mul}X life (and give ${g.mul}X money per pop)">${icon('b_red')}<div><small>BALLOON LIFE</small><div class="v">${g.mul}X</div></div></div>` : '';
+    $('mates').innerHTML = hard + others.map(p => `<div class="stat mate" style="--pc:${this.app.colorOf(p)}"><span class="pdot"></span><div><small>${esc(this.app.nameOf(p))} MONEY</small><div class="v">${fmt(g.wallets[p] || 0)}</div></div></div>`).join('');
     $('sMoney').querySelector('small').textContent = others.length ? 'YOUR MONEY' : 'MONEY';
   }
   flash(id, cls) { const el = $(id); el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }

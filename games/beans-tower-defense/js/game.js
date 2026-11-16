@@ -75,17 +75,19 @@ export class Game {
   }
   get money() { return this.wallets[this.me] || 0; }
   set money(v) { this.wallets[this.me] = v; }
+  // the more players in the party, the tougher the balloons: 2 players = 2X life (and 2X money per pop, so everyone earns like alone)
+  get mul() { return Math.max(1, this.players.length); }
   pay(owner, amt) { if (!(owner in this.wallets)) owner = this.players[0]; this.wallets[owner] += amt; }
   rnd() { let x = this.rs; x ^= x << 13; x ^= x >>> 17; x ^= x << 5; this.rs = x >>> 0 || 1; return (this.rs % 100000) / 100000; }
   towerById(id) { for (const t of this.towers) if (t.id === id) return t; return null; }
-  addPlayer(id, money) { if (id in this.wallets) return; this.players.push(id); this.wallets[id] = money ?? this.diff.money; this.emit('money'); }
+  addPlayer(id, money) { if (id in this.wallets) return; this.players.push(id); this.wallets[id] = money ?? this.diff.money; this.emit('money'); this.emit('players', { n: this.mul }); }
   // a player who leaves hands their beans and money to the party leader
   removePlayer(id) {
     if (!(id in this.wallets) || this.players[0] === id) return;
     const to = this.players[0];
     for (const t of this.towers) if (t.owner === id) t.owner = to;
     this.wallets[to] += this.wallets[id]; delete this.wallets[id]; this.players = this.players.filter(p => p !== id);
-    this.emit('money');
+    this.emit('money'); this.emit('players', { n: this.mul });
   }
   on(fn) { this.listeners.push(fn); }
   emit(type, d) { for (const f of this.listeners) f(type, d); }
@@ -128,9 +130,9 @@ export class Game {
 
   // ---------- balloons ----------
   spawn(type, d = 0, parent = null) {
-    const def = BALLOONS[type], sc = this.scale;
-    const hp = Math.max(1, Math.round(def.hp * (def.boss ? bossHpScale(type, this.wave) * sc.hp : def.tough ? sc.hp : 1)));
-    const b = { id: this.nextId++, type, def, d, hp, maxHp: hp, speed: def.speed * sc.speed, x: 0, z: 0, alive: true, frozenT: 0, stunT: 0, slowT: 0, slowPct: 0, glueT: 0, dot: 0, dotT: 0, hitT: 0, spawnT: parent ? 1 : 0, heading: 0, skip: 0,
+    const def = BALLOONS[type], sc = this.scale, pm = parent ? parent.pm || 1 : this.mul;
+    const hp = Math.max(1, Math.round(def.hp * (def.boss ? bossHpScale(type, this.wave) * sc.hp : def.tough ? sc.hp : 1) * pm));
+    const b = { id: this.nextId++, type, def, d, hp, maxHp: hp, pm, speed: def.speed * sc.speed, x: 0, z: 0, alive: true, frozenT: 0, stunT: 0, slowT: 0, slowPct: 0, glueT: 0, dot: 0, dotT: 0, hitT: 0, spawnT: parent ? 1 : 0, heading: 0, skip: 0,
       kids: def.boss ? bossChildren(type, this.wave) : def.children };
     if (parent) { b.slowT = parent.slowT; b.slowPct = parent.slowPct; b.glueT = parent.glueT; b.dot = parent.dot; }
     this.map.path.at(d, _v); b.x = _v.x; b.z = _v.z;
@@ -146,7 +148,7 @@ export class Game {
     if (b.hp > 0) { if (b.def.tough) this.fx.sparks(_v.set(b.x, 2 + b.def.size * 0.5, b.z), b.def.boss ? '#ffd23f' : '#ffffff', b.def.boss ? 4 : 2); return; }
     const over = -b.hp;
     b.alive = false;
-    this.pay(src && src.owner, b.def.cash * this.diff.cash);
+    this.pay(src && src.owner, b.def.cash * this.diff.cash * (b.pm || 1));
     this.stats.popped++; if (src) src.pops++;
     if (b.def.boss) this.stats.bosses++;
     this.popFx(b);
@@ -282,7 +284,7 @@ export class Game {
       k: this.tick, tm: this.time, w: this.wave, c: this.cleared, wa: this.waveActive, qi: this.qi, wt: this.waveT, nid: this.nextId, au: this.auto, at: this.autoT,
       ov: this.over, won: this.won, li: this.lives, wal: { ...this.wallets }, pl: this.players.slice(), st: { ...this.stats }, rs: this.rs,
       tw: this.towers.map(t => [t.id, t.owner, t.def.id, t.isFarm ? 1 : 0, t.x, t.z, t.lvl, t.spent, t.target || '', t.cd || 0, t.blizT || 0, t.beatT || 0, t.drops || 0, t.dropT || 0, t.earned || 0, t.pops || 0, t.facing || 0]),
-      bl: this.balloons.filter(b => b.alive).map(b => [b.id, b.type, b.d, b.hp, b.maxHp, b.speed, b.frozenT, b.slowT, b.slowPct, b.glueT, b.dot, b.dotT, b.dotSrc ? b.dotSrc.id : 0, b.burnT || 0, b.spawnT, b.skip || 0, b.kids, b.stunT || 0])
+      bl: this.balloons.filter(b => b.alive).map(b => [b.id, b.type, b.d, b.hp, b.maxHp, b.speed, b.frozenT, b.slowT, b.slowPct, b.glueT, b.dot, b.dotT, b.dotSrc ? b.dotSrc.id : 0, b.burnT || 0, b.spawnT, b.skip || 0, b.kids, b.stunT || 0, b.pm || 1])
     };
   }
   load(s) {
@@ -307,7 +309,7 @@ export class Game {
     const path = this.map.path;
     for (const r of s.bl) {
       const def = BALLOONS[r[1]]; if (!def) continue;
-      const b = { id: r[0], type: r[1], def, d: r[2], hp: r[3], maxHp: r[4], speed: r[5], x: 0, z: 0, alive: true, frozenT: r[6], slowT: r[7], slowPct: r[8], glueT: r[9], dot: r[10], dotT: r[11], dotSrc: r[12] ? this.towerById(r[12]) : null, burnT: r[13], hitT: 0, spawnT: r[14], heading: 0, skip: r[15], kids: r[16], stunT: r[17] || 0 };
+      const b = { id: r[0], type: r[1], def, d: r[2], hp: r[3], maxHp: r[4], speed: r[5], x: 0, z: 0, alive: true, frozenT: r[6], slowT: r[7], slowPct: r[8], glueT: r[9], dot: r[10], dotT: r[11], dotSrc: r[12] ? this.towerById(r[12]) : null, burnT: r[13], hitT: 0, spawnT: r[14], heading: 0, skip: r[15], kids: r[16], stunT: r[17] || 0, pm: r[18] || 1 };
       path.at(b.d, _v); b.x = _v.x; b.z = _v.z; if (def.boss) b.heading = path.heading(b.d);
       this.balloons.push(b);
     }
@@ -630,7 +632,7 @@ export class Game {
   }
   leak(b) {
     b.alive = false;
-    let lost = Math.max(1, Math.round(b.hp + b.kids.reduce((s, c) => s + rbe(c, this.scale.hp), 0)));
+    let lost = Math.max(1, Math.round(b.hp + b.kids.reduce((s, c) => s + rbe(c, this.scale.hp), 0) * (b.pm || 1)));
     // a boss that gets through hurts a lot, but only the King takes everything
     const cap = { boss1: 0.25, giant: 0.4, colossal: 0.6, king: 1 }[b.type];
     if (cap) lost = Math.min(lost, Math.ceil(this.diff.lives * cap));

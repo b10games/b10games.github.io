@@ -588,7 +588,7 @@ function startGame(mapId = app.sel.map, diffId = app.sel.diff, rounds = app.sel.
     app.ui.start(g, app.save.team, app.save.farms);
     screen(null); app.state = 'game';
     app.audio.play(MUSIC.game);
-    if (mp) app.ui.banner(mp.snap ? 'YOU JOINED!' : 'PARTY GAME!', `${MAP[mapId].name} · ${diff.name} · ${g.players.length} players · everyone has their own money`, 3.4);
+    if (mp) app.ui.banner(mp.snap ? 'YOU JOINED!' : 'PARTY GAME!', `${MAP[mapId].name} · ${diff.name} · ${g.players.length} players · balloons have ${g.mul}X life · everyone has their own money`, 3.4);
     else if (run) app.ui.banner('WELCOME BACK!', `${MAP[mapId].name} · ${diff.name} · wave ${g.cleared + 1}${diff.infinite ? '' : ' of ' + rounds} · press START WAVE`, 3.2);
     else app.ui.banner(MAP[mapId].name.toUpperCase(), `${diff.name} · ${diff.infinite ? 'endless waves' : rounds + ' waves'} · place some beans, then press START WAVE`, 3.2);
   }, 40);
@@ -627,6 +627,8 @@ function onGameEvent(type, d) {
     if (d.boss) app.audio.play(MUSIC.boss);
   } else if (type === 'money') {
     saveRun(g);
+  } else if (type === 'players') {
+    if (party.on) toast(d.n > 1 ? `${d.n} players: new balloons have ${d.n}X life` : 'Only you left: the balloons are back to normal');
   } else if (type === 'land') {
     app.cam.shakeT = Math.max(app.cam.shakeT, 0.1);
   } else if (type === 'waveEnd') {
@@ -829,7 +831,7 @@ function renderParty() {
   $('partyOut').hidden = inP; $('partyIn').hidden = !inP;
   $('pCodeTxt').textContent = net.code || '';
   $('pList').innerHTML = list.map((m, i) => `<div class="pmem ${m.id === ME.id ? 'me' : ''}"><span class="dot" style="background:${PLAYER_COLORS[i % PLAYER_COLORS.length]}"></span><b>${esc(m.name)}</b>${m.leader ? `<span class="lead">${icon('crown')}LEADER</span>` : ''}${m.id === ME.id ? '<span class="you">YOU</span>' : ''}</div>`).join('');
-  $('pHint').textContent = !inP ? '' : net.leader ? 'You are the leader: press PLAY, pick a map and every player joins your game.' : 'Waiting for the leader to start a game. You jump in automatically.';
+  $('pHint').textContent = !inP ? '' : net.leader ? 'You are the leader: press PLAY, pick a map and every player joins your game. The more players, the tougher the balloons: with ' + Math.max(2, list.length) + ' players they have ' + Math.max(2, list.length) + 'X life.' : 'Waiting for the leader to start a game. You jump in automatically. With ' + Math.max(2, list.length) + ' players the balloons have ' + Math.max(2, list.length) + 'X life.';
   const chip = $('partyChip');
   chip.hidden = !inP; if (inP) chip.innerHTML = `${icon('party')}<span>PARTY ${net.code}<small>${list.length} / 4 players</small></span>`;
   $('partyBtn').classList.toggle('on', inP);
