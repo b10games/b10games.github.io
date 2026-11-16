@@ -736,7 +736,7 @@ function stepMember(g, dt) {
   if (!app.paused) app.acc += dt * app.speed;
   let n = Math.floor(app.acc * 60 + 1e-6);
   if (ahead - n > 6) n += Math.min(ahead - n - 3, 12);          // fell behind: catch up a little faster
-  n = Math.max(0, Math.min(n, ahead, 30));
+  n = Math.max(0, Math.min(n, ahead, app.speed > 3 ? 40 : 30));
   app.acc = Math.max(0, app.acc - n / 60); if (n === 0) app.acc = Math.min(app.acc, 3 / 60);
   for (let i = 0; i < n; i++) { applyPending(g); g.update(1 / 60); checkSum(g); }
   applyPending(g);
@@ -801,7 +801,7 @@ net.on('msg', (m, from) => {
     case 'snap': if (!lead && party.on && g && app.state === 'game') loadSnap(m.s, m.seq); return;
     case 'gend': if (!lead && party.on) { party.on = false; toast('The party leader went back to the lobby'); goLobby(); } return;
     case 'act': if (lead && party.on && g && m.a && typeof m.a === 'object') { m.a.p = String(from); hostApply(m.a); } return;
-    case 'ctl': if (lead && party.on) { if (m.pz !== undefined) app.paused = !!m.pz; if ([1, 2, 3].includes(m.sp)) app.speed = m.sp; } return;
+    case 'ctl': if (lead && party.on) { if (m.pz !== undefined) app.paused = !!m.pz; if ([1, 2, 3, 10].includes(m.sp)) app.speed = m.sp; } return;
     case 'need': if (lead && party.on && g && app.state === 'game') net.sendTo(String(from), { t: 'snap', s: g.snapshot(), seq: party.seq }); return;
     case 'quit': if (lead && party.on && g) { hostApply({ k: 'leave', p: String(from) }); dropRemote(String(from)); toast(nameOf(String(from)) + ' went back to the lobby'); } return;
     case 'av': if (m.id) onAvatar(String(m.id), m.s); return;
@@ -903,7 +903,18 @@ function wire() {
   $('pExit').onclick = () => { click(); goLobby(); };
   $('startBtn').onclick = () => startWave();
   $('pauseBtn').onclick = () => { setPause(!app.paused); click(); };
-  $('speedBtn').onclick = () => { const sp = app.speed === 1 ? 2 : app.speed === 2 ? 3 : 1; if (party.on && !party.host) net.send({ t: 'ctl', sp }); else app.speed = sp; click(); };
+  // tap: 1x, 2x, 3x. Hold it down: 10x (a tap goes back to 1x)
+  const sb = $('speedBtn'); let holdT = 0, held = false;
+  const setSpeed = sp => { if (party.on && !party.host) net.send({ t: 'ctl', sp }); else app.speed = sp; };
+  const endHold = () => { clearTimeout(holdT); holdT = 0; sb.classList.remove('hold'); };
+  sb.addEventListener('pointerdown', e => {
+    if (e.button) return;
+    held = false; endHold(); sb.classList.add('hold');
+    holdT = setTimeout(() => { holdT = 0; held = true; sb.classList.remove('hold'); setSpeed(10); app.audio.sfx('unlock', 0.7); app.ui.flash('speedBtn', 'turboFx'); }, 550);
+  });
+  for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) sb.addEventListener(ev, endHold);
+  sb.addEventListener('contextmenu', e => e.preventDefault());
+  sb.onclick = () => { if (held) { held = false; return; } setSpeed(app.speed === 1 ? 2 : app.speed === 2 ? 3 : 1); click(); };
   $('autoBtn').onclick = () => { const g = app.game; if (!g) return; act({ k: 'auto', v: !g.auto }); click(); };
   $('walkBtn').onclick = () => { toggleWalk(); };
   $('selectBtn').onclick = () => { app.input.setMulti(!app.input.multi); click(); };
@@ -932,8 +943,9 @@ function step(dt) {
     if (party.on && !party.host) stepMember(g, dt);
     else if (!app.paused) {
       app.acc += dt * app.speed; let n = 0;
-      while (app.acc >= 1 / 60 && n < 12) { g.update(1 / 60); app.acc -= 1 / 60; n++; if (party.on && g.tick % 120 === 0) party.sum = [g.tick, g.checksum()]; }
-      if (n >= 12) app.acc = 0;
+      const cap = app.speed > 3 ? 24 : 12;   // 10x needs about 10 game steps every frame
+      while (app.acc >= 1 / 60 && n < cap) { g.update(1 / 60); app.acc -= 1 / 60; n++; if (party.on && g.tick % 120 === 0) party.sum = [g.tick, g.checksum()]; }
+      if (n >= cap) app.acc = 0;
     }
     const vdt = app.paused ? 0 : dt * app.speed;
     app.animT += vdt;

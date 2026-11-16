@@ -53,7 +53,7 @@ export class UI {
     sb.disabled = g.waveActive || g.over;
     const paused = this.app.paused;
     if (this.last.paused !== paused) { this.last.paused = paused; $('pauseBtn').innerHTML = paused ? `${icon('play')}<span>Resume</span>` : `${icon('pause')}<span>Pause</span>`; $('pauseBtn').classList.toggle('on', paused); }
-    if (this.last.speed !== this.app.speed) { this.last.speed = this.app.speed; $('speedBtn').querySelector('span').textContent = this.app.speed + 'x'; $('speedBtn').classList.toggle('on', this.app.speed > 1); }
+    if (this.last.speed !== this.app.speed) { this.last.speed = this.app.speed; $('speedBtn').querySelector('span').textContent = this.app.speed + 'x'; $('speedBtn').classList.toggle('on', this.app.speed > 1); $('speedBtn').classList.toggle('turbo', this.app.speed > 3); }
     $('autoBtn').classList.toggle('on', g.auto);
     $('selectBtn').classList.toggle('on', inp.multi);
     const walking = !!this.app.walking;

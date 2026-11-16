@@ -133,6 +133,15 @@
   #controls .ctl { font-size: 16px; padding: 10px 4px; border-radius: 14px; gap: 5px; min-width: 0; }
   #controls .ctl svg { width: 22px; height: 22px; }
   #controls .ctl.on { box-shadow: inset 0 0 0 3px var(--gold); background: rgba(255,210,63,.22); }
+  /* hold the speed button: it fills up, then 10x */
+  #speedBtn { position: relative; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  #speedBtn > * { position: relative; z-index: 1; }
+  #speedBtn::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, #ff8c42, #ff4d6d); transform: scaleX(0); transform-origin: left; opacity: .55; pointer-events: none; }
+  #speedBtn.hold::before { transform: scaleX(1); transition: transform .55s linear; }
+  #controls #speedBtn.turbo { box-shadow: inset 0 0 0 3px #ff4d6d, 0 0 16px rgba(255,77,109,.7); background: rgba(255,77,109,.3); color: #fff; }
+  #speedBtn.turbo svg { animation: turboRun .35s linear infinite; }
+  @keyframes turboRun { 0% { transform: translateX(-2px); } 50% { transform: translateX(2px); } 100% { transform: translateX(-2px); } }
+  #speedBtn.turboFx { animation: bump .35s; }
   #banner { position: absolute; top: 16%; left: 0; right: var(--shopw); text-align: center; opacity: 0; transform: scale(.85); transition: opacity .3s, transform .3s; }
   #banner.on { opacity: 1; transform: scale(1); }
   #banner h1 { font-size: 64px; color: var(--gold); -webkit-text-stroke: 3px #2a1546; text-shadow: 0 6px 0 #2a1546; }
@@ -492,7 +501,7 @@
     <div id="controls">
       <button class="btn green" id="startBtn"><i data-ic="play"></i><span>START WAVE</span></button>
       <button class="btn ghost ctl" id="pauseBtn" title="Pause"><i data-ic="pause"></i><span>Pause</span></button>
-      <button class="btn ghost ctl" id="speedBtn" title="Game speed"><i data-ic="fast"></i><span>1x</span></button>
+      <button class="btn ghost ctl" id="speedBtn" title="Game speed: tap for 1x, 2x, 3x. Hold it down for 10x"><i data-ic="fast"></i><span>1x</span></button>
       <button class="btn ghost ctl" id="autoBtn" title="Start the next wave by itself"><i data-ic="auto"></i><span>Auto</span></button>
     </div>
   </div>
@@ -559,7 +568,7 @@
     <p><i data-ic="farm"></i><span>Farms grow money every wave. Upgrade them to grow more. Buy better farms and new beans in the Bean Shop with Bean Coins. You can bring 7 beans.</span></p>
     <p><i data-ic="crown"></i><span>A boss balloon comes every 10 rounds, and the last round brings the King Balloon. In Infinity mode the waves never end, but they get harder and harder.</span></p>
     <p><i data-ic="coin"></i><span>You earn money for every balloon layer you pop and for every wave you finish.</span></p>
-    <p><i data-ic="play"></i><span>Press START WAVE when you are ready. Pause, speed up the game (1x, 2x, 3x) or turn on Auto to start every wave by itself. Zoom with the scroll wheel, the + and - buttons or two fingers. Drag to move the camera when you are zoomed in.</span></p>
+    <p><i data-ic="play"></i><span>Press START WAVE when you are ready. Pause, speed up the game (tap for 1x, 2x, 3x, or hold the speed button down for 10x) or turn on Auto to start every wave by itself. Zoom with the scroll wheel, the + and - buttons or two fingers. Drag to move the camera when you are zoomed in.</span></p>
     <p><i data-ic="walkin"></i><span>Press GO IN (or G) to jump down on the map as a big white bean. Walk with WASD or the arrow keys (the stick on a touch screen), run with Shift, jump with Space and drag to look around. You can place and upgrade beans down there too. GO OUT takes you back up.</span></p>
     <p><i data-ic="party"></i><span>Press PARTY in the lobby to play with up to 3 friends: make a party and share the 5-digit code, or join a friend's code. The leader picks the map. You see each other walk around and place beans, and everyone has their own money. The more players, the tougher the map: with 2 players the balloons have 2X life, with 3 players 3X, and so on (and every pop gives that much more money).</span></p>
   </div>
