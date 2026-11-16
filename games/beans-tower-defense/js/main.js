@@ -79,7 +79,8 @@ const camera = app.camera = new THREE.PerspectiveCamera(36, innerWidth / innerHe
 // If the device cannot keep up, the glow switches itself off.
 const post = { composer: null, render: null, bloom: null, ok: true, frames: 0, slow: 0 };
 const GLOW = { valley: 0.95, candy: 1.0, dunes: 1.0, frost: 1.3, lava: 1.2, swamp: 0.75 };
-function postOn() { return app.settings.quality !== 'low' && post.ok; }
+function postOn() { return app.settings.quality === 'high' && post.ok; }
+const FX_Q = { high: 1, low: 0.6, ultra: 0.3 };   // how many sparks and bits fly around
 function sizePost() { if (!post.composer) return; post.composer.setPixelRatio(renderer.getPixelRatio()); post.composer.setSize(innerWidth, innerHeight); }
 function makePost() {
   const rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 });
@@ -247,7 +248,9 @@ function openBook(id, lvl = 0) {
   $('bbLevels').innerHTML = Array.from({ length: 11 }, (_, i) => `<button data-lv="${i}" class="${i === 5 || i === 10 ? 'star' : ''}">${i === 0 ? 'NEW' : i}<small>${i === 0 ? 'START' : i === 5 || i === 10 ? 'NEW LOOK' : 'LEVEL'}</small></button>`).join('');
   $('bbLevels').querySelectorAll('button').forEach(el => el.onclick = () => { click(); showLevel(+el.dataset.lv); });
   modal('beanBook', true);
-  if (!book.view) book.view = new BeanPreview($('bbCanvas'));
+  // Ultra Fast: a picture of the bean instead of the little live video (that needs a second 3D view)
+  const still = app.settings.quality === 'ultra'; $('beanBook').classList.toggle('still', still); $('bbStill').src = app.portraits[id] || '';
+  if (!still && !book.view) book.view = new BeanPreview($('bbCanvas'));
   showLevel(lvl);
 }
 function showLevel(L) {
@@ -272,7 +275,13 @@ function showLevel(L) {
       : `<button class="btn ${can ? 'green' : ''}" id="bbBuy" ${can ? '' : 'disabled'}>${icon('beancoin')}BUY ${fmt(b.unlock)}</button>`);
   if ($('bbBuy')) $('bbBuy').onclick = () => { if (sv.coins < b.unlock) return app.audio.sfx('error'); sv.coins -= b.unlock; sv.owned.push(b.id); if (sv.team.length < TEAM_SIZE) sv.team.push(b.id); writeSave(); app.audio.sfx('unlock'); renderShop(); showLevel(L); };
   if ($('bbTeam')) $('bbTeam').onclick = () => { if (sv.team.length >= TEAM_SIZE) return app.audio.sfx('error'); sv.team.push(b.id); writeSave(); app.audio.sfx('select'); renderShop(); showLevel(L); };
-  book.view.show(book.id, L);
+  if (book.view) book.view.show(book.id, L);
+}
+// throw the live video away (switching to Ultra Fast), with a fresh canvas for later
+function stillBook() {
+  if (!book.view) return;
+  book.view.stop(); book.view.r.dispose(); book.view.r.forceContextLoss(); book.view = null;
+  const old = $('bbCanvas'), c = old.cloneNode(false); old.replaceWith(c);
 }
 function closeBook() { modal('beanBook', false); if (book.view) book.view.stop(); }
 
@@ -570,7 +579,9 @@ function startGame(mapId = app.sel.map, diffId = app.sel.diff, rounds = app.sel.
     endGame();
     const map = app.mapObj = buildMap(MAP[mapId], app.settings.quality);
     map.scene.environment = envTex; map.scene.environmentIntensity = 0.38;
-    app.fx = new FX(map.scene); app.fx.quality = app.settings.quality === 'low' ? 0.6 : 1; app.fx.initLights(app.settings.quality === 'low' ? 0 : 3);
+    app.fx = new FX(map.scene); app.fx.quality = FX_Q[app.settings.quality] || 1; app.fx.initLights(app.settings.quality === 'high' ? 3 : 0);
+    // Ultra Fast: the lobby is thrown away while you play (it is built again when you go back)
+    if (app.settings.quality === 'ultra' && app.lobby) { disposeScene(app.lobby.scene); app.lobby = null; }
     app.fx.onBurst = () => app.audio.sfx('firework', 0.45);
     app.ambient = new Ambient(map.scene, MAP[mapId].theme);
     const view = new BalloonView(map.scene); view.camQ = camera.quaternion;
@@ -872,7 +883,18 @@ function openSettings() {
   const v = app.audio.vol;
   for (const [id, k] of [['setMaster', 'master'], ['setMusic', 'music'], ['setSfx', 'sfx']]) { $(id).value = v[k]; $(id).oninput = () => app.audio.setVolume(k, +$(id).value); }
   seg('setMute', v.mute ? 1 : 0, x => app.audio.setVolume('mute', x === '1'));
-  seg('setQuality', app.settings.quality, q => { app.settings.quality = q; post.ok = true; save('btd-settings', app.settings); applyQuality(renderer, q); onResize(); if (app.fx) app.fx.quality = q === 'low' ? 0.6 : 1; for (const s of [app.mapObj && app.mapObj.scene, app.lobby && app.lobby.scene]) if (s) s.userData.sun.castShadow = q !== 'low'; });
+  seg('setQuality', app.settings.quality, q => {
+    const was = app.settings.quality; if (q === was) return;
+    app.settings.quality = q; post.ok = true; save('btd-settings', app.settings); applyQuality(renderer, q); onResize();
+    if (app.fx) app.fx.quality = FX_Q[q] || 1;
+    for (const s of [app.mapObj && app.mapObj.scene, app.lobby && app.lobby.scene]) if (s) s.userData.sun.castShadow = q === 'high';
+    if (q === 'ultra') stillBook();
+    // edge smoothing can only change when the page starts again
+    if (q === 'ultra' || was === 'ultra') {
+      if (app.state !== 'game' && !net.inParty) { toast('Changing the graphics…'); setTimeout(() => location.reload(), 350); }
+      else toast('Ultra Fast is ' + (q === 'ultra' ? 'on' : 'off') + '. Reload the page later to finish it.');
+    }
+  });
   modal('settings', true);
 }
 
@@ -961,7 +983,8 @@ function step(dt) {
     app.input.update(dt);
     app.ui.update();
     draw(app.mapObj.scene, dt);
-  } else if (app.lobby) {
+  } else {
+    if (!app.lobby) app.lobby = new Lobby();
     app.lobby.update(dt, innerWidth / innerHeight);
     renderer.render(app.lobby.scene, app.lobby.camera);
   }
@@ -969,6 +992,8 @@ function step(dt) {
 }
 function frame(now) {
   requestAnimationFrame(frame);
+  // Ultra Fast draws 30 pictures a second instead of 60 (the game itself still runs at full speed)
+  if (app.settings.quality === 'ultra' && now - last < 1000 / 34) return;
   const raw = (now - last) / 1000, dt = Math.min(0.05, raw); last = now;
   step(dt);
   // the glow costs the most: if a game keeps running slowly with it on, switch it off

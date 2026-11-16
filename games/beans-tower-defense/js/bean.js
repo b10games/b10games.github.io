@@ -193,7 +193,7 @@ const COSTUMES = {
     // ice wand with a floating crystal
     const wand = new THREE.Group(); b.hand.add(wand); b.hand.rotation.x = 0.35;
     mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.7, 6), std('#e9ecef', { metal: 0.3 }), 0, 0.2, 0.05, wand);
-    const crystal = mesh(new THREE.OctahedronGeometry(0.13), new THREE.MeshPhysicalMaterial({ color: '#bfe8ff', emissive: '#4cc9f0', emissiveIntensity: 0.9, roughness: 0.05, transmission: 0.2, clearcoat: 1 }), 0, 0.66, 0.05, wand);
+    const crystal = mesh(new THREE.OctahedronGeometry(0.13), new THREE.MeshPhysicalMaterial({ color: '#bfe8ff', emissive: '#4cc9f0', emissiveIntensity: 0.9, roughness: 0.05, clearcoat: 1 }), 0, 0.66, 0.05, wand);
     crystal.scale.y = 1.6;
     b.extra.push((dt, t) => { crystal.rotation.y = t * 2; crystal.position.y = 0.66 + Math.sin(t * 3) * 0.03; });
     b.weapon = wand; b.muzzle = new THREE.Object3D(); b.muzzle.position.set(0, 0.66, 0.05); wand.add(b.muzzle);

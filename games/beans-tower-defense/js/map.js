@@ -192,7 +192,7 @@ export function buildMap(def, quality = 'high') {
   anim.push(...deco.anim);
   // drifting weather: snow, glowing embers or fireflies
   if (T.ambient) {
-    const n = quality === 'low' ? 160 : 360, pos = new Float32Array(n * 3), ph = new Float32Array(n);
+    const n = quality === 'ultra' ? 60 : quality === 'low' ? 160 : 360, pos = new Float32Array(n * 3), ph = new Float32Array(n);
     for (let i = 0; i < n; i++) { pos[i * 3] = (R() * 2 - 1) * 46; pos[i * 3 + 1] = R() * 18; pos[i * 3 + 2] = (R() * 2 - 1) * 30; ph[i] = R() * 10; }
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     const glow = T.ambient !== 'snow';

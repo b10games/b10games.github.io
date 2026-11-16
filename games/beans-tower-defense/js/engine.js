@@ -3,7 +3,8 @@ import * as THREE from 'three';
 export { THREE };
 
 export function createRenderer(canvas, quality) {
-  const r = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+  // Ultra Fast (for iPads and old computers) also skips smoothing of the edges, that needs a lot of memory
+  const r = new THREE.WebGLRenderer({ canvas, antialias: quality !== 'ultra', powerPreference: quality === 'ultra' ? 'low-power' : 'high-performance' });
   r.outputColorSpace = THREE.SRGBColorSpace;
   r.toneMapping = THREE.ACESFilmicToneMapping;
   r.toneMappingExposure = 1.05;
@@ -12,8 +13,9 @@ export function createRenderer(canvas, quality) {
   return r;
 }
 export function applyQuality(r, quality) {
-  r.setPixelRatio(Math.min(window.devicePixelRatio || 1, quality === 'low' ? 1 : 1.75));
-  r.shadowMap.enabled = quality !== 'low';
+  // High: sharp, Fast: normal pixels, Ultra Fast: fewer pixels than the screen (a little blurry, but much lighter)
+  r.setPixelRatio(Math.min(window.devicePixelRatio || 1, quality === 'ultra' ? 0.7 : quality === 'low' ? 1 : 1.75));
+  r.shadowMap.enabled = quality === 'high';
   r.setSize(window.innerWidth, window.innerHeight, false);
 }
 
@@ -54,7 +56,7 @@ export function makeWorldScene(theme, quality) {
   scene.add(hemi);
   const sun = new THREE.DirectionalLight(new THREE.Color(theme.sunColor), theme.sunInt);
   const sd = new THREE.Vector3(...theme.sunDir).normalize();
-  sun.castShadow = quality !== 'low';
+  sun.castShadow = quality === 'high';
   sun.shadow.mapSize.set(2048, 2048);
   const sc = sun.shadow.camera;
   sc.left = -45; sc.right = 45; sc.top = 45; sc.bottom = -45; sc.near = 1; sc.far = 260;

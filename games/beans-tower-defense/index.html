@@ -208,7 +208,9 @@
   .srow svg { width: 34px; height: 34px; }
   input[type=range] { width: 100%; accent-color: var(--gold); }
   .seg { display: inline-flex; background: rgba(0,0,0,.25); border-radius: 12px; padding: 4px; gap: 4px; }
-  .seg button { font-size: 16px; padding: 7px 14px; border-radius: 9px; background: transparent; }
+  .seg button { font-size: 16px; padding: 7px 14px; border-radius: 9px; background: transparent; white-space: nowrap; }
+  .srow.wide { grid-template-columns: 44px 1fr auto; }
+  @media (max-width: 520px) { .srow.wide .seg button { padding: 7px 9px; font-size: 14px; } }
   .seg button.on { background: var(--gold); color: #2a1546; }
   .howto { text-align: left; font-weight: 800; line-height: 1.45; font-size: 15px; }
   .howto p { margin: 8px 0; display: flex; gap: 10px; align-items: flex-start; }
@@ -266,6 +268,9 @@
   .bbView canvas { width: 100%; height: 100%; display: block; }
   .bbTag { position: absolute; left: 10px; top: 10px; font-family: "Lilita One"; font-size: 18px; background: rgba(42,21,70,.85); border-radius: 12px; padding: 4px 12px; display: flex; align-items: center; gap: 6px; }
   .bbTag svg { width: 20px; height: 20px; }
+  #bbStill { display: none; }
+  .still #bbCanvas, .still .bbPop { display: none; }
+  .still #bbStill { display: block; width: 100%; height: 100%; object-fit: contain; background: radial-gradient(circle at 50% 60%, #d9f1ff, #9fd4f5); }
   .bbPop { position: absolute; right: 10px; top: 10px; font-weight: 900; font-size: 13px; background: rgba(42,21,70,.75); border-radius: 10px; padding: 4px 10px; }
   .bbInfo { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
   .bbUp { background: rgba(255,255,255,.07); border-radius: 16px; padding: 12px; }
@@ -546,13 +551,13 @@
   <div class="srow"><i data-ic="music"></i><span>Music</span><input type="range" id="setMusic" min="0" max="1" step="0.05"></div>
   <div class="srow"><i data-ic="pop"></i><span>Sound effects</span><input type="range" id="setSfx" min="0" max="1" step="0.05"></div>
   <div class="srow"><i data-ic="mute"></i><span>All sound</span><div class="seg" id="setMute"><button data-v="0">On</button><button data-v="1">Off</button></div></div>
-  <div class="srow"><i data-ic="graphics"></i><span>Graphics</span><div class="seg" id="setQuality"><button data-v="high">High</button><button data-v="low">Fast</button></div></div>
+  <div class="srow wide"><i data-ic="graphics"></i><span>Graphics</span><div class="seg" id="setQuality"><button data-v="high">High</button><button data-v="low">Fast</button><button data-v="ultra">Ultra Fast</button></div></div>
 </div></div>
 
 <div id="beanBook" class="modal"><div class="panel bb">
   <div class="bbHead"><img id="bbImg" alt=""><div class="bbT"><h1 id="bbName"></h1><div class="bbKind" id="bbKind"></div><p id="bbDesc"></p></div><button class="btn ghost round" id="bbClose" title="Close"><i data-ic="close"></i></button></div>
   <div class="bbBody">
-    <div class="bbView"><canvas id="bbCanvas"></canvas><div class="bbTag" id="bbTag"></div><div class="bbPop" id="bbPop"></div></div>
+    <div class="bbView"><canvas id="bbCanvas"></canvas><img id="bbStill" alt=""><div class="bbTag" id="bbTag"></div><div class="bbPop" id="bbPop"></div></div>
     <div class="bbInfo" id="bbInfo"></div>
   </div>
   <div class="bbLevels" id="bbLevels"></div>

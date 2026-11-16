@@ -5,13 +5,14 @@
 // ---------- difficulties ----------
 // Every difficulty uses the Easy prices (cost 0.85) for beans, farms and upgrades.
 export const DIFFS = {
-  easy: { id: 'easy', name: 'Easy', lives: 220, money: 700, rounds: 30, speed: 0.85, hp: 0.88, count: 0.8, cost: 0.85, cash: 1.05, coins: 1, color: '#7bd389',
-    desc: 'Slow, weak balloons and not too many of them. Fewest Bean Coins.' },
-  medium: { id: 'medium', name: 'Medium', lives: 120, money: 600, rounds: 40, speed: 0.96, hp: 1.08, count: 1.0, cost: 0.85, cash: 1.0, coins: 1.6, color: '#ffd23f',
-    desc: 'Normal speed, more and stronger balloons. More Bean Coins.' },
-  hard: { id: 'hard', name: 'Hard', lives: 75, money: 520, rounds: 50, speed: 1.04, hp: 1.2, count: 1.12, cost: 0.85, cash: 0.95, coins: 2.4, color: '#ff4d6d',
-    desc: 'Fast, tough balloons in big groups. Most Bean Coins.' },
-  infinity: { id: 'infinity', name: 'Infinity', lives: 75, money: 520, rounds: Infinity, speed: 1.04, hp: 1.2, count: 1.12, cost: 0.85, cash: 0.95, coins: 2.8, color: '#b15cff', infinite: true,
+  // Made much harder: more balloons, tougher and faster balloons, less money. You get more Bean Coins for it.
+  easy: { id: 'easy', name: 'Easy', lives: 150, money: 650, rounds: 30, speed: 0.92, hp: 1.1, count: 1.05, cost: 0.85, cash: 0.95, coins: 1.3, color: '#7bd389',
+    desc: 'Slower balloons and not too many of them. Fewest Bean Coins.' },
+  medium: { id: 'medium', name: 'Medium', lives: 100, money: 560, rounds: 40, speed: 1.04, hp: 1.4, count: 1.3, cost: 0.85, cash: 0.88, coins: 2.1, color: '#ffd23f',
+    desc: 'Lots of strong balloons and less money. More Bean Coins.' },
+  hard: { id: 'hard', name: 'Hard', lives: 60, money: 480, rounds: 50, speed: 1.12, hp: 1.7, count: 1.55, cost: 0.85, cash: 0.8, coins: 3.1, color: '#ff4d6d',
+    desc: 'Fast, very tough balloons in huge groups and little money. Most Bean Coins.' },
+  infinity: { id: 'infinity', name: 'Infinity', lives: 60, money: 480, rounds: Infinity, speed: 1.12, hp: 1.7, count: 1.55, cost: 0.85, cash: 0.8, coins: 3.6, color: '#b15cff', infinite: true,
     desc: 'Endless waves. From wave 30 they get much tougher every single wave. How far can you get?' }
 };
 export const ROUND_OPTIONS = [10, 20, 30, 40, 50, 60, 80, 100];
@@ -263,7 +264,7 @@ export function waveScale(w, diff) {
 }
 export function makeWave(w, diff, rounds) {
   const groups = [], sc = waveScale(w, diff), info = waveInfo(w, rounds);
-  if (w <= HAND.length) for (const g of HAND[w - 1]) groups.push({ ...g, at: g.at || 0, n: Math.max(1, Math.round(g.n * (1 + (sc.count - 1) * 0.5) * (w <= 2 ? 1 : 0.85))) });
+  if (w <= HAND.length) for (const g of HAND[w - 1]) groups.push({ ...g, at: g.at || 0, n: Math.max(1, Math.round(g.n * sc.count * (w <= 2 ? 1 : 0.85))) });
   else {
     const r = rand(w * 7919 + diff.id.length * 31);
     let left = (10 + 1.25 * Math.pow(w, 1.95)) * (1 + Math.max(0, w - 15) * 0.13) * sc.count, at = 0;
