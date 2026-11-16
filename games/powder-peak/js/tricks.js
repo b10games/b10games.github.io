@@ -32,6 +32,8 @@ export class Tricks {
   reset() {
     this.active = false; this.seg = null; this.entries = []; this.airT = 0; this.local.identity();
     this.last = null; this.spinTotal = 0;
+    // once you flip one way you cannot flip the other way in the same jump (no backflip right after a frontflip)
+    this.lockF = 0; this.blockedT = 0;
   }
   // takeoff: start with the rotation the rider has on the snow
   start(local) { this.reset(); this.active = true; this.local.copy(local); }
@@ -39,6 +41,8 @@ export class Tricks {
   // f: +1 front / -1 back / 0, s: +1 right / -1 left / 0 (from the keys or the touch pad)
   update(dt, f, s, relax) {
     this.airT += dt;
+    this.blockedT = Math.max(0, this.blockedT - dt);
+    if (f && f === this.lockF) { f = 0; this.blockedT = 0.9; this.blockedF = this.lockF; }
     const seg = this.seg;
     if (f || s) {
       if (seg) {
@@ -90,6 +94,7 @@ export class Tricks {
   turn(seg, dt) {
     seg.t += dt;
     seg.th += seg.w * Math.min(1, 0.35 + seg.t / 0.14) * dt;
+    if (seg.f && seg.th > seg.unit * 0.25) this.lockF = -seg.f;
     this.apply(seg);
   }
   apply(seg) { this.local.setFromAxisAngle(seg.axis, seg.th).multiply(seg.q0); }
@@ -98,6 +103,7 @@ export class Tricks {
     if (!seg) return;
     const n = Math.floor(seg.th / seg.unit + 0.04);
     if (n <= 0) return;
+    if (seg.f) this.lockF = -seg.f;
     // the same trick again right away counts as one bigger trick
     const last = this.entries[this.entries.length - 1];
     if (last && last.f === seg.f && last.s === seg.s) last.n += n; else this.entries.push({ f: seg.f, s: seg.s, kind: seg.kind, n });

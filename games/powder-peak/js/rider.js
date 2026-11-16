@@ -11,6 +11,11 @@ const _a = V(), _b = V(), _c = V(), _d = V(), _k = V(), _q = new THREE.Quaternio
 
 function cap(r, len, mat, seg = 10) { return new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 4, seg), mat); }
 function std(c, rough = 0.7, o = {}) { return new THREE.MeshStandardMaterial({ color: c, roughness: rough, ...o }); }
+// on the better graphics settings clothes get a soft fabric sheen and the helmet a glossy coat
+let FANCY = false;
+export function setRiderQuality(q) { FANCY = q === 'high' || q === 'ultra'; }
+function cloth(c, rough) { return FANCY ? new THREE.MeshPhysicalMaterial({ color: c, roughness: rough, sheen: 0.6, sheenRoughness: 0.75, sheenColor: new THREE.Color('#ffffff') }) : std(c, rough); }
+function gloss(c, rough, o = {}) { return FANCY ? new THREE.MeshPhysicalMaterial({ color: c, roughness: rough, clearcoat: 0.7, clearcoatRoughness: 0.25, ...o }) : std(c, rough, o); }
 
 // board and ski graphics
 const TEX = new Map();
@@ -60,8 +65,8 @@ export class Rider {
     this.gearGroup = new THREE.Group(); this.root.add(this.gearGroup);
     this.body = new THREE.Group(); this.root.add(this.body);
     this.mats = {
-      jacket: std('#d00', 0.55), accent: std('#111', 0.5), pants: std('#222', 0.8), helmet: std('#fff', 0.35, { metalness: 0.1 }),
-      lens: std('#fb0', 0.08, { metalness: 0.9, emissive: '#000' }), frame: std('#111', 0.5), gloves: std('#111', 0.8), boots: std('#111', 0.6),
+      jacket: cloth('#d00', 0.6), accent: cloth('#111', 0.55), pants: cloth('#222', 0.82), helmet: gloss('#fff', 0.35, { metalness: 0.1 }),
+      lens: std('#fb0', 0.08, { metalness: 0.9, emissive: '#000' }), frame: std('#111', 0.5), gloves: cloth('#111', 0.8), boots: gloss('#111', 0.55),
       skin: std('#f1c7a5', 0.7), board: std('#fff', 0.35), base: std('#1a1a1a', 0.4), bind: std('#1b1c20', 0.5), pole: std('#c9ced6', 0.3, { metalness: 0.8 })
     };
     this.build();
@@ -130,7 +135,7 @@ export class Rider {
     if (this.poles) for (const p of this.poles) p.parent && p.parent.remove(p);
     this.poles = null;
     if (this.gear === 'board') {
-      const d = find(BOARDS, this.outfit.board), top = std('#fff', 0.35); top.map = gearTex(d, 512, 128);
+      const d = find(BOARDS, this.outfit.board), top = gloss('#fff', 0.3); top.map = gearTex(d, 512, 128);
       const board = new THREE.Mesh(boardGeometry(1.56, 0.29, 0.07), [top, M.base]); board.position.y = 0.01; G.add(board);
       for (const s of [1, -1]) {
         const bd = new THREE.Group(); bd.position.set(0, 0.04, s * 0.26); bd.rotation.y = s * 0.12;
@@ -140,7 +145,7 @@ export class Rider {
         G.add(bd);
       }
     } else {
-      const d = find(SKIS, this.outfit.skis), top = std('#fff', 0.3); top.map = gearTex(d, 512, 48);
+      const d = find(SKIS, this.outfit.skis), top = gloss('#fff', 0.28); top.map = gearTex(d, 512, 48);
       for (const s of [1, -1]) {
         const ski = new THREE.Mesh(skiGeometry(1.72, 0.088), [top, M.base]); ski.position.set(s * 0.12, 0.01, 0.05); G.add(ski);
         const bd = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.05, 0.36), M.bind); bd.position.set(s * 0.12, 0.05, 0.02); G.add(bd);

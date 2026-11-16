@@ -6,8 +6,8 @@ import { terrain, BOUNDS, ZONES, LIPS, zoneAt } from './terrain.js';
 import { makeNoise } from './noise.js';
 
 export const THEME = {
-  skyTop: '#2f6fd1', skyMid: '#a9cdf2', skyBottom: '#e9f3fb', sunDir: [0.45, 0.62, -0.64], sunColor: '#fff3df',
-  fog: '#d6e6f5', sunInt: 3.0, hemiSky: '#dcecff', hemiGround: '#8aa0b8', hemiInt: 1.15
+  skyTop: '#1f5fcf', skyMid: '#9ec8f2', skyBottom: '#e6f1fb', sunDir: [0.42, 0.5, -0.76], sunColor: '#ffeccc',
+  fog: '#cfe0f2', sunInt: 3.4, hemiSky: '#cfe3ff', hemiGround: '#6f88aa', hemiInt: 1.05
 };
 
 // ---------- jumps built by people: kickers, tables and the big air gap ----------
@@ -123,31 +123,49 @@ function snowNormalMap() {
     g.putImageData(img, 0, 0);
   });
 }
-// a little glitter in the snow on the higher graphics settings
-function addSparkle(mat) {
+// the snow surface: the bump texture at two sizes (so it never looks tiled), a soft blue in the shade,
+// and on the better settings a little glitter that twinkles as you move
+function snowShader(mat, sparkle) {
   mat.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos;').replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos;\nfloat hsh(vec3 p){ return fract(sin(dot(p, vec3(12.9898,78.233,37.719))) * 43758.5453); }')
-      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+    let f = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos;\nfloat hsh(vec3 p){ return fract(sin(dot(p, vec3(12.9898,78.233,37.719))) * 43758.5453); }');
+    f = f.replace('vec3 mapN = texture2D( normalMap, vNormalMapUv ).xyz * 2.0 - 1.0;',
+      `vec3 mapN = texture2D( normalMap, vNormalMapUv ).xyz * 2.0 - 1.0;
+       vec3 mapN2 = texture2D( normalMap, vNormalMapUv * 0.23 + vec2(0.37, 0.11) ).xyz * 2.0 - 1.0;
+       vec3 mapN3 = texture2D( normalMap, vNormalMapUv * 4.1 + vec2(0.71, 0.53) ).xyz * 2.0 - 1.0;
+       mapN = normalize(vec3(mapN.xy * 0.55 + mapN2.xy * 0.9 + mapN3.xy * 0.35, mapN.z));`);
+    if (sparkle) f = f.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         { float dist = length(vWPos - cameraPosition);
-          vec3 cell = floor(vWPos * 7.0);
-          float tw = hsh(cell + floor(cameraPosition * 0.6));
-          float sp = step(0.9975, tw) * (1.0 - smoothstep(10.0, 45.0, dist));
-          totalEmissiveRadiance += vec3(0.9, 0.95, 1.0) * sp * 1.6; }`);
+          vec3 cell = floor(vWPos * 8.0);
+          float tw = hsh(cell + floor(cameraPosition * 0.8));
+          float sp = step(0.9972, tw) * (1.0 - smoothstep(8.0, 40.0, dist));
+          totalEmissiveRadiance += vec3(0.95, 0.97, 1.0) * sp * 2.2; }`);
+    sh.fragmentShader = f;
   };
 }
 
 // ---------- building blocks ----------
-function treeGeometry(kind) {
+function treeGeometry(kind, lo) {
   const parts = [];
-  const trunk = new THREE.CylinderGeometry(0.22, 0.32, 2.2, 6); trunk.translate(0, 1.1, 0); paint(trunk, '#5b3a24'); parts.push(trunk);
-  const layers = kind ? [[2.4, 3.4, 2.4], [1.9, 3, 4.1], [1.35, 2.6, 5.6], [0.8, 2.1, 6.9]] : [[2.9, 3.2, 2.2], [2.2, 2.8, 3.7], [1.5, 2.4, 5], [0.85, 1.9, 6.1]];
-  for (const [r, h, y] of layers) {
-    const c = new THREE.ConeGeometry(r, h, 8, 1); c.translate(0, y, 0);
-    // snow on the top of every layer, dark green below
-    const pos = c.attributes.position, nrm = c.attributes.normal, col = new Float32Array(pos.count * 3), g = new THREE.Color('#1f4d33'), s = new THREE.Color('#f4f8ff');
-    for (let i = 0; i < pos.count; i++) { const k = smooth(y - h * 0.1, y + h * 0.25, pos.getY(i)) * 0.85 + (nrm.getY(i) > 0.6 ? 0.1 : 0); const cc = g.clone().lerp(s, k); col[i * 3] = cc.r; col[i * 3 + 1] = cc.g; col[i * 3 + 2] = cc.b; }
+  const trunk = new THREE.CylinderGeometry(0.18, 0.34, 2.6, lo ? 5 : 7); trunk.translate(0, 1.3, 0); paint(trunk, '#4a2f1d'); parts.push(trunk);
+  // kind 0: a broad fir, 1: a tall slim spruce, 2: heavy with snow (fewer layers and corners on Low, for iPads)
+  const n = (kind === 1 ? 7 : 6) - (lo ? 2 : 0), H = kind === 1 ? 9.5 : 7.6, R = kind === 1 ? 2.3 : 3.1, nz = makeNoise(31 + kind);
+  const green = new THREE.Color(kind === 1 ? '#1d4a34' : '#22543a'), dark = new THREE.Color('#123222'), snow = new THREE.Color('#f5f9ff');
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1), r = R * (1 - t * 0.82) + 0.25, h = (H / n) * 1.9 * (1 - t * 0.25), y = 1.6 + t * (H - 2.2);
+    const c = new THREE.ConeGeometry(r, h, lo ? 7 : 11, lo ? 1 : 2); c.translate(0, y, 0);
+    const pos = c.attributes.position, col = new Float32Array(pos.count * 3), cc = new THREE.Color();
+    for (let k = 0; k < pos.count; k++) {
+      const px = pos.getX(k), py = pos.getY(k), pz = pos.getZ(k), a = Math.atan2(pz, px), rr = Math.hypot(px, pz);
+      // a ragged, drooping rim
+      if (py < y - h * 0.45 && rr > 0.01) { const j = 1 + 0.16 * Math.sin(a * 11 + i * 1.7); pos.setXYZ(k, px * j, py - (j - 1) * 1.2 - 0.12, pz * j); }
+      const up = smooth(y - h * 0.35, y + h * 0.3, py), patch = nz(px * 0.9 + i * 3, pz * 0.9) * 0.5 + 0.5;
+      const sn = clamp(up * (kind === 2 ? 1.05 : 0.8) + (patch - 0.5) * 0.5 + (kind === 2 ? 0.25 : 0), 0, 1);
+      cc.copy(dark).lerp(green, smooth(y - h * 0.5, y, py)).lerp(snow, sn);
+      col[k * 3] = cc.r; col[k * 3 + 1] = cc.g; col[k * 3 + 2] = cc.b;
+    }
     c.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    c.computeVertexNormals();
     parts.push(c);
   }
   return mergeGeometries(parts.map(p => p.index ? p.toNonIndexed() : p));
@@ -176,14 +194,14 @@ export class World {
     const scene = this.scene = new THREE.Scene();
     scene.background = new THREE.Color(THEME.skyMid);
     scene.fog = new THREE.FogExp2(new THREE.Color(THEME.fog), 0.00042);
-    this.sky = makeSky(THEME); scene.add(this.sky);
+    this.sky = makeSky(THEME, quality === 'low' ? 0.8 : 1); scene.add(this.sky);
     scene.add(new THREE.HemisphereLight(THEME.hemiSky, THEME.hemiGround, THEME.hemiInt));
     const sun = this.sun = new THREE.DirectionalLight(THEME.sunColor, THEME.sunInt);
     this.sunDir = new THREE.Vector3(...THEME.sunDir).normalize();
     if (this.Q.shadows) {
       sun.castShadow = true; sun.shadow.mapSize.set(this.Q.shadows, this.Q.shadows);
-      const c = sun.shadow.camera, s = this.Q.shadows >= 2048 ? 60 : 40; c.left = -s; c.right = s; c.top = s; c.bottom = -s; c.near = 1; c.far = 400;
-      sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.06;
+      const c = sun.shadow.camera, s = this.Q.shadows >= 4096 ? 90 : this.Q.shadows >= 2048 ? 65 : 40; c.left = -s; c.right = s; c.top = s; c.bottom = -s; c.near = 1; c.far = 500;
+      sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.08; sun.shadow.radius = 3;
     }
     scene.add(sun, sun.target);
     this.trees = []; this.grid = new Map(); this.solids = [];
@@ -209,6 +227,7 @@ export class World {
     if (this.flakes) this.flakes.position.copy(cam.position);
   }
   update(dt, t) {
+    this.sky.material.uniforms.time.value = t;
     if (this.flakes) this.flakeMat.uniforms.time.value = t;
     if (this.chairs) this.moveChairs(t);
   }
@@ -216,51 +235,70 @@ export class World {
   // ---------- snow ----------
   buildTerrain() {
     const cell = this.Q.cell, x0 = -BOUNDS.x - 140, x1 = BOUNDS.x + 140, z0 = BOUNDS.z0 - 120, z1 = BOUNDS.z1 + 140;
-    const nx = Math.round((x1 - x0) / cell), nz = Math.round((z1 - z0) / cell);
+    const nx = Math.round((x1 - x0) / cell), nz = Math.round((z1 - z0) / cell), W = nx + 1;
     const geo = new THREE.PlaneGeometry(x1 - x0, z1 - z0, nx, nz); geo.rotateX(-Math.PI / 2); geo.translate((x0 + x1) / 2, 0, (z0 + z1) / 2);
-    const pos = geo.attributes.position, nrm = geo.attributes.normal, uv = geo.attributes.uv, col = new Float32Array(pos.count * 3);
-    const snow = new THREE.Color('#f7fbff'), shade = new THREE.Color('#dce8f6'), rock = new THREE.Color('#737a84'), rock2 = new THREE.Color('#8c857c'), groom = new THREE.Color('#ffffff');
-    const n = new THREE.Vector3(), c = new THREE.Color(), nz2 = makeNoise(99);
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i), z = pos.getZ(i), h = terrain(x, z);
+    const pos = geo.attributes.position, nrm = geo.attributes.normal, uv = geo.attributes.uv, N = pos.count, col = new Float32Array(N * 3);
+    const H = new Float32Array(N);
+    for (let i = 0; i < N; i++) H[i] = terrain(pos.getX(i), pos.getZ(i));
+    const dx = (x1 - x0) / nx, dz = (z1 - z0) / nz, at = (ix, iz) => H[Math.min(nz, Math.max(0, iz)) * W + Math.min(nx, Math.max(0, ix))];
+    const snow = new THREE.Color('#f8fbff'), shade = new THREE.Color('#d3e2f5'), deep = new THREE.Color('#b9cde8'), rock = new THREE.Color('#6e7480'), rock2 = new THREE.Color('#8a8279'), groom = new THREE.Color('#ffffff');
+    const n = new THREE.Vector3(), c = new THREE.Color(), nz2 = makeNoise(99), k2 = Math.max(1, Math.round(8 / cell));
+    for (let i = 0; i < N; i++) {
+      const ix = i % W, iz = (i / W) | 0, x = pos.getX(i), z = pos.getZ(i), h = H[i];
       pos.setY(i, h);
-      const e = 1.2; n.set(terrain(x - e, z) - terrain(x + e, z), 2 * e, terrain(x, z - e) - terrain(x, z + e)).normalize();
+      n.set((at(ix - 1, iz) - at(ix + 1, iz)) / (2 * dx), 1, (at(ix, iz - 1) - at(ix, iz + 1)) / (2 * dz)).normalize();
       nrm.setXYZ(i, n.x, n.y, n.z);
       uv.setXY(i, x / 13, z / 13);
-      // rock where it is too steep for snow to stay, a light blue in the hollows
-      const steep = smooth(0.72, 0.56, n.y), v = nz2(x / 30, z / 30);
-      c.copy(snow).lerp(shade, clamp(0.35 + v * 0.35, 0, 1));
+      // hollows (concave) get a cool blue shade, ridges stay bright
+      const lap = (at(ix - k2, iz) + at(ix + k2, iz) + at(ix, iz - k2) + at(ix, iz + k2) - 4 * h) / ((k2 * cell) ** 2);
+      const hollow = clamp(lap * 6, -1, 1);
+      const v = nz2(x / 30, z / 30), steep = smooth(0.72, 0.56, n.y);
+      c.copy(snow).lerp(shade, clamp(0.25 + v * 0.3 + Math.max(0, hollow) * 0.5, 0, 1));
+      if (hollow > 0.4) c.lerp(deep, (hollow - 0.4) * 0.5);
       const zn = zoneAt(x, z);
-      if (zn.id === 'park' || zn.id === 'village') c.lerp(groom, 0.5);
+      if (zn.id === 'park' || zn.id === 'village') c.lerp(groom, 0.45);
       if (steep > 0) c.lerp(v > 0 ? rock : rock2, steep * (0.6 + 0.3 * smooth(-0.4, 0.6, nz2(x / 12, z / 12))));
       col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
     }
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
     geo.computeBoundingSphere();
-    const mat = this.snowMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.88, metalness: 0, normalMap: snowNormalMap(), normalScale: new THREE.Vector2(0.38, 0.38) });
-    if (this.q === 'high' || this.q === 'ultra') addSparkle(mat);
+    const mat = this.snowMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.82, metalness: 0, normalMap: snowNormalMap(), normalScale: new THREE.Vector2(0.45, 0.45) });
+    snowShader(mat, this.q !== 'low');
     const m = this.ground = new THREE.Mesh(geo, mat); m.receiveShadow = true;
     this.scene.add(m);
   }
   // big mountains all around, far away
   buildDistant() {
-    const n = makeNoise(321), rings = 30, segs = 200, geo = new THREE.BufferGeometry(), p = [], col = [], idx = [];
-    const snow = new THREE.Color('#f2f6fb'), rock = new THREE.Color('#7d8796'), far = new THREE.Color('#b9cce0');
+    const n = makeNoise(321), n2 = makeNoise(654), rings = this.q === 'low' ? 26 : 40, segs = this.q === 'low' ? 160 : 300;
+    const geo = new THREE.BufferGeometry(), p = [], idx = [];
+    const ridged = (x, z) => { let s = 0, a = 1, f = 1; for (let o = 0; o < 4; o++) { s += a * Math.pow(1 - Math.abs(n(x * f, z * f)), 2.2); a *= 0.5; f *= 2.1; } return s / 1.875; };
+    // the ring starts under the ride-able snow and grows out of its edge, so there is never a gap
+    const ex0 = -BOUNDS.x - 140, ex1 = BOUNDS.x + 140, ez0 = BOUNDS.z0 - 120, ez1 = BOUNDS.z1 + 140;
     for (let r = 0; r <= rings; r++) {
-      const rad = 1500 + r * 130;
-      for (let s = 0; s <= segs; s++) {
-        const a = s / segs * Math.PI * 2, x = Math.cos(a) * rad, z = Math.sin(a) * rad * 1.15;
-        const k = r / rings, ridge = 1 - Math.abs(n(Math.cos(a) * 3 + r * 0.05, Math.sin(a) * 3));
-        let h = 30 + (120 + 780 * Math.pow(ridge, 1.7)) * smooth(0, 0.3, k) * (1 - smooth(0.85, 1, k)) + n(x / 500, z / 500) * 60 * smooth(0, 0.2, k);
-        if (z < 0) h += 300 * smooth(0, -1, Math.sin(a)) * smooth(0.1, 0.5, k);   // taller behind the peak
+      const rad = 900 + r * (4700 / rings);
+      for (let s2 = 0; s2 <= segs; s2++) {
+        const a = s2 / segs * Math.PI * 2, x = Math.cos(a) * rad, z = Math.sin(a) * rad * 1.15;
+        const k = r / rings, wx = x / 1500 + n2(x / 2000, z / 2000) * 0.5, wz = z / 1500 + n2(z / 2000 + 5, x / 2000) * 0.5;
+        let m = 40 + (60 + 640 * Math.pow(ridged(wx, wz), 1.4)) * (0.7 + 0.6 * k) * (1 - smooth(0.8, 1, k));
+        if (z < 0) m += 200 * smooth(0, -1, Math.sin(a)) * smooth(0.05, 0.4, k);   // taller behind the peak
+        const cx = clamp(x, ex0, ex1), cz = clamp(z, ez0, ez1), out = Math.hypot(x - cx, z - cz), edge = terrain(cx, cz);
+        const h = out <= 0 ? edge - 45 : edge - 1 + (m - edge) * smooth(0, 650, out);
         p.push(x, h, z);
-        const c = rock.clone().lerp(snow, smooth(120, 420, h + n(x / 90, z / 90) * 120)).lerp(far, 0.25 + k * 0.45);
-        col.push(c.r, c.g, c.b);
       }
     }
-    for (let r = 0; r < rings; r++) for (let s = 0; s < segs; s++) { const a = r * (segs + 1) + s, b = a + segs + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); geo.setIndex(idx); geo.computeVertexNormals();
-    const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 }));
+    for (let r = 0; r < rings; r++) for (let s2 = 0; s2 < segs; s2++) { const a = r * (segs + 1) + s2, b = a + segs + 1; idx.push(a, a + 1, b, b, a + 1, b + 1); }   // faces point up
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); geo.setIndex(idx); geo.computeVertexNormals();
+    // colours: snow on top and on gentle slopes, rock on steep faces, bluer further away
+    const nr = geo.attributes.normal, col = new Float32Array(p.length), cc = new THREE.Color();
+    const snow = new THREE.Color('#f4f8fd'), rock = new THREE.Color('#6f7a8a'), far = new THREE.Color('#bcd0e6');
+    for (let i = 0; i < p.length / 3; i++) {
+      const y = p[i * 3 + 1], ny = nr.getY(i), r = Math.floor(i / (segs + 1)) / rings;
+      const sn = clamp(smooth(0.45, 0.7, ny) * 0.85 + smooth(100, 450, y + n(p[i * 3] / 120, p[i * 3 + 2] / 120) * 150) * 0.5 + 0.15, 0, 1);
+      cc.copy(rock).lerp(snow, sn).lerp(far, 0.25 + r * 0.5);
+      col[i * 3] = cc.r; col[i * 3 + 1] = cc.g; col[i * 3 + 2] = cc.b;
+    }
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 }));
     this.scene.add(m);
   }
 
@@ -328,7 +366,7 @@ export class World {
       if (Math.abs(x) > BOUNDS.x - 10 || z < BOUNDS.z0 + 20 || z > BOUNDS.z1 - 20 || !this.clearOf(x, z)) return;
       const h = terrain(x, z); if (h > 470) return;           // above the tree line
       const n = normal(x, z); if (n.y < 0.8) return;
-      list.push([x, h, z, 0.75 + r() * 0.75, r() * 6.28, r() < 0.45 ? 1 : 0]);
+      const k = r(); list.push([x, h, z, 0.7 + r() * 0.8, r() * 6.28, k < 0.4 ? 1 : k < 0.75 ? 0 : 2, (r() - 0.5) * 0.08, (r() - 0.5) * 0.08, 0.86 + r() * 0.16]);
     };
     const forest = ZONES[3];
     for (let i = 0; i < 2600 * dens; i++) tryAt(forest.x0 + r() * (forest.x1 - forest.x0), forest.z0 + r() * (forest.z1 - forest.z0));
@@ -337,12 +375,17 @@ export class World {
       // clusters: more trees where a slow noise is high
       if (Math.sin(x * 0.013 + z * 0.004) + Math.cos(z * 0.011 - x * 0.006) > 0.2 || r() < 0.25) tryAt(x, z);
     }
-    for (const kind of [0, 1]) {
+    for (const kind of [0, 1, 2]) {
       const sel = list.filter(t => t[5] === kind); if (!sel.length) continue;
-      const geo = treeGeometry(kind), inst = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, flatShading: true }), sel.length);
-      const mx = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3();
-      sel.forEach((t, i) => { p.set(t[0], t[1] - 0.3, t[2]); q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), t[4]); s.setScalar(t[3]); mx.compose(p, q, s); inst.setMatrixAt(i, mx); this.addSolid(t[0], t[2], 0.55 * t[3] + 0.2, 'tree'); });
-      inst.castShadow = !!this.Q.shadows; inst.receiveShadow = false;
+      const geo = treeGeometry(kind, this.q === 'low'), inst = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92 }), sel.length);
+      const mx = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), e = new THREE.Euler(), tint = new THREE.Color();
+      sel.forEach((t, i) => {
+        // every tree a little different: size, turn, a slight lean and a slightly different green
+        p.set(t[0], t[1] - 0.3, t[2]); e.set(t[6], t[4], t[7]); q.setFromEuler(e); s.set(t[3], t[3] * (0.9 + (i % 7) * 0.035), t[3]); mx.compose(p, q, s); inst.setMatrixAt(i, mx);
+        tint.setRGB(t[8], t[8] + 0.03, t[8]); inst.setColorAt(i, tint);
+        this.addSolid(t[0], t[2], 0.55 * t[3] + 0.2, 'tree');
+      });
+      inst.castShadow = !!this.Q.shadows; inst.receiveShadow = this.Q.shadows >= 2048;
       this.scene.add(inst);
     }
     this.treeCount = list.length;

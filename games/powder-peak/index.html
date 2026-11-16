@@ -131,7 +131,19 @@
   #modeInfo small { display: block; font-size: 17px; color: var(--yellow); letter-spacing: .06em; }
   #hud .tr { position: absolute; right: 16px; top: 14px; display: flex; align-items: flex-start; gap: 10px; }
   #scoreBox { text-align: right; text-shadow: 0 2px 8px rgba(0, 0, 0, .5); } #scoreBox small { color: var(--cyan); font-size: 13px; letter-spacing: .12em; } #scoreBox b { display: block; font-family: 'Barlow Condensed'; font-size: 40px; font-weight: 900; line-height: 1; }
-  #pauseBtn { pointer-events: auto; width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; background: rgba(5, 15, 35, .55); border: 1px solid var(--line); } #pauseBtn .ic { width: 22px; height: 22px; }
+  .hbtn { pointer-events: auto; width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; background: rgba(5, 15, 35, .55); border: 1px solid var(--line); } .hbtn .ic { width: 22px; height: 22px; }
+  /* map */
+  #mapUI { position: fixed; inset: 0; z-index: 8; pointer-events: none; display: none; } #mapUI.on { display: block; }
+  #mapUI .mtop { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 16px; padding: 14px 20px; background: linear-gradient(180deg, rgba(5, 14, 32, .75), rgba(5, 14, 32, 0)); pointer-events: auto; }
+  #mapUI .mtop h2 { margin: 0; font-size: 34px; display: flex; align-items: center; gap: 10px; } #mapUI .mtop h2 .ic { color: var(--cyan); }
+  #mapWhere { color: var(--yellow); font-size: 17px; } #mapClose { margin-left: auto; font-size: 20px; padding: 9px 16px; }
+  #mapUI .mbot { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; align-items: center; gap: 16px; padding: 10px 12px 10px 18px; pointer-events: auto; max-width: 94vw; }
+  .mhelp { color: var(--muted); font-size: 14px; } #mapDrop { font-size: 22px; white-space: nowrap; } #mapDrop.dim { filter: grayscale(.8); opacity: .7; }
+  #mapLabels { position: absolute; inset: 0; overflow: hidden; }
+  .mlabel { position: absolute; left: 0; top: 0; white-space: nowrap; font-family: 'Barlow Condensed'; font-weight: 900; font-style: italic; text-transform: uppercase; font-size: 22px; color: #fff; text-shadow: 0 2px 8px rgba(0, 0, 0, .7); pointer-events: none; }
+  .mlabel.zone { font-size: 30px; letter-spacing: .03em; } .mlabel.lift { font-size: 17px; color: #ff9aa9; } .mlabel.course { font-size: 17px; } .mlabel.course.y { color: var(--yellow); } .mlabel.course.c { color: var(--cyan); }
+  .mlabel.me { background: var(--cyan); color: #062033; padding: 2px 10px; border-radius: 8px; text-shadow: none; } .mlabel.mate { font-size: 16px; background: rgba(5, 15, 35, .7); padding: 2px 8px; border-radius: 6px; }
+  body.touch .mhelp { display: none; }
   #others { position: absolute; right: 16px; top: 80px; display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
   #others div { background: rgba(5, 15, 35, .5); padding: 4px 10px; border-radius: 8px; font-size: 14px; display: flex; gap: 8px; align-items: center; } #others i { width: 10px; height: 10px; border-radius: 50%; }
   #speedo { position: absolute; left: 22px; bottom: 20px; text-shadow: 0 2px 10px rgba(0, 0, 0, .5); }
@@ -260,7 +272,7 @@
 <!-- ============ HUD ============ -->
 <div id="hud">
   <div class="tl"><div id="zone"></div><div id="modeInfo"></div></div>
-  <div class="tr"><div id="scoreBox"><small class="h">Score</small><b id="score">0</b></div><button id="pauseBtn" title="Pause"><i data-ic="pause"></i></button></div>
+  <div class="tr"><div id="scoreBox"><small class="h">Score</small><b id="score">0</b></div><button id="mapBtn" class="hbtn" title="Map (M)"><i data-ic="map"></i></button><button id="pauseBtn" class="hbtn" title="Pause"><i data-ic="pause"></i></button></div>
   <div id="others"></div>
   <div id="gateArrow"><i data-ic="arrow"></i></div>
   <div id="speedo"><b id="spd">0</b><small>km/h</small></div>
@@ -269,7 +281,13 @@
   <div id="charge"><i></i></div>
   <div id="banner"><b id="bnB"></b><small id="bnS"></small></div>
   <div id="prompt"><button class="btn yellow" id="liftBtn"><i data-ic="lift"></i><span>Ride the lift</span> <span class="kbd">E</span></button></div>
-  <div id="keysHelp" class="panel"><span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span> ride &amp; tricks · <span class="kbd">SPACE</span> hold &amp; let go to jump<br><span class="kbd">E</span> lift · <span class="kbd">R</span> back to start · <span class="kbd">ESC</span> pause</div>
+  <div id="keysHelp" class="panel"><span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span> ride &amp; tricks · <span class="kbd">SPACE</span> hold &amp; let go to jump<br><span class="kbd">M</span> map · <span class="kbd">E</span> lift · <span class="kbd">R</span> back to start · <span class="kbd">ESC</span> pause</div>
+</div>
+<!-- ============ 3D MAP ============ -->
+<div id="mapUI">
+  <div id="mapLabels"></div>
+  <div class="mtop"><h2 class="h"><i data-ic="map"></i>Mountain Map</h2><span id="mapWhere"></span><button class="btn" id="mapClose"><i data-ic="close"></i>Close <span class="kbd">M</span></button></div>
+  <div class="mbot panel"><span class="mhelp">Drag to move · Scroll or pinch to zoom · Right-drag or <span class="kbd">Q</span>/<span class="kbd">E</span> to turn · Click a spot to pin it</span><button class="btn yellow" id="mapDrop"><i data-ic="flag"></i>Drop in here <span class="kbd">T</span></button></div>
 </div>
 <div id="touch">
   <div id="joy"><div class="knob"></div></div>

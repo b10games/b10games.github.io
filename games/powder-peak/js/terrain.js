@@ -84,7 +84,7 @@ export function terrain(x, z) {
   if (cm > 0) {
     let c = 0;
     for (const cl of CLIFFS) {
-      const e = cl.z + 22 * N2(x / 90, cl.z / 50);
+      const e = cl.z + 16 * N2(x / 190, cl.z / 50) + 5 * N3(x / 45, cl.z / 30);
       c += cl.d * (clamp((z - (e - CLIFF_SPAN)) / CLIFF_SPAN, 0, 1) - smooth(e - 2.5, e + 3.5, z));
     }
     h += c * cm;

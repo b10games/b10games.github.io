@@ -1,7 +1,7 @@
 // Powder Peak: boot, the lobby, the game loop and the party (multiplayer) flow.
 import { THREE, createRenderer, applyQuality, clamp, lerp, damp } from './engine.js';
 import { World, DROPS, LIFT } from './world.js';
-import { Rider } from './rider.js';
+import { Rider, setRiderQuality } from './rider.js';
 import { Rider3D } from './physics.js';
 import { ChaseCam } from './camera.js';
 import { Input } from './input.js';
@@ -14,6 +14,8 @@ import { loadSettings, saveSettings, loadSave, storeSave, isTouch, challengeStat
 import { MODES, CHALLENGES } from './data.js';
 import { fillIcons } from './icons.js';
 import { UI } from './ui.js';
+import { MapView } from './map.js';
+import { Post } from './post.js';
 
 const $ = id => document.getElementById(id);
 const settings = loadSettings(), save = loadSave();
@@ -27,8 +29,10 @@ const app = window.PP = {
 };
 const canvas = $('gl');
 const renderer = app.renderer = createRenderer(canvas, settings.quality, settings.res);
-const camera = app.camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.3, 6000);
-function onResize() { applyQuality(renderer, settings.quality, settings.res); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); if (app.fx) app.fx.setScale(innerHeight * renderer.getPixelRatio()); }
+const camera = app.camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.3, 9000);
+const post = app.post = new Post(renderer, settings.quality);
+function draw(cam, dt) { post.render(app.world.scene, cam, dt); }
+function onResize() { applyQuality(renderer, settings.quality, settings.res); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); if (app.fx) app.fx.setScale(innerHeight * renderer.getPixelRatio()); post.size(); }
 addEventListener('resize', onResize);
 app.applyRes = onResize;
 
@@ -64,8 +68,13 @@ async function boot() {
   await bar(10, 'Piling up the snow…');
   const world = app.world = new World(settings.quality);
   await bar(70, 'Waxing the boards…');
+  setRiderQuality(settings.quality);
   app.rider = new Rider(save.outfit, settings.gear);
   world.scene.add(app.rider.root);
+  // a soft shadow on the snow right under the rider (always, also without real shadows)
+  const bt = new THREE.CanvasTexture((() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); const gr = g.createRadialGradient(64, 64, 4, 64, 64, 62); gr.addColorStop(0, 'rgba(20,35,60,0.55)'); gr.addColorStop(1, 'rgba(20,35,60,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); return c; })());
+  app.blob = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 2.2), new THREE.MeshBasicMaterial({ map: bt, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 }));
+  app.blob.renderOrder = 2; world.scene.add(app.blob);
   app.ctrl = new Rider3D(world, settings.gear);
   app.cam = new ChaseCam(camera, world);
   app.fx = new SnowFX(world.scene, settings.quality);
@@ -77,6 +86,7 @@ async function boot() {
   onResize();
   await bar(90, 'Starting the lift…');
   app.ui = new UI(app);
+  app.map = new MapView(app);
   applySettings();
   // warm up: draw once from the lobby so the first frame is not slow
   lobbyCamera(0, true); renderer.compile(world.scene, camera); renderer.render(world.scene, camera);
@@ -199,7 +209,7 @@ function startSession(mode, opt = {}) {
   $('score').textContent = '0';
 }
 app.startSession = startSession;
-function endSession() { if (app.session) { app.session.dispose(); app.session = null; } }
+function endSession() { if (app.map && app.map.on) app.map.close(); if (app.session) { app.session.dispose(); app.session = null; } }
 app.afterSpawn = () => {
   app.rider.place(app.ctrl.p, app.ctrl.quat, 0);
   app.cam.snap(app.ctrl);
@@ -230,6 +240,9 @@ app.sessionOver = (s) => {
 // ---------- keys ----------
 function onKey(code) {
   if (app.state !== 'game') return;
+  // the map: M opens and closes it, T drops you in where you point
+  if (code === 'KeyM' && !$('pauseModal').classList.contains('on') && !(app.session && app.session.over)) { app.map.toggle(); return; }
+  if (app.map.on) { if (code === 'Escape') app.map.close(); else app.map.key(code); return; }
   if (code === 'Escape' || code === 'KeyP') { togglePause(); return; }
   if (app.paused) return;
   if (code === 'KeyR') respawn();
@@ -350,8 +363,8 @@ function step(dt) {
   if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) $('banner').classList.remove('on'); }
   if (app.state === 'game') {
     const r = app.ctrl, s = app.session;
-    if (!app.paused) {
-      const blocked = $('pauseModal').classList.contains('on') || (s && s.over) || r.state === 'frozen';
+    if (!app.paused && !app.mapPaused) {
+      const blocked = $('pauseModal').classList.contains('on') || (s && s.over) || r.state === 'frozen' || app.map.on;
       const inp = blocked ? { fwd: 0, steer: 0, jump: false, flip: 0, spin: 0 } : app.input.state();
       r.update(dt, inp);
       onEvents();
@@ -362,6 +375,7 @@ function step(dt) {
       if (r.state === 'lift') { P.crouch = 0.95; P.speed = 0; P.air = 0; }
       app.rider.place(r.p, r.quat, r.pivot || 0);
       app.rider.update(dt);
+      placeBlob(r.p.x, r.p.z, r.p.y, r.gear === 'skis' ? 0.8 : 1);
       app.input.setAir(!r.grounded && r.state !== 'bail');
       // snow lines
       if (app.trail) { _side.set(Math.cos(r.yaw), 0, -Math.sin(r.yaw)); app.trail.add(r.p, _side, r.n, r.grounded && r.state === 'ride' && r.speed > 1); }
@@ -382,19 +396,29 @@ function step(dt) {
     }
     if (net.inParty && s && s.party) sendState(dt);
     app.remotes.update(dt, net.now(), camera);
-    W.focus(app.ctrl.p, camera);
-    app.ui.hud(dt);
+    if (app.map.on) { app.map.update(dt, app.input.down); W.focus(app.ctrl.p, app.map.cam); }
+    else { W.focus(app.ctrl.p, camera); app.ui.hud(dt); }
   } else {
     // lobby
     const P = app.rider.pose; P.speed = 0; P.crouch = 0.12; P.lobby = 1;
     placeLobbyRider(app.rider, 0, settings.gear);
     app.rider.update(dt);
+    placeBlob(LOBBY.x, LOBBY.z, W.height(LOBBY.x, LOBBY.z), 1);
     for (const o of app.lobbyMates.values()) { placeLobbyRider(o.model, o.slot, o.gear); o.model.pose.speed = 0; o.model.pose.crouch = 0.12; o.model.pose.lobby = 1; o.model.update(dt); }
     lobbyCamera(dt);
     W.focus(_v.set(LOBBY.x, W.height(LOBBY.x, LOBBY.z), LOBBY.z), camera);
   }
   W.update(dt, app.time);
-  renderer.render(W.scene, camera);
+  draw(app.state === 'game' && app.map.on ? app.map.cam : camera, dt);
 }
 app.step = step;
+const _bn = new THREE.Vector3(), _bz = new THREE.Vector3(0, 0, 1);
+function placeBlob(x, z, y, k) {
+  const W = app.world, g = W.height(x, z), up = Math.max(0, y - g);
+  W.normal(x, z, _bn);
+  app.blob.position.set(x, g + 0.04, z);
+  app.blob.quaternion.setFromUnitVectors(_bz, _bn);
+  const s = k * (1 + Math.min(1.5, up * 0.06)); app.blob.scale.set(s, s, s);
+  app.blob.material.opacity = Math.max(0, 1 - up / 25);
+}
 boot();

@@ -100,8 +100,8 @@ class Trail {
         const q = this.pts[i], a = (o * this.max + i) * 2, x = q.x + q.sx * off, z = q.z + q.sz * off;
         P[a * 3] = x + q.sx * w; P[a * 3 + 1] = q.y; P[a * 3 + 2] = z + q.sz * w;
         P[a * 3 + 3] = x - q.sx * w; P[a * 3 + 4] = q.y; P[a * 3 + 5] = z - q.sz * w;
-        const al = q.gap || (this.pts[i + 1] && this.pts[i + 1].gap) ? 0 : Math.max(0, q.a) * 0.5;
-        for (const k of [a, a + 1]) { C[k * 4] = 0.72; C[k * 4 + 1] = 0.8; C[k * 4 + 2] = 0.9; C[k * 4 + 3] = al; }
+        const al = q.gap || (this.pts[i + 1] && this.pts[i + 1].gap) ? 0 : Math.max(0, q.a) * 0.26;
+        for (const k of [a, a + 1]) { C[k * 4] = 0.55; C[k * 4 + 1] = 0.64; C[k * 4 + 2] = 0.78; C[k * 4 + 3] = al; }
       }
       // the unused end of the ribbon sits on the last point (no stray triangles)
       const n = this.pts.length;

@@ -308,7 +308,11 @@ export class UI {
     // tricks in the air
     const air = !r.grounded && r.state !== 'bail';
     const tEl = $('trick');
-    if (air) {
+    if (air && r.tricks.blockedT > 0) {
+      $('tName').textContent = r.tricks.blockedF < 0 ? 'No backflip now' : 'No frontflip now';
+      $('tChain').textContent = r.tricks.blockedF < 0 ? 'You already flipped forwards in this jump' : 'You already flipped backwards in this jump';
+      $('tPts').innerHTML = ''; tEl.classList.add('on');
+    } else if (air) {
       const c = r.tricks.current();
       const name = c.liveName || (c.names.length ? c.names[c.names.length - 1] : '');
       if (name) {

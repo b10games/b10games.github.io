@@ -1,4 +1,4 @@
-// All sound is made in the browser (WebAudio), no sound files: sliding snow, wind, jumps, landings,
+// All sound is made in the browser (WebAudio), no sound files: snow scraping in hard turns, jumps, landings,
 // menu clicks and a calm lobby tune.
 export class Sound {
   constructor() { this.ctx = null; this.vol = { music: 0.5, sfx: 0.8 }; this.music = null; }
@@ -22,33 +22,22 @@ export class Sound {
     if (!this.ctx) return;
     this.mGain.gain.value = music * 0.6; this.sGain.gain.value = sfx;
   }
-  // the sounds that never stop: snow under you and the wind
+  // the only sound that follows the riding: a short scrape of snow when you turn hard or brake
+  // (no wind and no constant whoosh while riding down)
   loops() {
     const ctx = this.ctx;
-    const src = (rate = 1) => { const s = ctx.createBufferSource(); s.buffer = this.noise; s.loop = true; s.playbackRate.value = rate; s.start(); return s; };
-    // sliding
-    this.slideF = ctx.createBiquadFilter(); this.slideF.type = 'bandpass'; this.slideF.frequency.value = 900; this.slideF.Q.value = 0.7;
-    this.slideG = ctx.createGain(); this.slideG.gain.value = 0;
-    src(1).connect(this.slideF); this.slideF.connect(this.slideG); this.slideG.connect(this.sGain);
-    // carving / scraping
-    this.carveF = ctx.createBiquadFilter(); this.carveF.type = 'highpass'; this.carveF.frequency.value = 2400;
+    const s = ctx.createBufferSource(); s.buffer = this.noise; s.loop = true; s.playbackRate.value = 1.3; s.start();
+    this.carveF = ctx.createBiquadFilter(); this.carveF.type = 'bandpass'; this.carveF.frequency.value = 2600; this.carveF.Q.value = 0.8;
     this.carveG = ctx.createGain(); this.carveG.gain.value = 0;
-    src(1.3).connect(this.carveF); this.carveF.connect(this.carveG); this.carveG.connect(this.sGain);
-    // wind
-    this.windF = ctx.createBiquadFilter(); this.windF.type = 'bandpass'; this.windF.frequency.value = 500; this.windF.Q.value = 1.6;
-    this.windG = ctx.createGain(); this.windG.gain.value = 0.02;
-    src(0.6).connect(this.windF); this.windF.connect(this.windG); this.windG.connect(this.sGain);
+    s.connect(this.carveF); this.carveF.connect(this.carveG); this.carveG.connect(this.sGain);
   }
   // called every frame with what the rider is doing
   ride(speed, grounded, carve, brake, skis, active) {
     if (!this.ctx) return;
-    const t = this.ctx.currentTime, on = active ? 1 : 0;
-    const s = Math.min(1, speed / 30);
-    this.slideG.gain.setTargetAtTime(on * (grounded ? 0.05 + s * 0.32 : 0), t, 0.05);
-    this.slideF.frequency.setTargetAtTime((skis ? 1300 : 750) + s * 900, t, 0.1);
-    this.carveG.gain.setTargetAtTime(on * (grounded ? Math.min(0.5, carve * s * 0.35 + brake * 0.4) : 0), t, 0.04);
-    this.windG.gain.setTargetAtTime(0.025 + on * (s * s * 0.28 + (grounded ? 0 : 0.06)), t, 0.2);
-    this.windF.frequency.setTargetAtTime(380 + s * 700 + (grounded ? 0 : 200), t, 0.3);
+    const t = this.ctx.currentTime, on = active && grounded ? 1 : 0, s = Math.min(1, speed / 30);
+    const k = Math.max(0, carve - 0.35) * s * 0.3 + brake * Math.min(1, speed / 8) * 0.35;
+    this.carveG.gain.setTargetAtTime(on * Math.min(0.4, k), t, 0.05);
+    this.carveF.frequency.setTargetAtTime(skis ? 3200 : 2300, t, 0.2);
   }
   // ---------- one-shots ----------
   env(g, t, a, peak, d) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + d); }
