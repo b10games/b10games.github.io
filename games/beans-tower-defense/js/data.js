@@ -5,14 +5,15 @@
 // ---------- difficulties ----------
 // Every difficulty uses the Easy prices (cost 0.85) for beans, farms and upgrades.
 export const DIFFS = {
-  // Made much harder: more balloons, tougher and faster balloons, less money. You get more Bean Coins for it.
+  // Harder than it used to be: more balloons, tougher and faster balloons, less money, more Bean Coins.
+  // Hard is tuned with a test bot to be really hard but still beatable (it won Green Valley and Frozen Lake, but not every time).
   easy: { id: 'easy', name: 'Easy', lives: 150, money: 650, rounds: 30, speed: 0.92, hp: 1.1, count: 1.05, cost: 0.85, cash: 0.95, coins: 1.3, color: '#7bd389',
     desc: 'Slower balloons and not too many of them. Fewest Bean Coins.' },
-  medium: { id: 'medium', name: 'Medium', lives: 100, money: 560, rounds: 40, speed: 1.04, hp: 1.4, count: 1.3, cost: 0.85, cash: 0.88, coins: 2.1, color: '#ffd23f',
+  medium: { id: 'medium', name: 'Medium', lives: 110, money: 560, rounds: 40, speed: 1.0, hp: 1.25, count: 1.15, cost: 0.85, cash: 0.93, coins: 2.1, color: '#ffd23f',
     desc: 'Lots of strong balloons and less money. More Bean Coins.' },
-  hard: { id: 'hard', name: 'Hard', lives: 60, money: 480, rounds: 50, speed: 1.12, hp: 1.7, count: 1.55, cost: 0.85, cash: 0.8, coins: 3.1, color: '#ff4d6d',
-    desc: 'Fast, very tough balloons in huge groups and little money. Most Bean Coins.' },
-  infinity: { id: 'infinity', name: 'Infinity', lives: 60, money: 480, rounds: Infinity, speed: 1.12, hp: 1.7, count: 1.55, cost: 0.85, cash: 0.8, coins: 3.6, color: '#b15cff', infinite: true,
+  hard: { id: 'hard', name: 'Hard', lives: 65, money: 500, rounds: 50, speed: 1.08, hp: 1.45, count: 1.35, cost: 0.85, cash: 0.87, coins: 3.1, color: '#ff4d6d',
+    desc: 'Fast, tough balloons in huge groups and little money. Beatable, but only with a good plan. Most Bean Coins.' },
+  infinity: { id: 'infinity', name: 'Infinity', lives: 65, money: 500, rounds: Infinity, speed: 1.08, hp: 1.45, count: 1.35, cost: 0.85, cash: 0.87, coins: 3.6, color: '#b15cff', infinite: true,
     desc: 'Endless waves. From wave 30 they get much tougher every single wave. How far can you get?' }
 };
 export const ROUND_OPTIONS = [10, 20, 30, 40, 50, 60, 80, 100];
