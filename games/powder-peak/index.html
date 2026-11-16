@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Powder Peak</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,700;0,800;0,900;1,800;1,900&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" defer></script>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }</script>
+<style>
+  :root { --ink: #eef6ff; --muted: #a9bdd6; --panel: rgba(9, 22, 46, .72); --panel2: rgba(16, 36, 72, .82); --line: rgba(160, 210, 255, .22); --cyan: #3ee6ff; --yellow: #ffd84a; --yellow2: #f5b800; --red: #ff4d6d; --green: #4ade80; --ts: .1; --tsize: 1; --topacity: .8; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0a1a33; color: var(--ink); font-family: Nunito, system-ui, sans-serif; font-weight: 800; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: none; overscroll-behavior: none; }
+  canvas#gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+  .ic { display: inline-flex; width: 1.2em; height: 1.2em; flex: none; } .ic svg { width: 100%; height: 100%; }
+  .h { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-style: italic; letter-spacing: .02em; text-transform: uppercase; }
+  .screen { position: fixed; inset: 0; display: none; } .screen.on { display: block; }
+  .panel { background: var(--panel); border: 1.5px solid var(--line); border-radius: 18px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 18px 50px rgba(0, 10, 30, .35); }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 12px 22px; border-radius: 12px; font-family: 'Barlow Condensed'; font-weight: 900; font-style: italic; font-size: 22px; letter-spacing: .03em; text-transform: uppercase; background: rgba(255, 255, 255, .1); border: 1.5px solid rgba(255, 255, 255, .22); transition: transform .08s, background .15s, border-color .15s; }
+  .btn:hover { background: rgba(255, 255, 255, .18); } .btn:active { transform: scale(.97); }
+  .btn.yellow { background: linear-gradient(180deg, #ffe680, var(--yellow) 45%, var(--yellow2)); color: #13213f; border-color: #fff3b8; box-shadow: 0 6px 0 #a87b00, 0 14px 30px rgba(0, 0, 0, .35); }
+  .btn.yellow:active { transform: translateY(3px); box-shadow: 0 3px 0 #a87b00; }
+  .btn.cyan { background: linear-gradient(180deg, #8ff3ff, var(--cyan)); color: #062033; border-color: #c9fbff; }
+  .btn.on { background: var(--cyan); color: #062033; border-color: #c9fbff; }
+  .btn[disabled] { opacity: .45; pointer-events: none; }
+  .x { position: absolute; top: 14px; right: 14px; width: 44px; height: 44px; border-radius: 12px; background: rgba(255, 255, 255, .1); display: grid; place-items: center; } .x .ic { width: 24px; height: 24px; }
+
+  /* ---------- boot ---------- */
+  #boot { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(circle at 50% 30%, #1d4c8f, #071630 70%); z-index: 50; transition: opacity .5s; }
+  #boot.off { opacity: 0; pointer-events: none; }
+  .logo { display: flex; align-items: center; gap: 14px; }
+  .logo .ic { width: 64px; height: 64px; color: var(--cyan); }
+  .logo b { font-family: 'Barlow Condensed'; font-weight: 900; font-style: italic; font-size: 74px; line-height: .85; letter-spacing: .01em; }
+  .logo b span { color: var(--cyan); }
+  #bootBar { width: min(420px, 70vw); height: 10px; border-radius: 6px; background: rgba(255, 255, 255, .12); margin: 26px auto 10px; overflow: hidden; } #bootBar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--cyan), #fff); transition: width .2s; }
+  #bootTxt { text-align: center; color: var(--muted); }
+
+  /* ---------- lobby ---------- */
+  #lobby .top { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 18px; padding: 14px 22px; background: linear-gradient(180deg, rgba(5, 14, 32, .78), rgba(5, 14, 32, 0)); }
+  #lobby .top .logo .ic { width: 34px; height: 34px; } #lobby .top .logo b { font-size: 34px; }
+  .tabs { display: flex; gap: 4px; margin-left: 10px; }
+  .tab { font-family: 'Barlow Condensed'; font-weight: 900; font-style: italic; font-size: 25px; letter-spacing: .03em; padding: 8px 16px; color: rgba(238, 246, 255, .7); border-bottom: 3px solid transparent; }
+  .tab:hover { color: #fff; } .tab.on { color: #fff; border-color: var(--yellow); }
+  .tright { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .pill { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: rgba(0, 0, 0, .3); border: 1px solid var(--line); }
+  .pill .ic { color: var(--yellow); }
+  .iconbtn { width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; background: rgba(0, 0, 0, .3); border: 1px solid var(--line); } .iconbtn .ic { width: 24px; height: 24px; }
+  .iconbtn:hover { background: rgba(255, 255, 255, .14); }
+  .view { position: absolute; inset: 78px 0 0 0; display: none; } .view.on { display: block; }
+  /* play view */
+  #playCard { position: absolute; right: 26px; bottom: 28px; width: min(380px, 40vw); display: flex; flex-direction: column; gap: 12px; }
+  #modeCard { padding: 16px 18px; cursor: pointer; transition: transform .1s, border-color .15s; }
+  #modeCard:hover { border-color: var(--cyan); transform: translateY(-2px); }
+  #modeCard small { color: var(--cyan); font-size: 13px; letter-spacing: .12em; } #modeCard h2 { margin: 2px 0 4px; font-size: 34px; } #modeCard p { margin: 0; color: var(--muted); font-size: 15px; font-weight: 700; }
+  #modeCard .opt { margin-top: 8px; color: #fff; font-size: 14px; display: flex; align-items: center; gap: 6px; } #modeCard .opt .ic { color: var(--yellow); }
+  #playBtn { font-size: 46px; padding: 14px; width: 100%; }
+  #playBtn small { font-size: 18px; display: block; }
+  .gearToggle { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 6px; }
+  .gearToggle button { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; border-radius: 10px; font-family: 'Barlow Condensed'; font-weight: 900; font-style: italic; font-size: 21px; text-transform: uppercase; color: var(--muted); }
+  .gearToggle button.on { background: rgba(62, 230, 255, .18); color: #fff; box-shadow: inset 0 0 0 2px var(--cyan); }
+  #partyMini { position: absolute; left: 26px; bottom: 28px; width: min(300px, 32vw); padding: 14px; }
+  #partyMini h3, .ph { margin: 0 0 8px; font-size: 22px; display: flex; align-items: center; gap: 8px; } .ph .ic { color: var(--cyan); }
+  .mem { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: rgba(255, 255, 255, .06); margin-top: 6px; }
+  .mem .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+  .mem b { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mem .tag { font-size: 12px; padding: 3px 8px; border-radius: 6px; background: rgba(255, 255, 255, .12); color: var(--muted); display: flex; align-items: center; gap: 4px; }
+  .mem .tag.ok { background: rgba(74, 222, 128, .2); color: var(--green); } .mem .tag.lead { background: rgba(255, 216, 74, .2); color: var(--yellow); } .mem .tag .ic { width: 14px; height: 14px; }
+  .row { display: flex; gap: 8px; margin-top: 10px; } .row .btn { flex: 1; font-size: 19px; padding: 10px; }
+  #news { position: absolute; left: 26px; top: 10px; width: min(300px, 32vw); padding: 14px 16px; }
+  #news h3 { margin: 0 0 6px; font-size: 20px; color: var(--yellow); } #news p { margin: 0; color: var(--muted); font-size: 14px; font-weight: 700; line-height: 1.35; }
+  .kbd { display: inline-block; min-width: 22px; padding: 1px 6px; border-radius: 5px; background: rgba(255, 255, 255, .15); border: 1px solid rgba(255, 255, 255, .25); color: #fff; font-size: 12px; text-align: center; }
+  /* locker */
+  #lockCats { position: absolute; left: 22px; top: 6px; bottom: 26px; width: 230px; padding: 10px; overflow: auto; }
+  .cat { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 12px 12px; border-radius: 10px; font-family: 'Barlow Condensed'; font-weight: 800; font-style: italic; font-size: 21px; text-transform: uppercase; color: var(--muted); }
+  .cat.on { background: rgba(62, 230, 255, .16); color: #fff; box-shadow: inset 3px 0 0 var(--cyan); } .cat i { width: 18px; height: 18px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .6); }
+  #lockItems { position: absolute; right: 22px; top: 6px; bottom: 26px; width: min(380px, 34vw); padding: 14px; overflow: auto; }
+  #lockItems h2 { margin: 0 0 10px; font-size: 30px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
+  .item { border-radius: 12px; padding: 10px 8px; background: rgba(255, 255, 255, .06); border: 2px solid transparent; text-align: center; font-size: 13px; color: var(--muted); }
+  .item:hover { background: rgba(255, 255, 255, .12); } .item.on { border-color: var(--yellow); color: #fff; background: rgba(255, 216, 74, .1); }
+  .sw { height: 54px; border-radius: 9px; margin-bottom: 6px; position: relative; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .2); }
+  /* party */
+  #partyBox { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); width: min(560px, 92vw); padding: 22px; }
+  #partyBox h2 { margin: 0 0 4px; font-size: 38px; } #partyBox p.sub { margin: 0 0 14px; color: var(--muted); font-weight: 700; }
+  .codeIn { display: flex; gap: 10px; margin-top: 12px; }
+  .codeIn input { flex: 1; min-width: 0; font: inherit; font-family: 'Barlow Condensed'; font-weight: 900; font-size: 34px; letter-spacing: .25em; text-transform: uppercase; text-align: center; padding: 8px; border-radius: 12px; border: 2px solid var(--line); background: rgba(0, 0, 0, .35); color: #fff; outline: none; user-select: text; -webkit-user-select: text; }
+  .codeIn input:focus { border-color: var(--cyan); }
+  .err { color: var(--red); min-height: 22px; margin-top: 8px; font-weight: 800; }
+  .bigcode { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 6px 0 12px; }
+  .bigcode b { font-family: 'Barlow Condensed'; font-weight: 900; font-size: 64px; letter-spacing: .14em; color: var(--yellow); }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .or { text-align: center; color: var(--muted); margin: 14px 0 0; font-size: 14px; letter-spacing: .2em; }
+  /* challenges */
+  #chalBox { position: absolute; left: 50%; top: 6px; bottom: 26px; transform: translateX(-50%); width: min(900px, 94vw); padding: 20px; overflow: auto; }
+  #chalBox h2 { margin: 0 0 12px; font-size: 38px; }
+  .chals { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+  .chal { padding: 14px; border-radius: 14px; background: rgba(255, 255, 255, .06); border: 1.5px solid var(--line); }
+  .chal b { display: flex; align-items: center; gap: 8px; font-size: 16px; } .chal.done { border-color: rgba(74, 222, 128, .6); background: rgba(74, 222, 128, .1); } .chal.done b .ic { color: var(--green); }
+  .bar { height: 8px; border-radius: 5px; background: rgba(255, 255, 255, .12); margin-top: 10px; overflow: hidden; } .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--cyan), var(--green)); }
+  .chal small { display: block; margin-top: 6px; color: var(--muted); font-size: 13px; }
+
+  /* ---------- overlays ---------- */
+  .modal { position: fixed; inset: 0; display: none; place-items: center; background: rgba(3, 10, 25, .55); z-index: 20; padding: 16px; }
+  .modal.on { display: grid; }
+  .mbox { position: relative; width: min(980px, 96vw); max-height: 92vh; overflow: auto; padding: 24px; }
+  .mbox h2 { margin: 0 0 14px; font-size: 40px; }
+  .modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  .mode { text-align: left; padding: 18px; border-radius: 16px; background: linear-gradient(160deg, rgba(62, 230, 255, .14), rgba(255, 255, 255, .04)); border: 2px solid var(--line); min-height: 190px; display: flex; flex-direction: column; gap: 6px; }
+  .mode .ic { width: 42px; height: 42px; color: var(--cyan); } .mode h3 { margin: 4px 0 0; font-size: 28px; } .mode p { margin: 0; color: var(--muted); font-size: 14px; font-weight: 700; }
+  .mode.on { border-color: var(--yellow); background: linear-gradient(160deg, rgba(255, 216, 74, .2), rgba(255, 255, 255, .05)); } .mode[disabled] { opacity: .45; }
+  .opts { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; } .opts > span { color: var(--muted); margin-right: 6px; }
+  .opts .btn { font-size: 18px; padding: 9px 14px; }
+  .mfoot { display: flex; justify-content: flex-end; margin-top: 18px; }
+  /* settings */
+  .stabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .srow { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 14px; padding: 12px 4px; border-bottom: 1px solid rgba(255, 255, 255, .08); }
+  .srow span small { display: block; color: var(--muted); font-size: 13px; font-weight: 700; }
+  .seg { display: inline-flex; background: rgba(0, 0, 0, .3); border-radius: 10px; padding: 4px; gap: 4px; flex-wrap: wrap; }
+  .seg button { padding: 8px 12px; border-radius: 7px; font-size: 15px; color: var(--muted); white-space: nowrap; } .seg button.on { background: var(--cyan); color: #062033; }
+  input[type=range] { width: 200px; accent-color: var(--cyan); }
+  /* ---------- in-game HUD ---------- */
+  #hud { position: fixed; inset: 0; pointer-events: none; display: none; z-index: 5; } #hud.on { display: block; }
+  #hud .tl { position: absolute; left: 18px; top: 16px; display: flex; flex-direction: column; gap: 6px; }
+  #zone { font-family: 'Barlow Condensed'; font-weight: 900; font-style: italic; font-size: 22px; text-transform: uppercase; text-shadow: 0 2px 8px rgba(0, 0, 0, .5); }
+  #modeInfo { font-family: 'Barlow Condensed'; font-weight: 900; font-size: 40px; text-shadow: 0 2px 10px rgba(0, 0, 0, .5); line-height: 1; }
+  #modeInfo small { display: block; font-size: 17px; color: var(--yellow); letter-spacing: .06em; }
+  #hud .tr { position: absolute; right: 16px; top: 14px; display: flex; align-items: flex-start; gap: 10px; }
+  #scoreBox { text-align: right; text-shadow: 0 2px 8px rgba(0, 0, 0, .5); } #scoreBox small { color: var(--cyan); font-size: 13px; letter-spacing: .12em; } #scoreBox b { display: block; font-family: 'Barlow Condensed'; font-size: 40px; font-weight: 900; line-height: 1; }
+  #pauseBtn { pointer-events: auto; width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; background: rgba(5, 15, 35, .55); border: 1px solid var(--line); } #pauseBtn .ic { width: 22px; height: 22px; }
+  #others { position: absolute; right: 16px; top: 80px; display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+  #others div { background: rgba(5, 15, 35, .5); padding: 4px 10px; border-radius: 8px; font-size: 14px; display: flex; gap: 8px; align-items: center; } #others i { width: 10px; height: 10px; border-radius: 50%; }
+  #speedo { position: absolute; left: 22px; bottom: 20px; text-shadow: 0 2px 10px rgba(0, 0, 0, .5); }
+  #speedo b { font-family: 'Barlow Condensed'; font-size: 64px; font-weight: 900; font-style: italic; line-height: 1; } #speedo small { font-size: 18px; color: var(--muted); margin-left: 4px; }
+  #trick { position: absolute; left: 50%; top: 12%; transform: translateX(-50%); text-align: center; text-shadow: 0 3px 14px rgba(0, 0, 0, .55); opacity: 0; transition: opacity .15s; }
+  #trick.on { opacity: 1; }
+  #trick .name { font-family: 'Barlow Condensed'; font-weight: 900; font-style: italic; font-size: 54px; text-transform: uppercase; line-height: 1; }
+  #trick .chain { color: var(--muted); font-size: 17px; margin-top: 4px; }
+  #trick .pts { font-family: 'Barlow Condensed'; font-weight: 900; font-size: 30px; color: var(--cyan); margin-top: 4px; } #trick .pts em { color: var(--yellow); font-style: normal; margin-left: 10px; }
+  #landPop { position: absolute; left: 50%; top: 26%; transform: translateX(-50%); text-align: center; font-family: 'Barlow Condensed'; font-weight: 900; font-style: italic; text-shadow: 0 3px 14px rgba(0, 0, 0, .55); pointer-events: none; }
+  #landPop .q { font-size: 30px; text-transform: uppercase; letter-spacing: .06em; } #landPop .p { font-size: 64px; color: var(--yellow); line-height: 1; }
+  #landPop.go { animation: pop 1.6s ease-out forwards; }
+  @keyframes pop { 0% { opacity: 0; transform: translate(-50%, 20px) scale(.7); } 12% { opacity: 1; transform: translate(-50%, 0) scale(1.08); } 22% { transform: translate(-50%, 0) scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -30px); } }
+  #charge { position: absolute; left: 50%; bottom: 13%; transform: translateX(-50%); width: 200px; height: 10px; border-radius: 6px; background: rgba(0, 0, 0, .35); overflow: hidden; opacity: 0; transition: opacity .15s; }
+  #charge.on { opacity: 1; } #charge i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--cyan), var(--yellow), #ff7a1a); }
+  #prompt { position: absolute; left: 50%; bottom: 22%; transform: translateX(-50%); display: none; pointer-events: auto; }
+  #prompt.on { display: flex; }
+  #banner { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); text-align: center; font-family: 'Barlow Condensed'; font-weight: 900; font-style: italic; text-shadow: 0 4px 18px rgba(0, 0, 0, .55); opacity: 0; transition: opacity .2s; }
+  #banner.on { opacity: 1; } #banner b { display: block; font-size: 110px; line-height: .9; color: #fff; } #banner small { font-size: 26px; color: var(--yellow); }
+  #gateArrow { position: absolute; left: 50%; top: 10px; width: 46px; height: 46px; margin-left: -23px; color: var(--yellow); display: none; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, .5)); } #gateArrow.on { display: block; } #gateArrow svg { width: 100%; height: 100%; }
+  #keysHelp { position: absolute; right: 18px; bottom: 18px; padding: 10px 12px; font-size: 13px; color: var(--muted); line-height: 1.9; display: none; } #keysHelp.on { display: block; }
+  /* touch controls */
+  #touch { position: fixed; inset: 0; pointer-events: none; display: none; z-index: 6; opacity: var(--topacity); } #touch.on { display: block; }
+  #joy { position: absolute; left: calc(26px + env(safe-area-inset-left)); bottom: 26px; width: calc(170px * var(--tsize)); height: calc(170px * var(--tsize)); border-radius: 50%; background: rgba(5, 15, 35, .35); border: 2px solid rgba(255, 255, 255, .35); pointer-events: auto; touch-action: none; }
+  #joy .knob { position: absolute; left: 50%; top: 50%; width: 42%; height: 42%; margin: -21% 0 0 -21%; border-radius: 50%; background: rgba(255, 255, 255, .85); box-shadow: 0 4px 14px rgba(0, 0, 0, .3); }
+  #act { position: absolute; right: calc(30px + env(safe-area-inset-right)); bottom: 30px; width: calc(190px * var(--tsize)); height: calc(190px * var(--tsize)); pointer-events: auto; touch-action: none; }
+  #act .jump { position: absolute; inset: 18%; border-radius: 50%; background: rgba(62, 230, 255, .3); border: 3px solid rgba(255, 255, 255, .7); display: grid; place-items: center; font-family: 'Barlow Condensed'; font-weight: 900; font-style: italic; font-size: calc(30px * var(--tsize)); }
+  #act .ring { position: absolute; inset: 12%; border-radius: 50%; background: conic-gradient(var(--yellow) calc(var(--ch, 0) * 1turn), transparent 0); -webkit-mask: radial-gradient(circle, transparent 62%, #000 63%); mask: radial-gradient(circle, transparent 62%, #000 63%); }
+  #act .tb { position: absolute; width: 36%; height: 36%; border-radius: 50%; background: rgba(5, 15, 35, .55); border: 2.5px solid rgba(255, 255, 255, .6); display: none; place-items: center; font-size: calc(12px * var(--tsize)); font-weight: 900; text-align: center; line-height: 1.05; }
+  #act.air .tb { display: grid; } #act.air .jump, #act.air .ring { display: none; }
+  #act .tb.on { background: var(--yellow); color: #13213f; border-color: #fff; }
+  #act .front { left: 32%; top: 0; } #act .back { left: 32%; bottom: 0; } #act .left { left: 0; top: 32%; } #act .right { right: 0; top: 32%; }
+  #act .mid { position: absolute; inset: 36%; border-radius: 50%; border: 2px dashed rgba(255, 255, 255, .35); display: none; } #act.air .mid { display: block; }
+  #liftBtn, #respawnBtn { pointer-events: auto; }
+  /* pause & results */
+  .menuList { display: flex; flex-direction: column; gap: 10px; width: min(380px, 86vw); margin: 0 auto; }
+  .menuList .btn { width: 100%; font-size: 26px; }
+  .drops { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; } .drops .btn { font-size: 18px; padding: 10px; }
+  .res { text-align: center; } .res .big { font-family: 'Barlow Condensed'; font-weight: 900; font-size: 84px; color: var(--yellow); line-height: 1; }
+  .res table { margin: 14px auto 0; border-collapse: collapse; font-size: 17px; } .res td { padding: 6px 14px; text-align: left; } .res td:last-child { text-align: right; color: var(--yellow); font-family: 'Barlow Condensed'; font-size: 22px; font-weight: 900; }
+  #toasts { position: fixed; left: 50%; top: 84px; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; align-items: center; z-index: 40; pointer-events: none; }
+  .toast { background: rgba(5, 15, 35, .88); border: 1.5px solid var(--line); padding: 10px 18px; border-radius: 12px; font-size: 16px; animation: tin .25s ease-out; display: flex; align-items: center; gap: 8px; } .toast .ic { color: var(--yellow); }
+  .toast.bad { border-color: var(--red); } .toast.out { opacity: 0; transition: opacity .4s; }
+  @keyframes tin { from { opacity: 0; transform: translateY(-8px); } }
+  #rotate { position: fixed; inset: 0; z-index: 60; display: none; place-items: center; text-align: center; background: #071630; padding: 30px; }
+  #rotate .ic { width: 80px; height: 80px; color: var(--cyan); }
+  @media (orientation: portrait) and (pointer: coarse) { #rotate { display: grid; } }
+  @media (max-width: 900px), (max-height: 600px) {
+    .tab { font-size: 19px; padding: 6px 9px; } #lobby .top .logo b { font-size: 26px; } #lobby .top { gap: 8px; padding: 10px 12px; }
+    #news { display: none; } #playBtn { font-size: 34px; } #modeCard h2 { font-size: 26px; } #modeCard p { display: none; }
+    .view { top: 62px; } #lockCats { width: 180px; } .cat { font-size: 17px; padding: 9px; } .pill { display: none; }
+    #trick .name { font-size: 38px; } #banner b { font-size: 80px; } #speedo b { font-size: 46px; }
+  }
+  body.touch #speedo { left: 50%; transform: translateX(-50%); bottom: auto; top: 12px; text-align: center; } body.touch #speedo b { font-size: 40px; }
+  body.touch #trick { top: 18%; } body.touch #charge { display: none; }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div id="boot"><div><div class="logo"><i data-ic="mountain"></i><b>POWDER<br><span>PEAK</span></b></div><div id="bootBar"><i></i></div><div id="bootTxt">Loading…</div></div></div>
+
+<!-- ============ LOBBY ============ -->
+<div id="lobby" class="screen">
+  <div class="top">
+    <div class="logo"><i data-ic="mountain"></i><b>POWDER <span style="color:var(--cyan)">PEAK</span></b></div>
+    <nav class="tabs">
+      <button class="tab on" data-view="play">Play</button>
+      <button class="tab" data-view="locker">Locker</button>
+      <button class="tab" data-view="party">Party</button>
+      <button class="tab" data-view="challenges">Challenges</button>
+    </nav>
+    <div class="tright">
+      <div class="pill"><i data-ic="star"></i><span id="careerPts">0</span></div>
+      <div class="pill"><i data-ic="user"></i><span id="meName">Rider</span></div>
+      <button class="iconbtn" id="setBtn" title="Settings"><i data-ic="gear"></i></button>
+      <a class="iconbtn" href="/" title="Back to B10GAMES"><i data-ic="home"></i></a>
+    </div>
+  </div>
+  <!-- PLAY -->
+  <div class="view on" id="v-play">
+    <div id="news" class="panel"><h3 class="h">Welcome to the mountain</h3><p>Hold <span class="kbd">SPACE</span> to charge a jump and let go to fly. In the air: <span class="kbd">W</span> frontflip, <span class="kbd">S</span> backflip, <span class="kbd">A</span>/<span class="kbd">D</span> spins, two keys for diagonal flips.</p></div>
+    <div id="partyMini" class="panel">
+      <h3 class="h ph"><i data-ic="party"></i>Party <span id="pmCode" style="margin-left:auto;color:var(--yellow)"></span></h3>
+      <div id="pmList"></div>
+      <div class="row" id="pmBtns"><button class="btn" id="pmCreate">Create party</button><button class="btn" id="pmJoin">Join party</button></div>
+    </div>
+    <div id="playCard">
+      <div class="panel gearToggle" id="gearT"><button data-g="board"><i data-ic="board"></i>Snowboard</button><button data-g="skis"><i data-ic="skis"></i>Skis</button></div>
+      <div class="panel" id="modeCard"><small class="h">Game mode · tap to change</small><h2 class="h" id="mcName">Free Ride</h2><p id="mcDesc"></p><div class="opt" id="mcOpt"></div></div>
+      <button class="btn yellow" id="playBtn">Play</button>
+    </div>
+  </div>
+  <!-- LOCKER -->
+  <div class="view" id="v-locker">
+    <div id="lockCats" class="panel"></div>
+    <div id="lockItems" class="panel"><h2 class="h" id="liTitle"></h2><div class="grid" id="liGrid"></div></div>
+  </div>
+  <!-- PARTY -->
+  <div class="view" id="v-party">
+    <div id="partyBox" class="panel"></div>
+  </div>
+  <!-- CHALLENGES -->
+  <div class="view" id="v-challenges">
+    <div id="chalBox" class="panel"><h2 class="h">Challenges</h2><div class="chals" id="chals"></div></div>
+  </div>
+</div>
+
+<!-- ============ GAME MODE SELECT ============ -->
+<div class="modal" id="modeModal"><div class="panel mbox">
+  <button class="x" data-close="modeModal"><i data-ic="close"></i></button>
+  <h2 class="h">Choose a mode</h2>
+  <div class="modes" id="modeList"></div>
+  <div class="opts" id="modeOpts"></div>
+  <div class="mfoot"><button class="btn yellow" id="modeOk">Select</button></div>
+</div></div>
+
+<!-- ============ SETTINGS ============ -->
+<div class="modal" id="setModal"><div class="panel mbox" style="width:min(760px,96vw)">
+  <button class="x" data-close="setModal"><i data-ic="close"></i></button>
+  <h2 class="h">Settings</h2>
+  <div class="stabs" id="setTabs"><button class="btn on" data-st="gameplay">Gameplay</button><button class="btn" data-st="controls">Controls</button><button class="btn" data-st="graphics">Graphics</button><button class="btn" data-st="audio">Audio</button><button class="btn" data-st="display">Display</button></div>
+  <div id="setBody"></div>
+</div></div>
+
+<!-- ============ HUD ============ -->
+<div id="hud">
+  <div class="tl"><div id="zone"></div><div id="modeInfo"></div></div>
+  <div class="tr"><div id="scoreBox"><small class="h">Score</small><b id="score">0</b></div><button id="pauseBtn" title="Pause"><i data-ic="pause"></i></button></div>
+  <div id="others"></div>
+  <div id="gateArrow"><i data-ic="arrow"></i></div>
+  <div id="speedo"><b id="spd">0</b><small>km/h</small></div>
+  <div id="trick"><div class="name" id="tName"></div><div class="chain" id="tChain"></div><div class="pts" id="tPts"></div></div>
+  <div id="landPop"><div class="q" id="lpQ"></div><div class="p" id="lpP"></div></div>
+  <div id="charge"><i></i></div>
+  <div id="banner"><b id="bnB"></b><small id="bnS"></small></div>
+  <div id="prompt"><button class="btn yellow" id="liftBtn"><i data-ic="lift"></i><span>Ride the lift</span> <span class="kbd">E</span></button></div>
+  <div id="keysHelp" class="panel"><span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span> ride &amp; tricks · <span class="kbd">SPACE</span> hold &amp; let go to jump<br><span class="kbd">E</span> lift · <span class="kbd">R</span> back to start · <span class="kbd">ESC</span> pause</div>
+</div>
+<div id="touch">
+  <div id="joy"><div class="knob"></div></div>
+  <div id="act"><div class="ring"></div><div class="jump">JUMP</div><div class="mid"></div><div class="tb front">FRONT<br>FLIP</div><div class="tb back">BACK<br>FLIP</div><div class="tb left">SPIN<br>LEFT</div><div class="tb right">SPIN<br>RIGHT</div></div>
+</div>
+
+<!-- ============ PAUSE / RESULTS ============ -->
+<div class="modal" id="pauseModal"><div class="panel mbox" style="width:min(520px,96vw)">
+  <h2 class="h" style="text-align:center">Paused</h2>
+  <div class="menuList">
+    <button class="btn yellow" id="pResume"><i data-ic="play"></i>Resume</button>
+    <button class="btn" id="pRespawn"><i data-ic="restart"></i>Back to start</button>
+    <div id="pDropBox"><div class="h" style="font-size:18px;color:var(--muted);margin-top:6px">Drop in somewhere else</div><div class="drops" id="pDrops"></div></div>
+    <button class="btn" id="pSettings"><i data-ic="gear"></i>Settings</button>
+    <button class="btn" id="pQuit"><i data-ic="home"></i>Back to the lobby</button>
+  </div>
+</div></div>
+<div class="modal" id="resModal"><div class="panel mbox res" style="width:min(560px,96vw)">
+  <h2 class="h" id="resTitle">Finished</h2>
+  <div class="big" id="resBig"></div>
+  <div id="resSub" style="color:var(--muted)"></div>
+  <table id="resTable"></table>
+  <div class="row" style="margin-top:18px"><button class="btn" id="resLobby"><i data-ic="home"></i>Lobby</button><button class="btn yellow" id="resAgain"><i data-ic="restart"></i>Again</button></div>
+</div></div>
+
+<div id="toasts"></div>
+<div id="rotate"><div><i data-ic="restart"></i><h2 class="h" style="font-size:40px;margin:10px 0">Turn your iPad sideways</h2><p style="color:var(--muted)">Powder Peak is played in landscape.</p></div></div>
+
+<script type="module" src="js/main.js"></script>
+<script src="/stats.js" data-game="powder-peak" defer></script>
+<script src="/account.js" defer></script>
+</body>
+</html>

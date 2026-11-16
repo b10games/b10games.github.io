@@ -18,7 +18,7 @@
  * site's own ("b10-...") is copied to the account and back again, so progress
  * follows the account to other devices and survives cleared browser data.
  *
- * Online games: a page that opens a party (PeerJS id "b10games-<game>-<5 digits>")
+ * Online games: a page that opens a party (PeerJS id "b10games-<game>-<code>", 5 digits or 6 letters/numbers)
  * or joins one is noticed here, and the party code goes into "who is online", so
  * friends can press Join and land in the same party (?join=<code>).
  */
@@ -34,6 +34,7 @@
   var MAX_VALUE = 150000;     // skip giant entries (worlds live in IndexedDB anyway)
 
   var GAMES = {
+    'powder-peak': 'Powder Peak',
     'crown-clash': 'Crown Clash',
     'beans-tower-defense': 'Beans Tower Defense',
     'bean-of-legends': 'Bean of Legends',
@@ -49,7 +50,7 @@
     'yellow-circle-clicker': 'Yellow Circle Clicker'
   };
   // Games where friends can play together with a party code.
-  var PARTY = { 'b10games-wobble-': 'wobble-dash', 'b10games-apex-party-': 'apex-horizon', 'b10games-buttcraft-': 'buttcraft', 'b10games-btd-': 'beans-tower-defense' };
+  var PARTY = { 'b10games-wobble-': 'wobble-dash', 'b10games-apex-party-': 'apex-horizon', 'b10games-buttcraft-': 'buttcraft', 'b10games-btd-': 'beans-tower-defense', 'b10games-peak-': 'powder-peak' };
 
   // ---------- small helpers ----------
   function read(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
@@ -201,7 +202,7 @@
     var proto = P.prototype, oEmit = proto.emit, oConnect = proto.connect, oDestroy = proto.destroy;
     proto.__b10 = true;
     function codeOf(id) {
-      for (var pre in PARTY) if (typeof id === 'string' && id.indexOf(pre) === 0 && /^\d{5}$/.test(id.slice(pre.length))) return id.slice(pre.length);
+      for (var pre in PARTY) if (typeof id === 'string' && id.indexOf(pre) === 0 && /^(\d{5}|[A-Z0-9]{6})$/.test(id.slice(pre.length))) return id.slice(pre.length);
       return null;
     }
     function setParty(peer, code) { peer.__b10party = code; if (party !== code) { party = code; beat(true); } }
