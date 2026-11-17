@@ -1,7 +1,7 @@
 // The 3D mountain map. M opens and closes it. You see the whole mountain from above, can move, zoom and
 // turn it, and press T (or tap DROP IN HERE) to start riding from the spot you point at.
 import { THREE, clamp, damp, smooth } from './engine.js';
-import { ZONES, COURSES, LIFT, JUMPS, BOUNDS } from './world.js';
+import { PEAKS, DROPS, LOBBY, BOUNDS } from './world.js';
 
 const $ = id => document.getElementById(id);
 const _v = new THREE.Vector3(), _o = new THREE.Vector3(), _d = new THREE.Vector3(), _n = new THREE.Vector3();
@@ -10,7 +10,7 @@ const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
 export class MapView {
   constructor(app) {
     this.app = app; this.on = false;
-    this.cam = new THREE.PerspectiveCamera(45, 1, 5, 9000);
+    this.cam = new THREE.PerspectiveCamera(45, 1, 10, 40000);
     this.tx = 0; this.tz = 0; this.yaw = 0; this.pitch = 0.95; this.dist = 1500;
     this.want = { tx: 0, tz: 0, yaw: 0, pitch: 0.95, dist: 1500 };
     this.hover = null; this.pin = null; this.drag = null; this.pinch = null;
@@ -21,33 +21,17 @@ export class MapView {
   // ---------- things you only see on the map ----------
   build() {
     const W = this.app.world, g = this.group;
-    // the two race courses
-    for (const [k, c] of Object.entries(COURSES)) {
-      const pts = c.gates.map(([x, z]) => new THREE.Vector3(x, W.height(x, z) + 4, z));
-      const curve = new THREE.CatmullRomCurve3(pts);
-      const dense = curve.getPoints(pts.length * 12).map(p => { p.y = W.height(p.x, p.z) + 4; return p; });
-      const tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(dense), dense.length, 2.2, 6), new THREE.MeshBasicMaterial({ color: k === 'peak' ? '#ffd84a' : '#3ee6ff', transparent: true, opacity: 0.85 }));
-      g.add(tube);
-    }
-    // the lift
-    const [ax, az] = LIFT.a, [bx, bz] = LIFT.b, lp = [];
-    for (let i = 0; i <= 40; i++) { const t = i / 40, x = ax + (bx - ax) * t, z = az + (bz - az) * t; lp.push(new THREE.Vector3(x, W.height(x, z) + 14, z)); }
-    g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(lp), 40, 2, 5), new THREE.MeshBasicMaterial({ color: '#ff5f7a' })));
-    // jumps
-    const cone = new THREE.ConeGeometry(5, 14, 4); cone.rotateX(Math.PI); cone.translate(0, 12, 0);
-    const jm = new THREE.InstancedMesh(cone, new THREE.MeshBasicMaterial({ color: '#ff8a3d' }), JUMPS.length), mx = new THREE.Matrix4();
-    JUMPS.forEach((j, i) => { const x = j.x + j.dx * j.lk, z = j.z + j.dz * j.lk; mx.makeTranslation(x, W.height(x, z), z); jm.setMatrixAt(i, mx); });
-    g.add(jm);
     // you, the cursor and the pin
     this.me = this.marker('#3ee6ff', 1.2); g.add(this.me);
     this.cursor = this.ring('#ffffff'); g.add(this.cursor);
     this.pinMesh = this.marker('#ffd84a', 1); g.add(this.pinMesh);
     this.mates = new Map();
-    // labels
-    const L = (text, x, z, cls = '') => this.labels.push({ el: this.label(text, cls), x, z, y: W.height(x, z) + 30 });
-    L('Mountain Peak', 0, -880, 'zone'); L('Freestyle Park', 0, 20, 'zone'); L('Cliff Area', 450, -200, 'zone'); L('Snowy Forest', -460, -40, 'zone'); L('Village', 0, 800, 'zone');
-    L('Lift', LIFT.a[0] + 20, LIFT.a[1], 'lift'); L('Lift top', LIFT.b[0] + 20, LIFT.b[1], 'lift');
-    L('Peak to Village', COURSES.peak.gates[0][0] + 40, COURSES.peak.gates[0][1] + 40, 'course y'); L('Forest Run', COURSES.forest.gates[0][0], COURSES.forest.gates[0][1] - 30, 'course c');
+    // only the mountains: their names and how high they are
+    for (const p of PEAKS) {
+      let tx = p.x, tz = p.z, th = -1e9;
+      for (let r = 0; r <= 300; r += 50) for (let a = 0; a < 12; a++) { const x = p.x + Math.cos(a / 12 * 6.283) * r, z = p.z + Math.sin(a / 12 * 6.283) * r, h = W.height(x, z); if (h > th) { th = h; tx = x; tz = z; } if (!r) break; }
+      this.labels.push({ el: this.label(p.name + '  ' + Math.round(th).toLocaleString('en-US') + ' m', 'zone'), x: tx, z: tz, y: th + 60 });
+    }
     this.meLabel = this.label('YOU', 'me'); this.built = true;
   }
   marker(color, k) {
@@ -68,10 +52,12 @@ export class MapView {
     app.world.scene.add(this.group);
     const r = app.ctrl.p;
     // start with the whole mountain in view, seen from the valley, a little towards where you are
-    this.want = { tx: clamp(r.x * 0.45, -350, 350), tz: clamp(-180 + (r.z + 180) * 0.35, -500, 300), yaw: 0.12, pitch: 0.58, dist: 1900 };
+    this.want = { tx: clamp(r.x * 0.3, -1500, 1500), tz: clamp(400 + r.z * 0.3, -1500, 1800), yaw: 0.1, pitch: 0.55, dist: 8200 };
     Object.assign(this, this.want);
     this.pin = null; this.hover = null;
-    this.saveFog = app.world.scene.fog.density; app.world.scene.fog.density = 0.00012;
+    this.saveFog = app.world.fogBase; app.world.fogBase = this.saveFog * 0.45;
+    // more detail on the map than when riding (it is built bit by bit while you look)
+    this.saveSplit = app.world.lod.split; app.world.lod.split = 3.4;
     if (app.world.flakes) app.world.flakes.visible = false;
     $('mapUI').classList.add('on'); $('hud').classList.remove('on'); $('touch').classList.remove('on');
     app.input.reset();
@@ -83,7 +69,7 @@ export class MapView {
     const app = this.app; if (!this.on) return;
     this.on = false;
     app.world.scene.remove(this.group);
-    app.world.scene.fog.density = this.saveFog;
+    app.world.fogBase = this.saveFog; app.world.lod.split = this.saveSplit;
     if (app.world.flakes) app.world.flakes.visible = true;
     $('mapUI').classList.remove('on');
     if (app.state === 'game') { $('hud').classList.add('on'); $('touch').classList.toggle('on', app.touch); }
@@ -109,6 +95,7 @@ export class MapView {
     }
     this.close();
     this.app.session.spawnAt = { x: best[0], z: best[1], name: 'Map' };
+    this.app.session.spawnY = null;
     this.app.session.spawnRider(best[0], best[1]);
     this.app.banner('Drop in!', this.app.world.zoneAt(best[0], best[1]).name, 1.4);
     this.app.sound.sfx('go');
@@ -128,10 +115,10 @@ export class MapView {
     ray.setFromCamera(ndc, this.cam);
     _o.copy(ray.ray.origin); _d.copy(ray.ray.direction);
     let t = 0, prev = 0;
-    for (let i = 0; i < 1200; i++) {
-      const step = Math.max(2, t * 0.006); t += step;
+    for (let i = 0; i < 2500; i++) {
+      const step = Math.max(2, t * 0.004); t += step;
       _v.copy(_o).addScaledVector(_d, t);
-      if (Math.abs(_v.x) > 1300 || Math.abs(_v.z) > 1500) { if (t > 6000) return null; continue; }
+      if (Math.abs(_v.x) > 9000 || Math.abs(_v.z) > 9000) { if (t > 30000) return null; continue; }
       if (_v.y < W.height(_v.x, _v.z)) {
         let a = prev, b = t;
         for (let k = 0; k < 10; k++) { const m = (a + b) / 2; _v.copy(_o).addScaledVector(_d, m); if (_v.y < W.height(_v.x, _v.z)) b = m; else a = m; }
@@ -159,7 +146,7 @@ export class MapView {
       const pts = this.ptrs; if (pts && pts.has(e.pointerId)) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (this.pinch && pts && pts.size === 2) {
         const [a, b] = [...pts.values()], d = Math.hypot(a.x - b.x, a.y - b.y), ang = Math.atan2(b.y - a.y, b.x - a.x);
-        this.want.dist = clamp(this.pinch.dist * this.pinch.d / Math.max(20, d), 350, 3200); this.want.yaw = this.pinch.yaw - (ang - this.pinch.ang);
+        this.want.dist = clamp(this.pinch.dist * this.pinch.d / Math.max(20, d), 600, 14000); this.want.yaw = this.pinch.yaw - (ang - this.pinch.ang);
         return;
       }
       const d = this.drag;
@@ -169,8 +156,8 @@ export class MapView {
         else {
           // pan along the ground: the snow follows your finger
           const k = this.want.dist / 900 * 1.2, s = Math.sin(this.want.yaw), c = Math.cos(this.want.yaw);
-          this.want.tx = clamp(this.want.tx + (-s * dy - c * dx) * k, -900, 900);
-          this.want.tz = clamp(this.want.tz + (-c * dy + s * dx) * k, -1100, 1100);
+          this.want.tx = clamp(this.want.tx + (-s * dy - c * dx) * k, -4000, 4000);
+          this.want.tz = clamp(this.want.tz + (-c * dy + s * dx) * k, -4000, 4000);
         }
       }
       if (e.pointerType === 'mouse') { this.hover = this.pick(e.clientX, e.clientY); this.paintPin(); }
@@ -184,7 +171,7 @@ export class MapView {
       if (d && d.moved < 8 && d.btn === 0) { const p = this.pick(e.clientX, e.clientY); if (p) { this.pin = p; this.app.sound.sfx('click'); } this.paintPin(); }
     };
     cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
-    cv.addEventListener('wheel', e => { if (!this.on) return; e.preventDefault(); this.want.dist = clamp(this.want.dist * Math.exp(e.deltaY * 0.0012), 350, 3200); }, { passive: false });
+    cv.addEventListener('wheel', e => { if (!this.on) return; e.preventDefault(); this.want.dist = clamp(this.want.dist * Math.exp(e.deltaY * 0.0012), 600, 14000); }, { passive: false });
     cv.addEventListener('contextmenu', e => { if (this.on) e.preventDefault(); });
     $('mapClose').onclick = () => this.close();
     $('mapDrop').onclick = () => this.dropHere();
@@ -204,7 +191,7 @@ export class MapView {
     if (keys) {
       const k = w.dist / 900 * 420 * dt, s = Math.sin(w.yaw), c = Math.cos(w.yaw);
       const f = (keys.w ? 1 : 0) - (keys.s ? 1 : 0), r = (keys.d ? 1 : 0) - (keys.a ? 1 : 0);
-      w.tx = clamp(w.tx + (-f * s + r * c) * k, -900, 900); w.tz = clamp(w.tz + (-f * c - r * s) * k, -1100, 1100);
+      w.tx = clamp(w.tx + (-f * s + r * c) * k, -4000, 4000); w.tz = clamp(w.tz + (-f * c - r * s) * k, -4000, 4000);
     }
     for (const key of ['tx', 'tz', 'pitch', 'dist']) this[key] = damp(this[key], w[key], 8, dt);
     this.yaw = this.yaw + (w.yaw - this.yaw) * (1 - Math.exp(-8 * dt));
@@ -214,7 +201,7 @@ export class MapView {
     cam.lookAt(this.tx, ty, this.tz);
     cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix();
     // markers
-    const sc = this.dist / 1200, r = this.app.ctrl.p;
+    const sc = this.dist / 1700, r = this.app.ctrl.p;
     this.me.position.set(r.x, r.y, r.z); this.me.scale.setScalar(sc);
     this.me.children[0].position.y = 34 + Math.sin(performance.now() / 300) * 4;
     this.pinMesh.scale.setScalar(sc);

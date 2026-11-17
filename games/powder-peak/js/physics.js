@@ -9,9 +9,11 @@ import { Assist } from './assist.js';
 import { BOUNDS } from './terrain.js';
 
 export const G = 12;
+// in the air gravity is softer: jumps hang longer and you fall more slowly
+export const G_AIR = 7.6;
 const GEAR = {
-  board: { grip: 5.2, turn: [2.5, 1.2], pop: [3.4, 9.6], drag: 0.0052, carveKeep: 0.6 },
-  skis: { grip: 6.6, turn: [2.8, 1.35], pop: [3.1, 9.0], drag: 0.0048, carveKeep: 0.66 }
+  board: { grip: 5.2, turn: [2.5, 1.2], pop: [3.4, 9.6], drag: 0.0088, carveKeep: 0.6 },
+  skis: { grip: 6.6, turn: [2.8, 1.35], pop: [3.1, 9.0], drag: 0.0082, carveKeep: 0.66 }
 };
 const Y = new THREE.Vector3(0, 1, 0);
 const _n = new THREE.Vector3(), _f = new THREE.Vector3(), _r = new THREE.Vector3(), _a = new THREE.Vector3(), _b = new THREE.Vector3(), _m = new THREE.Matrix4();
@@ -117,7 +119,15 @@ export class Rider3D {
     // (the lip of a kicker, a cliff, the top of a bump at speed)
     const vyGround = -(this.v.x * _n.x + this.v.z * _n.z) / Math.max(0.2, _n.y);
     const need = (this.v.y - vyGround) / dt;
-    if (gap > 0.3 || (gap > 0.004 && need > G * 1.2)) { this.takeoff(false); return; }
+    // only a sharp edge throws you off (a lip, a cliff, a ridge); over smooth rolls you stay on the snow
+    let sharp = false;
+    if (gap > 0.004 && need > G * 1.65 && speed > 3) {
+      const l = Math.hypot(this.v.x, this.v.z) || 1, ax = this.p.x + this.v.x / l * 2.5, az = this.p.z + this.v.z / l * 2.5;
+      W.normal(ax, az, _b);
+      // the snow 2.5 m ahead turns away a lot, or drops well below the line you are sliding on
+      sharp = _b.angleTo(_n) > 0.3 || W.height(ax, az) < hgt + (this.v.y / l) * 2.5 - 0.7;
+    }
+    if (gap > 0.35 || sharp) { this.takeoff(false); return; }
     this.p.y = hgt;
     const into = this.v.dot(_n);
     this.v.addScaledVector(_n, -into);
@@ -158,7 +168,7 @@ export class Rider3D {
       if (inp.jump) { this.charging = true; this.charge = Math.min(1, this.charge + dt / 0.85); }
       else if (this.charging) { const g = GEAR[this.gear], k = this.charge; this.v.y += lerp(g.pop[0], g.pop[1], k) * 0.8; this.charging = false; this.charge = 0; this.emit('jump', { k }); }
     } else { this.charging = false; this.charge = 0; }
-    this.v.y -= G * dt;
+    this.v.y -= G_AIR * dt;
     const sp = this.v.length(); this.v.multiplyScalar(1 - 0.0016 * sp * dt);
     this.assist.update(dt, this.assistLevel, this.p, this.v);
     this.p.addScaledVector(this.v, dt);
@@ -184,8 +194,8 @@ export class Rider3D {
     const travel = _a.lengthSq() > 0.01 ? _a.clone().normalize() : this.heading(new THREE.Vector3());
     const res = this.tricks.land(this.quat, n, travel, this.assistLevel);
     // where you land matters too: a flat bottom far below hurts, rock or a cliff face is a wipeout
-    if (into > 30 || n.y < 0.58) { res.quality = 'crash'; res.total = 0; }
-    else if (into > 19 && (res.quality === 'clean' || res.quality === 'perfect')) { res.quality = 'sketchy'; res.total = Math.round(res.total * 0.5); res.hard = true; }
+    if (into > 30 || n.y < 0.45) { res.quality = 'crash'; res.total = 0; }
+    else if ((into > 19 || n.y < 0.6) && (res.quality === 'clean' || res.quality === 'perfect')) { res.quality = 'sketchy'; res.total = Math.round(res.total * 0.5); res.hard = true; }
     // keep the speed along the snow, lose a bit on hard landings
     this.v.copy(_a).multiplyScalar(1 - Math.min(0.3, Math.max(0, into - 6) / 70));
     this.grounded = true; this.coyote = 0;

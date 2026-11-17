@@ -16,7 +16,7 @@ export function createRenderer(canvas, q, scale = 1) {
   r.outputColorSpace = THREE.SRGBColorSpace;
   // AgX keeps bright snow white and soft instead of flat grey
   r.toneMapping = THREE.AgXToneMapping;
-  r.toneMappingExposure = 1.25;
+  r.toneMappingExposure = 1.12;
   r.shadowMap.type = THREE.PCFSoftShadowMap;
   applyQuality(r, q, scale);
   return r;

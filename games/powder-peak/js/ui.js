@@ -1,12 +1,13 @@
 // Menus and the in-game HUD: lobby tabs (Play, Locker, Party, Challenges), game modes, settings,
 // pause, results, and the speed / trick / score display while riding.
-import { MODES, SLOTS, PRESETS, TRICK_SPOTS, find } from './data.js';
-import { DROPS, COURSES } from './world.js';
+import { MODES, SLOTS, PRESETS, find } from './data.js';
+import { DROPS, COURSES, TRICK_SPOTS } from './world.js';
 import { ASSIST } from './assist.js';
 import { fillIcons, ICON } from './icons.js';
 import { saveSettings, storeSave, challengeState } from './settings.js';
 import { fmtTime, fmtNum } from './modes.js';
 import { COLORS } from './mp.js';
+import { trickName } from './tricks.js';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -29,7 +30,7 @@ export class UI {
     $('pRespawn').onclick = () => { this.click(); app.togglePause(false); app.respawn(); };
     $('pSettings').onclick = () => { this.click(); this.openSettings(); };
     $('pQuit').onclick = () => { this.click(); app.leaveGame(); };
-    $('liftBtn').onclick = () => { if (app.session && app.session.nearLift) app.session.startLift(); };
+
     $('resLobby').onclick = () => { this.click(); app.leaveGame(); };
     $('resAgain').onclick = () => { this.click(); this.again(); };
     this.view = 'play';
@@ -56,7 +57,7 @@ export class UI {
     let opt = '';
     if (m.id === 'free' || m.id === 'mpfree') opt = `<i data-ic="map"></i>Start at ${esc((DROPS.find(d => d.id === o.drop) || DROPS[0]).name)}`;
     if (m.id === 'tricks') opt = `<i data-ic="flip"></i>${esc((TRICK_SPOTS.find(d => d.id === o.spot) || TRICK_SPOTS[0]).name)}`;
-    if (m.id === 'time') opt = `<i data-ic="flag"></i>${esc((COURSES[o.course] || COURSES.peak).name)}`;
+    if (m.id === 'time') opt = `<i data-ic="flag"></i>${esc((COURSES[o.course] || Object.values(COURSES)[0] || { name: '' }).name)}`;
     $('mcOpt').innerHTML = opt; fillIcons($('mcOpt'));
     document.querySelectorAll('#gearT button').forEach(b => b.classList.toggle('on', b.dataset.g === app.settings.gear));
     // the big button: play alone, start the party, or say you are ready
@@ -98,9 +99,9 @@ export class UI {
     $('modeList').innerHTML = MODES.map(m => `<button class="mode ${pm.id === m.id ? 'on' : ''}" data-m="${m.id}" ${m.mp && !inParty ? 'disabled' : ''}><i data-ic="${m.icon}"></i><h3 class="h">${m.name}</h3><p>${m.desc}${m.mp && !inParty ? '<br><b style="color:var(--yellow)">Needs a party</b>' : ''}</p></button>`).join('');
     $('modeList').querySelectorAll('.mode').forEach(b => b.onclick = () => { if (b.disabled) return; this.click(); pm.id = b.dataset.m; this.renderModes(); });
     let html = '';
-    if (pm.id === 'free' || pm.id === 'mpfree') html = '<span>Start at</span>' + DROPS.map(d => `<button class="btn ${pm.drop === d.id ? 'on' : ''}" data-o="drop" data-v="${d.id}">${d.name}</button>`).join('');
+    if (pm.id === 'free' || pm.id === 'mpfree') html = '<span>Start at</span>' + DROPS.map(d => `<button class="btn ${pm.drop === d.id ? 'on' : ''}" data-o="drop" data-v="${d.id}">${d.name} · ${fmtNum(d.alt)} m</button>`).join('');
     if (pm.id === 'tricks') html = '<span>Where</span>' + TRICK_SPOTS.map(d => `<button class="btn ${pm.spot === d.id ? 'on' : ''}" data-o="spot" data-v="${d.id}">${d.name}${app.save.best.tricks[d.id] ? ' · ' + fmtNum(app.save.best.tricks[d.id]) : ''}</button>`).join('');
-    if (pm.id === 'time') html = '<span>Course</span>' + Object.entries(COURSES).map(([k, c]) => `<button class="btn ${pm.course === k ? 'on' : ''}" data-o="course" data-v="${k}">${c.name}${app.save.best.time[k] ? ' · ' + fmtTime(app.save.best.time[k]) : ''}</button>`).join('');
+    if (pm.id === 'time') html = '<span>Course</span>' + Object.entries(COURSES).map(([k, c]) => `<button class="btn ${pm.course === k ? 'on' : ''}" data-o="course" data-v="${k}">${c.name} · ${fmtNum(c.drop)} m${app.save.best.time[k] ? ' · ' + fmtTime(app.save.best.time[k]) : ''}</button>`).join('');
     $('modeOpts').innerHTML = html;
     $('modeOpts').querySelectorAll('[data-o]').forEach(b => b.onclick = () => { this.click(); pm[b.dataset.o] = b.dataset.v; this.renderModes(); });
     $('modeOk').onclick = () => { this.click(); this.setMode(pm.id, pm); $('modeModal').classList.remove('on'); };
@@ -308,9 +309,10 @@ export class UI {
     // tricks in the air
     const air = !r.grounded && r.state !== 'bail';
     const tEl = $('trick');
-    if (air && r.tricks.blockedT > 0) {
-      $('tName').textContent = r.tricks.blockedF < 0 ? 'No backflip now' : 'No frontflip now';
-      $('tChain').textContent = r.tricks.blockedF < 0 ? 'You already flipped forwards in this jump' : 'You already flipped backwards in this jump';
+    if (air && r.tricks.blockedT > 0 && r.tricks.lock) {
+      const L = r.tricks.lock, nm = trickName(L.f, L.s, 1);
+      $('tName').textContent = 'Only ' + (L.f ? nm : (L.s > 0 ? 'Spin Right' : 'Spin Left')) + ' now';
+      $('tChain').textContent = 'One kind of trick per jump: keep going with it, or let go';
       $('tPts').innerHTML = ''; tEl.classList.add('on');
     } else if (air) {
       const c = r.tricks.current();

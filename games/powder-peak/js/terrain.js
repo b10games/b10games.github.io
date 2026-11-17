@@ -1,93 +1,100 @@
-// The shape of the mountain. Everything that needs the ground (riding, landing, the landing assist, trees,
-// the camera) asks these functions, so the snow you see and the snow you ride on are the same.
-//
-// Coordinates: x is across the mountain, z goes downhill (the peak is at z = -960, the village at z = +700),
-// y is up. One unit is one meter.
+// The shape of the mountains: a whole range of huge peaks (up to about 3 km above the valleys), with
+// sharp ridges, gullies, rolls and natural lips to jump off. Everything that needs the ground (riding,
+// landing, the landing assist, trees, the camera, the map) asks terrain(), so what you see is what you ride.
+// One unit is one meter. y is up.
 import { makeNoise, fbm } from './noise.js';
-import { clamp, smooth } from './engine.js';
+import { clamp, smooth, rng } from './engine.js';
 
-const N = makeNoise(7), N2 = makeNoise(31), N3 = makeNoise(77);
+const N1 = makeNoise(7), N2 = makeNoise(31), N3 = makeNoise(77), N4 = makeNoise(123), N5 = makeNoise(555);
 
-export const BOUNDS = { x: 780, z0: -990, z1: 980 };
+export const BOUNDS = { x: 3800, z0: -3800, z1: 3800 };
 
-// areas of the mountain (soft rectangles) – used for the shape, the trees and the names on screen
-export const ZONES = [
-  { id: 'peak', name: 'Mountain Peak', x0: -330, x1: 260, z0: -1000, z1: -560 },
-  { id: 'park', name: 'Freestyle Park', x0: -165, x1: 165, z0: -330, z1: 380 },
-  { id: 'cliffs', name: 'Cliff Area', x0: 250, x1: 680, z0: -560, z1: 240 },
-  { id: 'forest', name: 'Snowy Forest', x0: -700, x1: -205, z0: -540, z1: 480 },
-  { id: 'village', name: 'Village', x0: -460, x1: 460, z0: 600, z1: 1000 }
+// the big peaks you can ride (name, position, height, how wide the mountain is)
+export const PEAKS = [
+  { id: 'titan', name: 'Titan Peak', x: 0, z: -1900, h: 3050, r: 4500 },
+  { id: 'frost', name: 'Frost Horn', x: -2500, z: -1000, h: 2650, r: 3900 },
+  { id: 'eagle', name: 'Eagle Spire', x: 2400, z: -1300, h: 2800, r: 4100 },
+  { id: 'storm', name: 'Storm Crown', x: -1700, z: 1300, h: 2250, r: 3400 },
+  { id: 'glacier', name: 'Glacier Dome', x: 1900, z: 1500, h: 2400, r: 3600 },
+  { id: 'wolf', name: 'Wolf Tooth', x: 3300, z: 450, h: 1950, r: 2900 },
+  { id: 'raven', name: 'Raven Ridge', x: -3300, z: 350, h: 1850, r: 2800 },
+  { id: 'sunset', name: 'Sunset Point', x: 200, z: 2900, h: 1650, r: 2600 }
 ];
-function rectMask(x, z, r, edge) {
-  return smooth(r.x0 - edge, r.x0 + edge, x) * (1 - smooth(r.x1 - edge, r.x1 + edge, x)) * smooth(r.z0 - edge, r.z0 + edge, z) * (1 - smooth(r.z1 - edge, r.z1 + edge, z));
-}
-export function zoneAt(x, z) {
-  if (z > 600) return ZONES[4];
-  for (const zn of [ZONES[1], ZONES[2], ZONES[3], ZONES[0]]) if (x >= zn.x0 && x <= zn.x1 && z >= zn.z0 && z <= zn.z1) return zn;
-  return { id: 'slopes', name: 'Open Slopes' };
-}
+// a quiet spot in the valley for the lobby (the big peak right behind it)
+export const LOBBY = { x: 0, z: 2200, r: 70 };   // Titan Peak towers 4 km to the north
 
-// natural jumps: a lip that rises over ~25 m, then the snow drops away (u goes downhill)
-export const LIPS = [
-  { x: -120, z: -790, w: 34, a: 3.2, d: 7 }, { x: 105, z: -660, w: 44, a: 2.6, d: 9 }, { x: -40, z: -610, w: 30, a: 2.2, d: 6 },
-  { x: -470, z: -270, w: 22, a: 2.2, d: 4.5 }, { x: -350, z: 60, w: 26, a: 2.6, d: 5.5 }, { x: -560, z: 230, w: 20, a: 2, d: 4 },
-  { x: -260, z: 470, w: 40, a: 2.4, d: 5 }, { x: 270, z: 360, w: 36, a: 2.8, d: 6 }, { x: 40, z: 470, w: 50, a: 2, d: 4 }
-];
-// cliff bands in the Cliff Area: shelves with sudden drops
-const CLIFFS = [{ z: -440, d: 16 }, { z: -265, d: 22 }, { z: -90, d: 15 }, { z: 70, d: 26 }];
-const CLIFF_SPAN = 150;
-
-// the main shape, without the noise
-function profile(z) {
-  const t = clamp((z + 960) / 1640, 0, 1);
-  let h = 640 * Math.pow(1 - t, 1.35) + (680 - z) * 0.04;
-  if (z < -960) h += (-960 - z) * 0.35;
-  // past the village the valley just goes on, gently down (you cannot ride there, the edge stops you)
-  if (z > 920) h -= (z - 920) * 0.03;
+function ridged(x, z, oct) {
+  let s = 0, a = 1, f = 1, n = 0;
+  // a rounded crest instead of a knife edge (sqrt(n² + e) instead of |n|), so ridges are steep but rideable
+  for (let i = 0; i < oct; i++) { const q = N1(x * f, z * f), v = 1 - Math.sqrt(q * q + 0.012); s += a * v * v; n += a; a *= 0.4; f *= 2.0; }
+  return s / n;
+}
+// the mountains without the small stuff (also used for the fall line of the lips)
+function massif(x, z) {
+  const wx = x + 380 * N4(x / 2200, z / 2200), wz = z + 380 * N4(z / 2200 + 7.3, x / 2200);
+  // smooth maximum of all the peaks: saddles and valleys appear between them
+  let acc = 1;
+  for (const p of PEAKS) {
+    const d = Math.hypot(wx - p.x, wz - p.z) / p.r;
+    if (d < 1) acc += Math.exp(p.h * Math.pow(1 - d, 1.22) / 240);
+  }
+  let h = 240 * Math.log(acc);
+  // far outside the riding area: more giant mountains all around the horizon
+  const R = Math.max(Math.abs(x), Math.abs(z));
+  if (R > 4300) h += smooth(4300, 7000, R) * (1600 + 1300 * ridged(x / 1900 + 3, z / 1900, 3));
+  const k = clamp(h / 2600, 0, 1);
+  // arêtes and couloirs on the high parts, softer folds lower down
+  h += (ridged(wx / 1300, wz / 1300, 4) - 0.5) * 190 * Math.pow(k, 0.85);
+  h += (ridged(wx / 480 + 9, wz / 480, 3) - 0.5) * 42 * Math.pow(k, 0.7);
+  // the valleys are not flat either
+  h += fbm(N2, x / 1300, z / 1300, 2) * 90 + 60;
   return h;
 }
 
+// natural lips (wind lips, rolls that drop away): placed once, on rideable slopes
+export const LIPS = [];
+const LIPGRID = new Map();
+(function placeLips() {
+  const r = rng(99);
+  for (let gx = -3600; gx <= 3600; gx += 140) for (let gz = -3600; gz <= 3600; gz += 140) {
+    const x = gx + (r() - 0.5) * 120, z = gz + (r() - 0.5) * 120, e = 6;
+    if (r() > 0.2) continue;
+    const h = massif(x, z), dx = (massif(x + e, z) - massif(x - e, z)) / (2 * e), dz = (massif(x, z + e) - massif(x, z - e)) / (2 * e), s = Math.hypot(dx, dz);
+    if (s < 0.3 || s > 0.8 || h < 250 || h > 2700) continue;
+    const l = { x, z, dx: -dx / s, dz: -dz / s, w: 22 + r() * 40, a: 1.8 + r() * 2.4, d: 4 + r() * 9 };
+    LIPS.push(l);
+    const k = Math.floor(x / 200) + ',' + Math.floor(z / 200);
+    (LIPGRID.get(k) || LIPGRID.set(k, []).get(k)).push(l);
+  }
+})();
+
+const LOBBY_H = massif(LOBBY.x, LOBBY.z);
 export function terrain(x, z) {
-  let h = profile(z);
-  // a wide bowl. At the sides and behind the peak the snow rises into mountain ridges; their tops hide
-  // the edge of the world
-  const ax = Math.abs(x);
-  h += 0.00008 * x * x;
-  if (ax > 640) {
-    const crest = 125 + 75 * N2(z / 170, x > 0 ? 3.3 : 7.7) + 30 * N3(z / 60, x / 60);
-    h += crest * Math.pow(smooth(640, 845, ax), 1.25) * (1 - 0.75 * smooth(865, 960, ax));
-  }
-  if (z < -960) {
-    const crest = 150 + 80 * N2(x / 180, 11.1) + 25 * N3(x / 55, 3.3);
-    h += crest * smooth(-960, -1060, z) * (1 - 0.7 * smooth(-1075, -1120, z));
-  }
-  // the summit
-  h += 75 * Math.exp(-((x * x) + (z + 905) * (z + 905)) / (2 * 115 * 115));
-  // ridges that split the areas (good side hits)
-  h += 16 * Math.exp(-(((x - 225) / 38) ** 2)) * smooth(-720, -620, z) * (1 - smooth(260, 420, z));
-  h += 13 * Math.exp(-(((x + 195) / 34) ** 2)) * smooth(-560, -460, z) * (1 - smooth(380, 520, z));
-  // noise: calm in the park and the village, bumpy in the forest
-  const park = rectMask(x, z, ZONES[1], 50), vill = smooth(560, 660, z), forest = rectMask(x, z, ZONES[3], 60);
-  const calm = 1 - Math.max(park * 0.85, vill * 0.75);
-  h += fbm(N, x / 480, z / 480, 3) * 24 * calm;
-  h += N2(x / 150, z / 150) * (6 + forest * 4) * calm;
-  h += N3(x / 48, z / 48) * (1.4 + forest * 1.2) * calm;
-  // natural lips
-  for (const l of LIPS) {
-    const u = z - l.z, v = x - l.x;
-    if (u < -32 || u > 80 || Math.abs(v) > l.w * 1.8) continue;
-    const side = Math.exp(-((v / l.w) ** 2) * 2);
-    h += side * (l.a * smooth(-28, 0, u) - (l.a + l.d) * smooth(0, 9, u) + l.d * smooth(9, 75, u));
-  }
-  // the cliffs
-  const cm = smooth(255, 320, x) * (1 - smooth(600, 660, x)) * smooth(-560, -500, z) * (1 - smooth(200, 260, z));
-  if (cm > 0) {
-    let c = 0;
-    for (const cl of CLIFFS) {
-      const e = cl.z + 16 * N2(x / 190, cl.z / 50) + 5 * N3(x / 45, cl.z / 30);
-      c += cl.d * (clamp((z - (e - CLIFF_SPAN)) / CLIFF_SPAN, 0, 1) - smooth(e - 2.5, e + 3.5, z));
+  let h = massif(x, z);
+  // rolls and bumps you can feel when riding
+  h += N3(x / 60, z / 60) * 1.6 + N5(x / 170, z / 170) * 4;
+  // the lips
+  const cx = Math.floor(x / 200), cz = Math.floor(z / 200);
+  for (let i = -1; i <= 1; i++) for (let k = -1; k <= 1; k++) {
+    const a = LIPGRID.get((cx + i) + ',' + (cz + k)); if (!a) continue;
+    for (const l of a) {
+      const rx = x - l.x, rz = z - l.z, u = rx * l.dx + rz * l.dz, v = rx * -l.dz + rz * l.dx;
+      if (u < -32 || u > 80 || Math.abs(v) > l.w * 1.8) continue;
+      const side = Math.exp(-((v / l.w) ** 2) * 2);
+      h += side * (l.a * smooth(-28, 0, u) - (l.a + l.d) * smooth(0, 9, u) + l.d * smooth(9, 75, u));
     }
-    h += c * cm;
   }
+  // the lobby: a small flat spot in the valley
+  const ld = Math.hypot(x - LOBBY.x, z - LOBBY.z);
+  if (ld < LOBBY.r * 2.5) h += (LOBBY_H - h) * (1 - smooth(LOBBY.r, LOBBY.r * 2.5, ld));
   return h;
 }
+
+// the name of the place you are at: the nearest peak, or the valley
+export function zoneAt(x, z) {
+  if (terrain(x, z) < 380) return { id: 'valley', name: 'The Valley' };
+  let best = PEAKS[0], bd = 1e9;
+  for (const p of PEAKS) { const d = Math.hypot(x - p.x, z - p.z) / p.r; if (d < bd) { bd = d; best = p; } }
+  return { id: best.id, name: best.name };
+}
+export const ZONES = PEAKS;

@@ -14,7 +14,7 @@ const LEVEL = [
   { budget: 3.8, accel: 5, align: 3.2, alignMax: 0.9 },
   { budget: 6.5, accel: 8.5, align: 5.5, alignMax: 1.35 }
 ];
-const G = 12;
+const G = 7.6;      // the same soft air gravity as the riders (physics.js G_AIR)
 const _p = new THREE.Vector3(), _v = new THREE.Vector3(), _n = new THREE.Vector3(), _h = new THREE.Vector3(), _s = new THREE.Vector3();
 
 export class Assist {

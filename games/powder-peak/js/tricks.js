@@ -32,8 +32,9 @@ export class Tricks {
   reset() {
     this.active = false; this.seg = null; this.entries = []; this.airT = 0; this.local.identity();
     this.last = null; this.spinTotal = 0;
-    // once you flip one way you cannot flip the other way in the same jump (no backflip right after a frontflip)
-    this.lockF = 0; this.blockedT = 0;
+    // one kind of trick per jump: the first one you start is the only one you can do until you land
+    // (keep going with it, or let go and stop)
+    this.lock = null; this.blockedT = 0;
   }
   // takeoff: start with the rotation the rider has on the snow
   start(local) { this.reset(); this.active = true; this.local.copy(local); }
@@ -42,7 +43,16 @@ export class Tricks {
   update(dt, f, s, relax) {
     this.airT += dt;
     this.blockedT = Math.max(0, this.blockedT - dt);
-    if (f && f === this.lockF) { f = 0; this.blockedT = 0.9; this.blockedF = this.lockF; }
+    const L = this.lock;
+    if (L && (f || s) && !(f === L.f && s === L.s)) {
+      // holding more keys than the trick needs still does the trick; anything else is not allowed now
+      const contains = (!L.f || f === L.f) && (!L.s || s === L.s);
+      // one key of a diagonal let go a moment before the other: that is just letting go
+      const part = L.f && L.s && (!f || f === L.f) && (!s || s === L.s);
+      if (contains) { f = L.f; s = L.s; }
+      else if (part) { f = 0; s = 0; }
+      else { f = 0; s = 0; this.blockedT = 0.9; }
+    }
     const seg = this.seg;
     if (f || s) {
       if (seg) {
@@ -94,7 +104,7 @@ export class Tricks {
   turn(seg, dt) {
     seg.t += dt;
     seg.th += seg.w * Math.min(1, 0.35 + seg.t / 0.14) * dt;
-    if (seg.f && seg.th > seg.unit * 0.25) this.lockF = -seg.f;
+    if (!this.lock && seg.th > seg.unit * 0.25) this.lock = { f: seg.f, s: seg.s };
     this.apply(seg);
   }
   apply(seg) { this.local.setFromAxisAngle(seg.axis, seg.th).multiply(seg.q0); }
@@ -103,7 +113,7 @@ export class Tricks {
     if (!seg) return;
     const n = Math.floor(seg.th / seg.unit + 0.04);
     if (n <= 0) return;
-    if (seg.f) this.lockF = -seg.f;
+    if (!this.lock) this.lock = { f: seg.f, s: seg.s };
     // the same trick again right away counts as one bigger trick
     const last = this.entries[this.entries.length - 1];
     if (last && last.f === seg.f && last.s === seg.s) last.n += n; else this.entries.push({ f: seg.f, s: seg.s, kind: seg.kind, n });

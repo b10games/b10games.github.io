@@ -54,15 +54,10 @@ export const DEFAULT_OUTFIT = { ...PRESETS[0].o };
 
 // ---------- game modes ----------
 export const MODES = [
-  { id: 'free', name: 'Free Ride', desc: 'Ride anywhere on the mountain. No timer, no rules. Ride the lift back up whenever you like.', icon: 'mountain' },
-  { id: 'tricks', name: 'Trick Challenge', desc: 'Three minutes in a jump area. Land the biggest tricks you can for the highest score.', icon: 'flip' },
-  { id: 'time', name: 'Time Trial', desc: 'Race through the gates down to the finish line. Every gate counts.', icon: 'clock' },
-  { id: 'mpfree', name: 'Multiplayer Free Ride', desc: 'Ride the same mountain together with your party. Race, jump and compare scores.', icon: 'party', mp: true }
-];
-export const TRICK_SPOTS = [
-  { id: 'park', name: 'Freestyle Park', x: -10, z: -330, time: 180 },
-  { id: 'peak', name: 'Sky Ramp and Peak Lips', x: -60, z: -820, time: 180 },
-  { id: 'cliffs', name: 'Cliff Drops', x: 430, z: -620, time: 180 }
+  { id: 'free', name: 'Free Ride', desc: 'Ride anywhere in the range. No timer, no rules. Press M for the map and T to drop in on any mountain.', icon: 'mountain' },
+  { id: 'tricks', name: 'Trick Challenge', desc: 'Three minutes on a mountain full of natural lips and drops. Land the biggest tricks you can.', icon: 'flip' },
+  { id: 'time', name: 'Time Trial', desc: 'Race from a summit down through the gates to the finish. Every gate counts.', icon: 'clock' },
+  { id: 'mpfree', name: 'Multiplayer Free Ride', desc: 'Ride the same mountains together with your party. Race, jump and compare scores.', icon: 'party', mp: true }
 ];
 
 // ---------- challenges ----------
@@ -76,9 +71,9 @@ export const CHALLENGES = [
   { id: 'jump5k', name: 'Score 5,000 in one jump', goal: 5000, stat: 'bestJump', max: true },
   { id: 'speed', name: 'Reach 90 km/h', goal: 90, stat: 'topSpeed', max: true },
   { id: 'air3', name: 'Stay in the air for 3 seconds', goal: 3, stat: 'bestAir', max: true },
-  { id: 'explore', name: 'Visit all 5 areas', goal: 5, stat: 'areas' },
+  { id: 'explore', name: 'Ride on 5 different mountains', goal: 5, stat: 'areas' },
   { id: 'trial', name: 'Finish a Time Trial', goal: 1, stat: 'trials' },
   { id: 'trick20k', name: 'Score 20,000 in a Trick Challenge', goal: 20000, stat: 'bestTrickRun', max: true },
-  { id: 'lift', name: 'Ride the chairlift', goal: 1, stat: 'lifts' },
+  { id: 'drop', name: 'Ride 1,000 m down in one go', goal: 1000, stat: 'bestDrop', max: true },
   { id: 'switch', name: 'Try both snowboard and skis', goal: 2, stat: 'gear' }
 ];

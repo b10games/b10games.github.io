@@ -16,7 +16,7 @@ export class SnowFX {
       transparent: true, depthWrite: false,
       uniforms: { scale: { value: 300 } },
       vertexShader: `attribute float size; attribute float alpha; varying float vA; uniform float scale;
-        void main(){ vA = alpha; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_PointSize = clamp(size * scale / -mv.z, 1.0, 90.0); gl_Position = projectionMatrix * mv; }`,
+        void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); vA = alpha * smoothstep(0.8, 2.5, -mv.z); gl_PointSize = clamp(size * scale / -mv.z, 1.0, 34.0); gl_Position = projectionMatrix * mv; }`,
       fragmentShader: `varying float vA; void main(){ float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0.0, d); gl_FragColor = vec4(0.96, 0.98, 1.0, a * vA); }`
     });
     this.points = new THREE.Points(g, m); this.points.frustumCulled = false; scene.add(this.points);

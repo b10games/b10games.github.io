@@ -1,6 +1,6 @@
 // Powder Peak: boot, the lobby, the game loop and the party (multiplayer) flow.
 import { THREE, createRenderer, applyQuality, clamp, lerp, damp } from './engine.js';
-import { World, DROPS, LIFT } from './world.js';
+import { World, DROPS, LOBBY, COURSES, TRICK_SPOTS } from './world.js';
 import { Rider, setRiderQuality } from './rider.js';
 import { Rider3D } from './physics.js';
 import { ChaseCam } from './camera.js';
@@ -29,7 +29,7 @@ const app = window.PP = {
 };
 const canvas = $('gl');
 const renderer = app.renderer = createRenderer(canvas, settings.quality, settings.res);
-const camera = app.camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.3, 9000);
+const camera = app.camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.4, 26000);
 const post = app.post = new Post(renderer, settings.quality);
 function draw(cam, dt) { post.render(app.world.scene, cam, dt); }
 function onResize() { applyQuality(renderer, settings.quality, settings.res); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); if (app.fx) app.fx.setScale(innerHeight * renderer.getPixelRatio()); post.size(); }
@@ -65,9 +65,15 @@ async function boot() {
   fillIcons();
   if (isTouch) document.body.classList.add('touch');
   const bar = (p, t) => { $('bootBar').firstElementChild.style.width = p + '%'; $('bootTxt').textContent = t; return new Promise(r => setTimeout(r, 30)); };
-  await bar(10, 'Piling up the snow…');
+  await bar(5, 'Raising the mountains…');
   const world = app.world = new World(settings.quality);
-  await bar(70, 'Waxing the boards…');
+  await world.init(p => { $('bootBar').firstElementChild.style.width = Math.round(5 + p * 70) + '%'; $('bootTxt').textContent = 'Raising the mountains… ' + Math.round(p * 100) + '%'; });
+  // saved choices from before the new mountains: point them at places that exist
+  const M = save.mode;
+  if (!DROPS.find(d => d.id === M.drop)) M.drop = DROPS[0].id;
+  if (!COURSES[M.course]) M.course = Object.keys(COURSES)[0];
+  if (!TRICK_SPOTS.find(d => d.id === M.spot)) M.spot = TRICK_SPOTS[0].id;
+  await bar(78, 'Waxing the boards…');
   setRiderQuality(settings.quality);
   app.rider = new Rider(save.outfit, settings.gear);
   world.scene.add(app.rider.root);
@@ -89,7 +95,8 @@ async function boot() {
   app.map = new MapView(app);
   applySettings();
   // warm up: draw once from the lobby so the first frame is not slow
-  lobbyCamera(0, true); renderer.compile(world.scene, camera); renderer.render(world.scene, camera);
+  lobbyCamera(0, true); world.focus(new THREE.Vector3(LOBBY.x, world.height(LOBBY.x, LOBBY.z), LOBBY.z), camera); world.warm(camera);
+  renderer.compile(world.scene, camera); renderer.render(world.scene, camera);
   await bar(100, 'Ready!');
   $('boot').classList.add('off'); setTimeout(() => $('boot').remove(), 600);
   goLobby();
@@ -123,7 +130,6 @@ app.setGear = (g) => {
 app.setOutfit = (o) => { save.outfit = { ...save.outfit, ...o }; storeSave(save); app.rider.setOutfit(save.outfit); if (app.net.inParty) app.net.updateProfile(); };
 
 // ---------- the lobby: you (and your party) in the village, the mountain behind ----------
-const LOBBY = { x: 0, z: 772 };
 const SLOTS = [[0, 0], [-1.9, -1.0], [1.9, -1.0], [-3.7, -2.2], [3.7, -2.2], [-5.4, -3.6], [5.4, -3.6], [0, -3.8]];
 function placeLobbyRider(model, i, gear) {
   const [ox, oz] = SLOTS[i] || [i * 1.5, -4];
@@ -139,7 +145,7 @@ function lobbyCamera(dt, instant) {
   if (v === 'locker') { p = [0.55, 1.1, 3.7]; l = [0.45, 1.0, 0]; }
   else if (v === 'party' || (v === 'play' && many)) { p = [0.3, 2.3, 8.6]; l = [0, 0.4, -1.2]; }
   else if (v === 'challenges') { p = [0, 2.6, 8]; l = [0, 1.6, 0]; }
-  else { p = [1.7, 0.95, 5.4]; l = [0.6, 1.4, 0]; }
+  else { p = [1.7, 0.95, 5.4]; l = [0.6, 1.9, 0]; }
   const P = new THREE.Vector3(LOBBY.x + p[0], y + p[1], LOBBY.z + p[2]), L = new THREE.Vector3(LOBBY.x + l[0], y + l[1], LOBBY.z + l[2]);
   if (instant) { lcam.p.copy(P); lcam.l.copy(L); } else { lcam.p.lerp(P, 1 - Math.exp(-4 * dt)); lcam.l.lerp(L, 1 - Math.exp(-4 * dt)); }
   camera.position.copy(lcam.p); camera.lookAt(lcam.l);
@@ -214,8 +220,10 @@ app.afterSpawn = () => {
   app.rider.place(app.ctrl.p, app.ctrl.quat, 0);
   app.cam.snap(app.ctrl);
   if (app.trail) app.trail.clear();
+  // a new place: build the detailed snow, trees and rocks there right away
+  app.world.focus(app.ctrl.p, camera); app.world.warm(camera);
+  if (app.session) app.session.spawnY = app.ctrl.p.y;
 };
-app.liftStarted = () => { stat('lifts', 1); };
 app.sessionOver = (s) => {
   const r = s.result;
   if (r.kind === 'time') {
@@ -246,7 +254,6 @@ function onKey(code) {
   if (code === 'Escape' || code === 'KeyP') { togglePause(); return; }
   if (app.paused) return;
   if (code === 'KeyR') respawn();
-  if (code === 'KeyE' && app.session && app.session.nearLift) app.session.startLift();
 }
 function togglePause(on = !$('pauseModal').classList.contains('on')) {
   if (app.state !== 'game' || (app.session && app.session.over)) return;
@@ -390,8 +397,10 @@ function step(dt) {
       if (zoneT <= 0) {
         zoneT = 0.5;
         const z = W.zoneAt(r.p.x, r.p.z);
-        if (z.name !== lastZone) { lastZone = z.name; $('zone').textContent = z.name; if (z.id !== 'slopes') stat('areas', z.id, 'set'); }
+        $('zone').textContent = z.name + ' · ' + Math.round(r.p.y).toLocaleString('en-US') + ' m';
+        if (z.name !== lastZone) { lastZone = z.name; if (z.id !== 'valley') stat('areas', z.id, 'set'); }
         stat('topSpeed', Math.round(r.topSpeed * 3.6), 'max');
+        if (s && s.spawnY != null && r.state === 'ride') stat('bestDrop', Math.round(s.spawnY - r.p.y), 'max');
       }
     }
     if (net.inParty && s && s.party) sendState(dt);

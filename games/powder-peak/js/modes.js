@@ -1,9 +1,9 @@
 // The game modes: Free Ride, Trick Challenge, Time Trial and Multiplayer Free Ride.
 // A Session runs one go of a mode: where you start, the clock, the gates, the score and the end screen.
 import { THREE, clamp, canvasTex } from './engine.js';
-import { DROPS, COURSES, JUMPS, LIFT, lineDist } from './world.js';
+import { DROPS, COURSES, TRICK_SPOTS, lineDist } from './world.js';
 import { LIPS } from './terrain.js';
-import { TRICK_SPOTS, MODES } from './data.js';
+import { MODES } from './data.js';
 
 export const fmtTime = ms => { ms = Math.max(0, ms); const m = Math.floor(ms / 60000), s = Math.floor(ms / 1000) % 60, c = Math.floor(ms / 10) % 100; return `${m}:${String(s).padStart(2, '0')}.${String(c).padStart(2, '0')}`; };
 export const fmtNum = n => Math.round(n).toLocaleString('en-US');
@@ -56,11 +56,10 @@ export class Session {
       this.left = s.time;
       // rings over the jumps in this area
       this.markers = [];
-      for (const j of JUMPS) if (Math.hypot(j.x - s.x, j.z - s.z) < 520) { const mk = this.add(marker()); const x = j.x + j.dx * j.lk, z = j.z + j.dz * j.lk; mk.position.set(x, this.world.height(x, z) + 6, z); this.markers.push(mk); }
-      for (const l of LIPS) if (Math.hypot(l.x - s.x, l.z - s.z) < 420) { const mk = this.add(marker()); mk.position.set(l.x, this.world.height(l.x, l.z) + 6, l.z); this.markers.push(mk); }
-      this.app.banner('Trick Challenge', s.name + ' · 3:00', 2.4);
+      for (const l of LIPS) if (Math.hypot(l.x - s.x, l.z - s.z) < 1400) { const mk = this.add(marker()); mk.position.set(l.x, this.world.height(l.x, l.z) + 7, l.z); this.markers.push(mk); }
+      this.app.banner('Trick Challenge', s.name + ' · 3:00 · jump off the yellow rings', 2.6);
     } else if (m === 'time') {
-      const c = this.course = COURSES[this.opt.course] || COURSES.peak;
+      const c = this.course = COURSES[this.opt.course] || Object.values(COURSES)[0];
       const pts = c.gates;
       this.gates = pts.slice(1).map((p, i) => {
         const prev = pts[i], dx = p[0] - prev[0], dz = p[1] - prev[1], l = Math.hypot(dx, dz);
@@ -79,6 +78,7 @@ export class Session {
     this.r.state = 'frozen'; this.count = 3.6; this.running = false; this.time = 0;
   }
   respawn() {
+    this.spawnY = null;
     if (this.mode === 'time') { for (const g of this.gates) g.passed = false; this.gi = 0; this.penalty = 0; this.paintGates(); this.spawnRider(this.spawnAt.x, this.spawnAt.z, Math.atan2(this.gates[0].x - this.spawnAt.x, this.gates[0].z - this.spawnAt.z)); this.countdown(); return; }
     this.spawnRider(this.spawnAt.x, this.spawnAt.z);
   }
@@ -122,34 +122,13 @@ export class Session {
       if (this.left <= 0) { this.left = 0; if (r.grounded || r.state === 'bail') this.finishTricks(); }
     }
     if (this.markers) { const t = performance.now() / 1000; this.markers.forEach((m, i) => { m.position.y += Math.sin(t * 2 + i) * 0.01; m.rotation.y = t * 1.5 + i; }); }
-    // the lift
-    this.nearLift = (this.mode === 'free' || this.mode === 'mpfree') && r.state === 'ride' && Math.hypot(r.p.x - LIFT.a[0], r.p.z - (LIFT.a[1] + 14)) < 26 && r.speed < 9;
-    if (this.lift) this.liftStep(dt);
+    this.nearLift = false;
   }
   // a landing: count the points
   onLand(res) {
     if (this.over) return;
     if (this.mode === 'tricks' && this.left <= 0 && res.total <= 0) return;
     if (res.total > 0) { this.score += res.total; this.landed.push(res); this.bestJump = Math.max(this.bestJump, res.total); }
-  }
-
-  // ---------- the chairlift ----------
-  startLift() {
-    if (this.lift) return;
-    this.lift = { t: 0, dur: 16 }; this.r.state = 'lift'; this.r.v.set(0, 0, 0);
-    this.app.sound.sfx('lift'); this.app.liftStarted();
-  }
-  liftStep(dt) {
-    const L = this.lift; L.t += dt / L.dur;
-    const p = this.world.liftPoint(L.t, new THREE.Vector3());
-    this.r.p.set(p.x, p.y - 2.25, p.z);
-    if (L.t >= 1) this.endLift();
-  }
-  endLift() {
-    this.lift = null;
-    const [bx, bz] = LIFT.b;
-    this.spawnRider(bx - 6, bz + 22);
-    this.app.toast('Top of the mountain. Have fun!');
   }
 
   // ---------- the end ----------
