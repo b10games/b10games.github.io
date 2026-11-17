@@ -1,9 +1,13 @@
 /*
  * B10GAMES account button and menu (front page only; needs account.js first).
  *
- * Top right: "Account" (or your name) next to a black bean in a thin black
- * circle. Clicking it opens a small menu: make an account with a name and a
- * password, pick a bean skin as profile picture, and add and join friends.
+ * Top right: your name next to your bean in a circle (big). Without an account
+ * it is even bigger and asks "Do you want to make an account?". Clicking it opens
+ * a small menu: make an account with a name and a password, pick a bean skin as
+ * profile picture, and add and join friends.
+ *
+ * Without an account, a box also asks right away when the page opens: make an
+ * account, log in, or play as a guest (once per visit).
  */
 (function () {
   var A = window.B10Account;
@@ -80,13 +84,35 @@
 
   // ---------- styles ----------
   var css = [
-    '.acct-btn{position:absolute;top:18px;right:20px;z-index:20;display:flex;align-items:center;gap:10px;background:none;border:0;padding:4px;cursor:pointer;color:#fff;font:700 16px "Space Grotesk",system-ui,sans-serif}',
+    '.acct-btn{position:absolute;top:18px;right:20px;z-index:20;display:flex;align-items:center;gap:22px;background:none;border:0;padding:4px;cursor:pointer;color:#fff;font:700 clamp(26px,7vw,48px)/1.05 "Space Grotesk",system-ui,sans-serif;text-align:right}',
     '.acct-btn:focus-visible{outline:3px solid #fff;outline-offset:3px}',
-    '.acct-name{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
-    '.acct-ring{position:relative;width:46px;height:46px;border:1.5px solid #fff;border-radius:50%;display:grid;place-items:center;background:#000;color:#fff;transition:transform .15s ease,box-shadow .15s ease}',
-    '.acct-ring svg{width:31px;height:31px;display:block}',
-    '.acct-btn:hover .acct-ring{transform:translate(-2px,-2px);box-shadow:3px 3px 0 #fff}',
-    '.acct-badge{position:absolute;top:-5px;right:-5px;min-width:19px;height:19px;padding:0 5px;border-radius:10px;background:#e11d48;color:#fff;font:700 11px/19px "Space Mono",monospace;font-style:normal;text-align:center;border:2px solid #000}',
+    '.acct-name{max-width:min(540px,52vw);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    '.acct-ring{position:relative;flex:none;width:clamp(84px,24vw,138px);height:clamp(84px,24vw,138px);border:3px solid #fff;border-radius:50%;display:grid;place-items:center;background:#000;color:#fff;transition:transform .15s ease,box-shadow .15s ease}',
+    '.acct-ring svg{width:67%;height:67%;display:block}',
+    '.acct-btn:hover .acct-ring{transform:translate(-4px,-4px);box-shadow:6px 6px 0 #fff}',
+    '.acct-badge{position:absolute;top:-4px;right:-4px;min-width:38px;height:38px;padding:0 9px;border-radius:19px;background:#e11d48;color:#fff;font:700 20px/34px "Space Mono",monospace;font-style:normal;text-align:center;border:3px solid #000}',
+    /* no account: four times the old size, and it asks a question instead of a name */
+    '.acct-btn.guest{font-size:clamp(28px,8vw,64px)}',
+    '.acct-btn.guest .acct-ring{width:clamp(96px,30vw,184px);height:clamp(96px,30vw,184px)}',
+    '.acct-btn.guest .acct-name{white-space:normal;max-width:min(560px,50vw);overflow:visible;text-wrap:balance}',
+    /* the page header makes room for the big button */
+    '.hero{padding-top:calc(var(--acct-h,0px) + 34px) !important}',
+    /* the question when the page opens */
+    '.acct-ask{position:fixed;inset:0;z-index:120;background:rgba(0,0,0,.72);display:grid;place-items:center;padding:16px}',
+    '.acct-ask[hidden]{display:none}',
+    '.acct-ask-box{position:relative;width:min(560px,100%);background:#000;color:#fff;border:2px solid #fff;box-shadow:10px 10px 0 #fff;padding:64px 28px 28px;font-family:"Space Grotesk",system-ui,sans-serif;text-align:center;animation:acctIn .18s ease-out}',
+    '.acct-ask-x{position:absolute;top:12px;left:12px;width:44px;height:44px;border:2px solid #fff;background:#000;color:#fff;cursor:pointer;display:grid;place-items:center}',
+    '.acct-ask-x:hover{background:#fff;color:#000}',
+    '.acct-ask-bean{width:110px;height:110px;margin:0 auto 18px;border:3px solid #fff;border-radius:50%;display:grid;place-items:center}',
+    '.acct-ask-bean svg{width:72px;height:72px}',
+    '.acct-ask h2{font:400 clamp(26px,6vw,38px)/1.05 "Archivo Black",sans-serif;margin:0 0 24px;text-wrap:balance}',
+    '.acct-ask-row{display:grid;gap:12px}',
+    '.acct-ask-row button{height:58px;border:2px solid #fff;font:700 17px "Space Mono",monospace;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;transition:transform .12s ease,box-shadow .12s ease}',
+    '.acct-ask-row button:hover{transform:translate(-3px,-3px);box-shadow:5px 5px 0 #888}',
+    '.acct-ask-row button:focus-visible,.acct-ask-x:focus-visible{outline:3px solid #fff;outline-offset:3px}',
+    '.acct-ask-make{background:#fff;color:#000}',
+    '.acct-ask-login{background:#000;color:#fff}',
+    '.acct-ask-guest{background:#000;color:#a8a8a8;border-color:#555 !important}',
     '.acct-badge[hidden]{display:none}',
     '.acct-back{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.6);display:none}',
     '.acct-back.on{display:block}',
@@ -156,7 +182,8 @@
     '.acct-rm svg{width:15px;height:15px}',
     '.acct-req{background:#231d06}',
     '.acct-empty{border:2px dashed #444;padding:14px;text-align:center;color:#a8a8a8;font-size:14px}',
-    '@media (max-width:640px){.acct-btn{top:12px;right:12px;font-size:15px}.acct-box{top:16px;left:16px;right:16px;width:auto;max-height:calc(100vh - 32px);padding:18px}.hero{padding-top:78px !important}}'
+    '.acct-link{border:0;background:none;color:#fff;font:inherit;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:0}',
+    '@media (max-width:640px){.acct-btn{top:12px;right:12px;gap:12px}.acct-box{top:16px !important;left:16px;right:16px;width:auto;max-height:calc(100vh - 32px);padding:18px}}'
   ].join('\n');
   var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
 
@@ -176,11 +203,17 @@
     var u = A.user, key = u ? u.name + '|' + u.skin : '-';
     if (key === lastBtn) return;
     lastBtn = key;
-    nameEl.textContent = u ? u.name : 'Account';
+    nameEl.textContent = u ? u.name : 'Do you want to make an account?';
+    btn.classList.toggle('guest', !u);
     ring.innerHTML = bean(u ? u.skin : 0);
     ring.appendChild(badge);
-    btn.setAttribute('aria-label', u ? 'Din account: ' + u.name : 'Account');
+    btn.setAttribute('aria-label', u ? 'Din account: ' + u.name : 'Do you want to make an account?');
+    makeRoom();
   }
+  // the page header gets as much room at the top as the button needs
+  function makeRoom() { document.documentElement.style.setProperty('--acct-h', btn.offsetHeight + 'px'); }
+  addEventListener('resize', makeRoom);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(makeRoom);
 
   // ---------- the menu ----------
   var back = document.createElement('div'); back.className = 'acct-back';
@@ -189,7 +222,10 @@
   back.appendChild(box); document.body.appendChild(back);
   var open = false, tab = 'profile', reqs = [], friendData = null, poll = null, confirmDel = false;
 
-  function show() {
+  var mode = 'create';
+  function show(m) {
+    mode = m || 'create';
+    box.style.top = matchMedia('(max-width:640px)').matches ? '' : Math.round(btn.getBoundingClientRect().bottom + 14) + 'px';
     open = true; back.classList.add('on'); render(true);
     refresh();
     clearInterval(poll); poll = setInterval(refresh, 15000);
@@ -260,16 +296,18 @@
   }
 
   function renderLogin(focus) {
+    var login = mode === 'login';
     box.innerHTML = '<button class="acct-x" type="button" aria-label="Luk">' + ICON.x + '</button>' +
       '<div class="acct-big">' + bean(0) + '</div>' +
-      '<h2>Lav din account</h2>' +
-      '<p>Skriv et navn og en adgangskode. Så bliver dit progress gemt, og du kan tilføje venner og joine dem.</p>' +
+      (login ? '<h2>Log ind</h2><p>Skriv navnet og adgangskoden til din account.</p>'
+        : '<h2>Lav din account</h2><p>Skriv et navn og en adgangskode. Så bliver dit progress gemt, og du kan tilføje venner og joine dem.</p>') +
       '<form data-login>' +
       '<label class="acct-field">Navn<input name="n" maxlength="16" autocomplete="username" autocapitalize="off" spellcheck="false" required></label>' +
-      '<label class="acct-field">Adgangskode<input name="p" type="password" autocomplete="current-password" required></label>' +
-      '<button class="acct-go" type="submit">Lav account</button>' +
+      '<label class="acct-field">Adgangskode<input name="p" type="password" autocomplete="' + (login ? 'current-password' : 'new-password') + '" required></label>' +
+      '<button class="acct-go" type="submit">' + (login ? 'Log ind' : 'Lav account') + '</button>' +
       '<p class="acct-err" data-msg></p></form>' +
-      '<p class="acct-small">Har du allerede en account? Skriv dit navn og din adgangskode, så bliver du logget ind.</p>' +
+      (login ? '<p class="acct-small">Har du ikke en account? <button type="button" class="acct-link" data-mode="create">Lav en account</button></p>'
+        : '<p class="acct-small">Har du allerede en account? <button type="button" class="acct-link" data-mode="login">Log ind</button> (eller skriv dit navn og din adgangskode her, så bliver du logget ind).</p>') +
       '<p class="acct-small">Brug ikke en adgangskode, som du også bruger andre steder.</p>';
     if (focus && matchMedia('(pointer:fine)').matches) box.querySelector('input').focus();
   }
@@ -286,7 +324,7 @@
         if (m) m.insertAdjacentHTML('beforebegin', '<p class="acct-ok">' + (r.created ? 'Din account er lavet! Vælg et profilbillede.' : 'Du er logget ind. Velkommen tilbage!') + '</p>');
         refresh();
       }, function (err) {
-        go.disabled = false; go.textContent = 'Lav account'; msg.textContent = err.message;
+        go.disabled = false; go.textContent = mode === 'login' ? 'Log ind' : 'Lav account'; msg.textContent = err.message;
       });
     } else if (form.hasAttribute('data-add')) {
       var name = form.f.value;
@@ -302,6 +340,7 @@
   box.addEventListener('click', function (e) {
     var t = e.target.closest('button'); if (!t) return;
     if (t.classList.contains('acct-x')) return hide();
+    if (t.dataset.mode) { mode = t.dataset.mode; render(true); return; }
     if (t.dataset.tab) { tab = t.dataset.tab; render(true); if (tab === 'friends') refresh(); return; }
     if (t.dataset.skin != null) { A.setSkin(+t.dataset.skin); return; }
     if (t.hasAttribute('data-del')) { confirmDel = true; render(); var bx = box.querySelector('.acct-del-box'); if (bx) bx.scrollIntoView({ block: 'nearest' }); return; }
@@ -386,6 +425,30 @@
     if (A.user && friendData && A.user.friends.length !== friendData.length) friendData = null;
     render();
   });
+
+  // ---------- no account? Ask right away when the page opens (once per visit) ----------
+  var ask = document.createElement('div'); ask.className = 'acct-ask'; ask.hidden = true;
+  ask.setAttribute('role', 'dialog'); ask.setAttribute('aria-modal', 'true'); ask.setAttribute('aria-labelledby', 'acctAskTitle');
+  ask.innerHTML = '<div class="acct-ask-box"><button class="acct-ask-x" type="button" aria-label="Close" data-ask="guest">' + ICON.x + '</button>' +
+    '<div class="acct-ask-bean">' + bean(0) + '</div>' +
+    '<h2 id="acctAskTitle">Do you want to create an account?</h2>' +
+    '<div class="acct-ask-row"><button type="button" class="acct-ask-make" data-ask="create">Make an account</button>' +
+    '<button type="button" class="acct-ask-login" data-ask="login">Login</button>' +
+    '<button type="button" class="acct-ask-guest" data-ask="guest">Play as guest</button></div></div>';
+  document.body.appendChild(ask);
+  function closeAsk(then) {
+    ask.hidden = true;
+    try { sessionStorage.setItem('b10-asked', '1'); } catch (e) {}
+    if (then) show(then); else btn.focus();
+  }
+  ask.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-ask]');
+    if (t) closeAsk(t.dataset.ask === 'guest' ? null : t.dataset.ask);
+    else if (e.target === ask) closeAsk(null);
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !ask.hidden) closeAsk(null); });
+  var asked = false; try { asked = sessionStorage.getItem('b10-asked') === '1'; } catch (e) {}
+  if (!A.user && !asked) { ask.hidden = false; var first = ask.querySelector('.acct-ask-make'); if (first) first.focus(); }
 
   drawButton();
   refresh();
