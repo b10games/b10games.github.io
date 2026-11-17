@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>BEAN DISASTER</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" defer></script>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }</script>
+<style>
+  :root { --y: #ffd23f; --o: #ff7a3d; --r: #e63946; --ink: #1b1036; --glass: rgba(27, 16, 54, .7); --line: rgba(255,255,255,.2); --g: #7bd389; --b: #3a86ff; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; background: #1b1036; color: #fff; font-family: "Nunito", system-ui, sans-serif; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: none; }
+  canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  svg { display: block; width: 100%; height: 100%; }
+  .screen { position: fixed; inset: 0; display: none; pointer-events: none; }
+  .screen.on { display: block; }
+  .screen > * { pointer-events: auto; }
+  .hidden { display: none !important; }
+  .glass { background: var(--glass); border: 2px solid var(--line); border-radius: 18px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 10px 30px rgba(0,0,0,.3); }
+  .btn { font: 400 20px "Lilita One", sans-serif; letter-spacing: .03em; color: #fff; border: 0; border-radius: 16px; padding: 12px 20px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 10px; transition: transform .12s, filter .12s; box-shadow: 0 5px 0 rgba(0,0,0,.3); }
+  .btn i { width: 28px; height: 28px; display: inline-block; flex: none; }
+  .btn:hover { transform: translateY(-2px); filter: brightness(1.08); }
+  .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,.3); }
+  .btn.big { font-size: 34px; padding: 16px 38px; border-radius: 22px; }
+  .btn.big i { width: 40px; height: 40px; }
+  .btn.orange { background: linear-gradient(180deg, #ffa25c, #ff5a1f); box-shadow: 0 6px 0 #a8360c; }
+  .btn.yellow { background: linear-gradient(180deg, #ffe066, #ffb703); color: #3a2400; box-shadow: 0 5px 0 #b37b00; }
+  .btn.blue { background: linear-gradient(180deg, #5ea2ff, #2563eb); box-shadow: 0 5px 0 #1a3e9e; }
+  .btn.pink { background: linear-gradient(180deg, #ff8be0, #e040b8); box-shadow: 0 5px 0 #8f1f74; }
+  .btn.green { background: linear-gradient(180deg, #8ee59a, #2fae5a); box-shadow: 0 5px 0 #1d6f3a; }
+  .btn.red { background: linear-gradient(180deg, #ff6b81, #e11d48); box-shadow: 0 5px 0 #8f1230; }
+  .btn.ghost { background: rgba(255,255,255,.14); box-shadow: inset 0 0 0 2px var(--line), 0 5px 0 rgba(0,0,0,.2); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+  .ib { width: 52px; height: 52px; padding: 10px; border-radius: 14px; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; font: 400 22px "Lilita One"; padding: 6px 14px 6px 8px; }
+  .chip i { width: 30px; height: 30px; display: inline-block; }
+  input.txt { font: 800 18px "Nunito"; color: #fff; background: rgba(255,255,255,.12); border: 2px solid var(--line); border-radius: 12px; padding: 10px 12px; outline: none; width: 100%; user-select: text; -webkit-user-select: text; }
+  input.txt:focus { border-color: var(--y); }
+
+  /* the logo */
+  .logo { font-family: "Lilita One", sans-serif; line-height: .86; text-align: center; letter-spacing: .02em; }
+  .logo b { display: block; font-weight: 400; color: var(--y); -webkit-text-stroke: 3px #1b1036; paint-order: stroke fill; text-shadow: 0 6px 0 #b8400f, 0 12px 26px rgba(0,0,0,.45); transform: rotate(-3deg); }
+  .logo span { display: block; color: #fff; -webkit-text-stroke: 3px #1b1036; paint-order: stroke fill; text-shadow: 0 6px 0 #a11d2e, 0 12px 26px rgba(0,0,0,.45); transform: rotate(2deg); }
+  .logo.huge { font-size: clamp(64px, 13vw, 150px); }
+  .logo.mid { font-size: clamp(40px, 8vw, 70px); }
+
+  /* loading */
+  #boot { background: radial-gradient(circle at 50% 40%, #ff7a3d, #6a1b3d 60%, #1b1036); display: none; place-items: center; }
+  #boot.on { display: grid; }
+  #boot .wrap { text-align: center; padding: 20px; }
+  #boot .bar { width: min(440px, 80vw); height: 16px; background: rgba(0,0,0,.3); border-radius: 99px; margin: 34px auto 14px; overflow: hidden; border: 2px solid rgba(255,255,255,.25); }
+  #boot .bar i { display: block; height: 100%; width: 5%; background: linear-gradient(90deg, var(--y), var(--o)); border-radius: 99px; transition: width .25s; }
+  #boot p { font-weight: 800; color: rgba(255,255,255,.85); }
+
+  /* title */
+  #title .center { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 22px; width: min(640px, 94vw); }
+  #title .sub { font: 400 22px "Lilita One"; color: #fff; text-shadow: 0 3px 0 rgba(0,0,0,.45); text-align: center; }
+  #title .row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  #title .tl { position: absolute; left: 18px; top: 16px; display: flex; gap: 10px; align-items: center; }
+  #title .tr { position: absolute; right: 18px; top: 16px; display: flex; gap: 10px; align-items: center; }
+  #partyChip { font-size: 18px; }
+  .home { color: #fff; text-decoration: none; font: 400 18px "Lilita One"; display: inline-flex; gap: 8px; align-items: center; padding: 8px 14px 8px 8px; }
+  .home i { width: 28px; height: 28px; }
+  #title .hint { position: absolute; bottom: 16px; right: 18px; max-width: 46vw; text-align: right; font-weight: 800; color: rgba(255,255,255,.85); text-shadow: 0 2px 6px rgba(0,0,0,.5); font-size: 14px; padding: 0 12px; }
+
+  /* in-game HUD */
+  #hud .tl { position: absolute; left: 14px; top: 14px; display: flex; gap: 10px; align-items: flex-start; }
+  .bars { display: flex; flex-direction: column; gap: 6px; padding: 8px 12px 8px 8px; min-width: 210px; }
+  .barRow { display: flex; align-items: center; gap: 8px; font: 400 18px "Lilita One"; }
+  .barRow i { width: 28px; height: 28px; flex: none; }
+  .barRow .bar { flex: 1; height: 14px; background: rgba(0,0,0,.35); border-radius: 99px; overflow: hidden; border: 2px solid rgba(255,255,255,.2); }
+  .barRow .bar b { display: block; height: 100%; width: 100%; border-radius: 99px; transition: width .15s; }
+  #hpBar b { background: linear-gradient(90deg, #ff4d6d, #ff8fa3); }
+  #stBar b { background: linear-gradient(90deg, #3a86ff, #8fc0ff); }
+  #coBar b { background: linear-gradient(90deg, #9fd6ff, #ffffff); }
+  .barRow span { width: 38px; text-align: right; }
+  #phase { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); text-align: center; padding: 8px 22px 10px; min-width: 230px; }
+  #phase .t { font: 400 16px "Lilita One"; letter-spacing: .08em; color: var(--y); display: flex; align-items: center; justify-content: center; gap: 6px; }
+  #phase .t i { width: 26px; height: 26px; display: inline-block; }
+  #phase .n { font: 400 40px "Lilita One"; line-height: 1; }
+  #hud .tr { position: absolute; right: 14px; top: 14px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  #plist { padding: 8px 10px; display: flex; flex-direction: column; gap: 3px; min-width: 190px; max-height: 46vh; overflow: hidden; }
+  #plist .p { display: flex; align-items: center; gap: 8px; font-weight: 900; font-size: 14px; }
+  #plist .p .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--g); flex: none; box-shadow: 0 0 0 2px rgba(0,0,0,.35); }
+  #plist .p.out { opacity: .5; } #plist .p.out .dot { background: #ff4d6d; } #plist .p.lobby .dot { background: #9aa1ab; }
+  #plist .p .w { margin-left: auto; color: var(--y); font-family: "Lilita One"; font-weight: 400; }
+  #plist .p.me { color: var(--y); }
+  #plist h4 { font: 400 15px "Lilita One"; color: rgba(255,255,255,.75); letter-spacing: .06em; }
+  #banner { position: absolute; left: 50%; top: 26%; transform: translate(-50%, -50%) scale(.6); opacity: 0; text-align: center; pointer-events: none; transition: transform .35s cubic-bezier(.2,1.6,.4,1), opacity .25s; width: 94vw; }
+  #banner.on { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  #banner .ic { width: 110px; height: 110px; margin: 0 auto 6px; filter: drop-shadow(0 6px 10px rgba(0,0,0,.4)); }
+  #banner .big { font: 400 clamp(40px, 8vw, 84px) "Lilita One"; color: #fff; -webkit-text-stroke: 3px #1b1036; paint-order: stroke fill; text-shadow: 0 6px 0 #a11d2e, 0 10px 30px rgba(0,0,0,.5); line-height: 1; }
+  #banner .warn { font: 400 clamp(20px, 3.4vw, 30px) "Lilita One"; color: var(--y); -webkit-text-stroke: 2px #1b1036; paint-order: stroke fill; letter-spacing: .1em; }
+  #banner .small { font: 800 clamp(16px, 2.4vw, 22px) "Nunito"; margin-top: 8px; text-shadow: 0 2px 8px rgba(0,0,0,.8); }
+  #toasts { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
+  .toast { font: 400 22px "Lilita One"; padding: 8px 18px; border-radius: 14px; background: var(--glass); border: 2px solid var(--line); animation: toast 2.8s forwards; text-align: center; }
+  .toast.hot { color: #ffb000; } .toast.good { color: var(--g); } .toast.bad { color: #ff6b81; }
+  @keyframes toast { 0% { opacity: 0; transform: translateY(14px) scale(.9); } 10% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-10px); } }
+  #flash { position: fixed; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, transparent 45%, rgba(255,30,60,.65)); }
+  #frost { position: fixed; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, transparent 40%, rgba(220,240,255,.85)); }
+  #acidV { position: fixed; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, transparent 45%, rgba(140,255,60,.5)); }
+  #lobbyBar { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; gap: 10px; }
+  #spec { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; padding: 8px; }
+  #spec .who { font: 400 22px "Lilita One"; min-width: 200px; text-align: center; }
+  #out { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; }
+  #out .big { font: 400 clamp(46px, 9vw, 90px) "Lilita One"; color: #ff4d6d; -webkit-text-stroke: 3px #1b1036; paint-order: stroke fill; text-shadow: 0 6px 0 #6a1b3d; }
+  #out .small { font: 800 20px "Nunito"; text-shadow: 0 2px 8px rgba(0,0,0,.8); }
+  #results { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 22px 26px; text-align: center; width: min(460px, 92vw); }
+  #results h2 { font: 400 40px "Lilita One"; color: var(--y); }
+  #results .list { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 14px 0; max-height: 30vh; overflow: auto; }
+  #results .list span { background: rgba(255,255,255,.12); border-radius: 10px; padding: 6px 12px; font-weight: 900; }
+  #results .list span.me { background: var(--y); color: #3a2400; }
+  #results .reward { font: 400 26px "Lilita One"; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  #results .reward i { width: 34px; height: 34px; }
+
+  /* touch */
+  #joy { position: absolute; left: max(22px, env(safe-area-inset-left)); bottom: 26px; width: 150px; height: 150px; border-radius: 50%; background: rgba(255,255,255,.14); border: 3px solid rgba(255,255,255,.35); display: none; touch-action: none; }
+  #joy .knob { position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px; border-radius: 50%; background: rgba(255,255,255,.75); box-shadow: 0 4px 10px rgba(0,0,0,.3); }
+  #jumpBtn { position: absolute; right: max(26px, env(safe-area-inset-right)); bottom: 34px; width: 112px; height: 112px; border-radius: 50%; background: linear-gradient(180deg, #ffa25c, #ff5a1f); border: 4px solid rgba(255,255,255,.6); box-shadow: 0 6px 0 #a8360c; display: none; padding: 24px; touch-action: none; }
+  body.touch #joy, body.touch #jumpBtn { display: block; }
+  body.touch #toasts { bottom: 200px; }
+  body.touch #lobbyBar, body.touch #spec { bottom: 190px; }
+
+  /* modals */
+  .modal { position: fixed; inset: 0; display: none; place-items: center; background: rgba(10,4,30,.55); z-index: 20; }
+  .modal.on { display: grid; }
+  .modal .box { width: min(520px, 94vw); max-height: 92vh; overflow: auto; padding: 22px; display: flex; flex-direction: column; gap: 14px; }
+  .modal h2 { font: 400 34px "Lilita One"; display: flex; align-items: center; gap: 10px; }
+  .modal h2 i { width: 40px; height: 40px; }
+  .modal h2 .x { margin-left: auto; }
+  .modal label { font-weight: 900; font-size: 14px; color: rgba(255,255,255,.8); display: block; margin-bottom: 6px; }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; }
+  .seg button { font: 400 17px "Lilita One"; color: #fff; background: rgba(255,255,255,.12); border: 2px solid var(--line); border-radius: 12px; padding: 8px 14px; cursor: pointer; }
+  .seg button.on { background: var(--y); color: #3a2400; border-color: var(--y); }
+  input[type=range] { width: 100%; accent-color: var(--y); }
+  .code { font: 400 52px "Lilita One"; letter-spacing: .14em; text-align: center; color: var(--y); background: rgba(0,0,0,.3); border-radius: 16px; padding: 6px; }
+  .members { display: flex; flex-direction: column; gap: 6px; }
+  .members div { background: rgba(255,255,255,.1); border-radius: 12px; padding: 8px 12px; font-weight: 900; display: flex; align-items: center; gap: 8px; }
+  .members div small { margin-left: auto; color: var(--y); font-family: "Lilita One"; font-weight: 400; font-size: 14px; }
+  .muted { color: rgba(255,255,255,.75); font-weight: 800; font-size: 14px; }
+  .err { color: #ff8fa3; font-weight: 900; min-height: 18px; }
+  .pauseBtns { display: flex; flex-direction: column; gap: 10px; }
+
+  /* locker */
+  #locker { position: fixed; left: 14px; top: 14px; bottom: 14px; width: min(440px, calc(100vw - 28px)); display: none; flex-direction: column; padding: 16px; gap: 10px; z-index: 15; }
+  #locker.on { display: flex; }
+  #locker .head { display: flex; align-items: center; gap: 10px; }
+  #locker .head h2 { font: 400 32px "Lilita One"; }
+  #locker .head .chip { margin-left: auto; }
+  .tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+  .tabs button { font: 400 16px "Lilita One"; color: rgba(255,255,255,.75); background: rgba(255,255,255,.08); border: 0; border-radius: 10px; padding: 8px 11px; cursor: pointer; }
+  .tabs button.on { background: var(--o); color: #fff; }
+  #items { flex: 1; overflow: auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; align-content: start; padding: 2px; }
+  .item { background: rgba(255,255,255,.1); border: 3px solid transparent; border-radius: 14px; padding: 10px 6px 8px; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 88px; justify-content: center; }
+  .item:hover { background: rgba(255,255,255,.17); }
+  .item.on { border-color: var(--y); background: rgba(255,210,63,.18); }
+  .item .nm { font: 400 16px "Lilita One"; line-height: 1.05; }
+  .item .pr { display: inline-flex; align-items: center; gap: 4px; font: 400 15px "Lilita One"; color: var(--y); }
+  .item .pr i { width: 18px; height: 18px; }
+  .item.locked .nm { color: rgba(255,255,255,.7); }
+  .item .owned { font-size: 12px; font-weight: 900; color: var(--g); }
+  .swatches { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+  .sw { aspect-ratio: 1; border-radius: 50%; border: 3px solid rgba(0,0,0,.35); cursor: pointer; }
+  .sw.on { border-color: #fff; box-shadow: 0 0 0 3px var(--y); }
+  .colors { display: flex; flex-direction: column; gap: 12px; grid-column: 1 / -1; }
+  /* the party panel (always there in the menu and the lobby, like in the other B10GAMES) */
+  #partyMini { position: fixed; left: 18px; bottom: 18px; width: min(310px, 42vw); padding: 14px; display: flex; flex-direction: column; gap: 8px; z-index: 12; }
+  #partyMini h3 { font: 400 24px "Lilita One"; display: flex; align-items: center; gap: 8px; }
+  #partyMini h3 i { width: 30px; height: 30px; display: inline-block; }
+  #partyMini h3 b { margin-left: auto; color: var(--y); font-weight: 400; letter-spacing: .1em; }
+  #pmList { display: flex; flex-direction: column; gap: 4px; }
+  #pmList div { background: rgba(255,255,255,.1); border-radius: 10px; padding: 6px 10px; font-weight: 900; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  #pmList div .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  #pmList div small { margin-left: auto; color: var(--y); font: 400 13px "Lilita One"; }
+  #partyMini .row2 { display: flex; gap: 8px; }
+  #partyMini .row2 .btn { flex: 1; font-size: 16px; padding: 9px 10px; }
+  #pmMsg { font-size: 13px; }
+  body.ingame #partyMini { top: 108px; bottom: auto; width: 250px; padding: 10px; }
+  body.ingame #partyMini h3 { font-size: 20px; }
+  @media (max-width: 760px) { body.ingame #partyMini { display: none; } #partyMini { width: calc(100vw - 36px); } #title .hint { display: none; } }
+  #lockerSpin { position: fixed; right: 18px; bottom: 18px; font-weight: 900; color: rgba(255,255,255,.85); text-shadow: 0 2px 6px rgba(0,0,0,.6); display: none; z-index: 14; }
+  #lockerSpin.on { display: block; }
+
+  @media (max-width: 760px) {
+    #phase { top: 70px; min-width: 0; padding: 6px 16px; } #phase .n { font-size: 30px; }
+    .bars { min-width: 160px; }
+    #plist { display: none; }
+    #locker { top: auto; height: 56vh; left: 8px; right: 8px; width: auto; bottom: 8px; }
+    #items { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-height: 520px) { #title .center { gap: 12px; } .logo.huge { font-size: 60px; } }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="boot" class="screen on">
+  <div class="wrap">
+    <div class="logo huge"><b>BEAN</b><span>DISASTER</span></div>
+    <div class="bar"><i id="bootBar"></i></div>
+    <p id="bootText">Building Bean Town...</p>
+  </div>
+</div>
+
+<div id="title" class="screen">
+  <div class="tl"><a class="home glass" href="/"><i data-ic="home"></i>B10GAMES</a></div>
+  <div class="tr"><div id="partyChip" class="chip glass hidden"></div><div class="chip glass"><i data-ic="coin"></i><span class="coinN">0</span></div></div>
+  <div class="center">
+    <div class="logo huge"><b>BEAN</b><span>DISASTER</span></div>
+    <div class="sub">Survive the disasters. Save your bean.</div>
+    <button class="btn orange big" id="playBtn"><i data-ic="play"></i>PLAY</button>
+    <div class="row">
+      <button class="btn pink" id="lockerBtn"><i data-ic="locker"></i>LOCKER</button>
+      <button class="btn blue" id="partyBtn"><i data-ic="party"></i>PARTY</button>
+      <button class="btn ghost" id="setBtn"><i data-ic="gear"></i>SETTINGS</button>
+    </div>
+  </div>
+  <div class="hint" id="titleHint">WASD or arrows to move, SPACE to jump, drag or click to look around</div>
+</div>
+
+<div id="hud" class="screen">
+  <div class="tl">
+    <button class="btn ghost ib" id="menuBtn" aria-label="Menu"><i data-ic="menu" style="width:100%;height:100%"></i></button>
+    <div class="bars glass">
+      <div class="barRow" id="hpRow"><i data-ic="heart"></i><div class="bar" id="hpBar"><b></b></div><span id="hpN">100</span></div>
+      <div class="barRow hidden" id="stRow"><i data-ic="drop"></i><div class="bar" id="stBar"><b></b></div><span></span></div>
+      <div class="barRow hidden" id="coRow"><i data-ic="snow"></i><div class="bar" id="coBar"><b></b></div><span></span></div>
+    </div>
+  </div>
+  <div id="phase" class="glass"><div class="t" id="phaseT">NEXT ROUND</div><div class="n" id="phaseN">0:15</div></div>
+  <div class="tr">
+    <div class="chip glass"><i data-ic="coin"></i><span class="coinN">0</span></div>
+    <div class="chip glass" id="aliveChip"><i data-ic="bean"></i><span id="aliveN">0</span></div>
+    <div id="plist" class="glass"></div>
+  </div>
+  <div id="banner"><div class="ic" id="bannerIc"></div><div class="warn" id="bannerWarn"></div><div class="big" id="bannerBig"></div><div class="small" id="bannerSmall"></div></div>
+  <div id="out" class="hidden"><div class="big">YOU'RE OUT!</div><div class="small" id="outWhy"></div></div>
+  <div id="results" class="glass hidden"><h2 id="resT">SURVIVORS</h2><div class="list" id="resList"></div><div class="reward" id="resReward"></div></div>
+  <div id="lobbyBar" class="hidden"><button class="btn pink" id="lockerBtn2"><i data-ic="locker"></i>LOCKER</button></div>
+  <div id="spec" class="glass hidden"><button class="btn ghost ib" id="specPrev"><i data-ic="left" style="width:100%;height:100%"></i></button><div class="who" id="specWho"></div><button class="btn ghost ib" id="specNext"><i data-ic="right" style="width:100%;height:100%"></i></button><button class="btn yellow" id="specStop">LOBBY</button></div>
+  <div id="toasts"></div>
+  <div id="joy"><div class="knob"></div></div>
+  <div id="jumpBtn" data-ic="jump"></div>
+</div>
+<div id="flash"></div><div id="frost"></div><div id="acidV"></div>
+
+<div id="locker" class="glass">
+  <div class="head"><h2>LOCKER</h2><div class="chip"><i data-ic="coin"></i><span class="coinN">0</span></div><button class="btn ghost ib" id="lockerClose" aria-label="Close"><i data-ic="close" style="width:100%;height:100%"></i></button></div>
+  <div class="tabs" id="tabs"></div>
+  <div id="items"></div>
+</div>
+<div id="lockerSpin">Drag to spin your bean</div>
+
+<div id="partyMini" class="glass hidden">
+  <h3><i data-ic="party"></i>PARTY <b id="pmCode"></b></h3>
+  <div id="pmList"></div>
+  <div class="row2" id="pmOut"><button class="btn blue" id="pmCreate">CREATE PARTY</button><button class="btn ghost" id="pmJoin">JOIN PARTY</button></div>
+  <div class="row2 hidden" id="pmIn"><button class="btn ghost" id="pmCopy">COPY CODE</button><button class="btn red" id="pmLeave">LEAVE</button></div>
+  <p class="muted" id="pmMsg"></p>
+</div>
+
+<div class="modal" id="partyM"><div class="box glass">
+  <h2><i data-ic="party"></i>PARTY<button class="btn ghost ib x" data-close aria-label="Close"><i data-ic="close" style="width:100%;height:100%"></i></button></h2>
+  <div id="partyOut">
+    <p class="muted">Play together with friends! One of you makes a party and the others type in the code. The party leader's game is the server: you all play the same rounds, and bots fill the empty spots.</p>
+    <div style="margin-top:14px"><button class="btn orange" id="pCreate" style="width:100%">MAKE A PARTY</button></div>
+    <div style="margin-top:14px"><label>Join with a code</label><div style="display:flex;gap:8px"><input class="txt" id="pCode" maxlength="6" placeholder="K7PX9Q" autocomplete="off" style="text-transform:uppercase;font-family:'Lilita One';font-size:24px;letter-spacing:.12em"><button class="btn blue" id="pJoin">JOIN</button></div></div>
+  </div>
+  <div id="partyIn" class="hidden">
+    <label>Party code (tell your friends)</label>
+    <div style="display:flex;gap:8px;align-items:stretch"><div class="code" id="pShow" style="flex:1"></div><button class="btn ghost ib" id="pCopy" aria-label="Copy" style="height:auto;width:64px"><i data-ic="copy" style="width:100%;height:100%"></i></button></div>
+    <div class="members" id="pMembers" style="margin-top:12px"></div>
+    <p class="muted" id="pNote" style="margin-top:8px"></p>
+    <button class="btn red" id="pLeave" style="margin-top:12px">LEAVE PARTY</button>
+  </div>
+  <div class="err" id="pErr"></div>
+</div></div>
+
+<div class="modal" id="setM"><div class="box glass">
+  <h2><i data-ic="gear"></i>SETTINGS<button class="btn ghost ib x" data-close aria-label="Close"><i data-ic="close" style="width:100%;height:100%"></i></button></h2>
+  <div><label>Your name</label><input class="txt" id="sName" maxlength="14" autocomplete="off"></div>
+  <div><label>Graphics</label><div class="seg" id="sQuality"><button data-v="high">High</button><button data-v="low">Fast</button><button data-v="ultra">Ultra Fast</button></div><p class="muted" style="margin-top:6px">Ultra Fast is for iPads and older computers. Changing it restarts the game.</p></div>
+  <div><label>Look-around speed</label><input type="range" id="sSens" min="0.3" max="2.5" step="0.1"></div>
+  <div><label>Music</label><input type="range" id="sMusic" min="0" max="1" step="0.05"></div>
+  <div><label>Sound effects</label><input type="range" id="sSfx" min="0" max="1" step="0.05"></div>
+</div></div>
+
+<div class="modal" id="pauseM"><div class="box glass">
+  <h2><i data-ic="menu"></i>MENU<button class="btn ghost ib x" data-close aria-label="Close"><i data-ic="close" style="width:100%;height:100%"></i></button></h2>
+  <div class="pauseBtns">
+    <button class="btn orange" data-close>KEEP PLAYING</button>
+    <button class="btn pink" id="mLocker"><i data-ic="locker"></i>LOCKER</button>
+    <button class="btn blue" id="mParty"><i data-ic="party"></i>PARTY</button>
+    <button class="btn ghost" id="mSet"><i data-ic="gear"></i>SETTINGS</button>
+    <button class="btn red" id="mQuit"><i data-ic="home"></i>LEAVE GAME</button>
+  </div>
+  <p class="muted" id="mStats"></p>
+</div></div>
+
+<script type="module" src="js/main.js"></script>
+<script src="/stats.js" data-game="bean-disaster" defer></script>
+<script src="/account.js" defer></script>
+</body>
+</html>

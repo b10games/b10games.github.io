@@ -34,6 +34,7 @@
   var MAX_VALUE = 150000;     // skip giant entries (worlds live in IndexedDB anyway)
 
   var GAMES = {
+    'bean-disaster': 'Bean Disaster',
     'powder-peak': 'Powder Peak',
     'crown-clash': 'Crown Clash',
     'beans-tower-defense': 'Beans Tower Defense',
@@ -50,7 +51,7 @@
     'yellow-circle-clicker': 'Yellow Circle Clicker'
   };
   // Games where friends can play together with a party code.
-  var PARTY = { 'b10games-wobble-': 'wobble-dash', 'b10games-apex-party-': 'apex-horizon', 'b10games-buttcraft-': 'buttcraft', 'b10games-btd-': 'beans-tower-defense', 'b10games-peak-': 'powder-peak' };
+  var PARTY = { 'b10games-wobble-': 'wobble-dash', 'b10games-apex-party-': 'apex-horizon', 'b10games-buttcraft-': 'buttcraft', 'b10games-btd-': 'beans-tower-defense', 'b10games-peak-': 'powder-peak', 'b10games-beandis-': 'bean-disaster' };
 
   // ---------- small helpers ----------
   function read(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
