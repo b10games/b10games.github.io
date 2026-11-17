@@ -299,8 +299,15 @@
   .mapcard p { min-height: 0; }
   .medals .inf { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; color: #d6a8ff; font-family: "Lilita One"; font-size: 15px; }
   .medals .inf svg { width: 26px; height: 26px; }
-  .diffgrid { grid-template-columns: repeat(3, 1fr); }
-  .infslot { grid-column: 3; }
+  .diffgrid { grid-template-columns: repeat(4, 1fr); }
+  .infslot { grid-column: 4; }
+  .diff.impcard { --dc: #ff2a2a; background: linear-gradient(180deg, rgba(120,12,22,.96), rgba(34,6,14,.97)); animation: impGlow 2.4s ease-in-out infinite; }
+  .diff.impcard h3 { color: #ff4a4a; display: flex; align-items: center; gap: 8px; text-shadow: 0 0 14px rgba(255,42,42,.65); }
+  .diff.impcard h3 svg { width: 32px; height: 32px; filter: drop-shadow(0 0 6px rgba(255,42,42,.7)); }
+  .diff.impcard .rows div { background: rgba(0,0,0,.32); }
+  @keyframes impGlow { 0%, 100% { box-shadow: 0 18px 50px rgba(0,0,0,.45), 0 0 0 0 rgba(255,42,42,0); } 50% { box-shadow: 0 18px 50px rgba(0,0,0,.45), 0 0 26px 2px rgba(255,42,42,.35); } }
+  .diff.impcard.on { animation: none; }
+  .medals .m.imp.won svg { filter: drop-shadow(0 0 4px rgba(255,42,42,.9)); }
   .diff.infcard { --dc: #b15cff; background: linear-gradient(180deg, rgba(90,30,140,.95), rgba(42,21,70,.95)); }
   .diff.infcard h3 { color: #c77dff; display: flex; align-items: center; gap: 8px; text-shadow: 0 0 14px rgba(177,92,255,.6); }
   .diff.infcard h3 svg { width: 34px; height: 34px; }
@@ -454,7 +461,7 @@
 <div id="shopScreen" class="screen">
   <div class="wrap">
     <div class="shoptop"><button class="btn ghost" id="shopBack"><i data-ic="back"></i>Back</button><h1>BEAN SHOP</h1><div class="coinchip big"><i data-ic="beancoin"></i><span class="coinCount">0</span></div></div>
-    <div class="sub">Earn Bean Coins by playing: Hard gives the most, Medium a bit less and Easy the least. Buy new beans and farms, and pick up to 7 beans for your team.</div>
+    <div class="sub">Earn Bean Coins by playing: Impossible gives the most, then Hard, Medium and Easy. Buy new beans and farms, and pick up to 7 beans for your team.</div>
     <h2 class="sh2"><i data-ic="team"></i>YOUR TEAM <span id="teamCount"></span></h2>
     <div id="teamBar"></div>
     <h2 class="sh2"><i data-ic="bean"></i>BEANS</h2>

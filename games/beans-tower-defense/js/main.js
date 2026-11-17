@@ -289,13 +289,13 @@ function closeBook() { modal('beanBook', false); if (book.view) book.view.stop()
 function renderMapSelect() {
   $('mapGrid').innerHTML = MAPS.map(m => {
     const pr = app.progress[m.id] || {}, best = app.save.best[m.id];
-    const medals = ['easy', 'medium', 'hard'].map(d => `<span class="m ${pr[d] ? 'won' : ''}" title="${DIFFS[d].name}${pr[d] ? ' cleared' : ''}">${icon('medal')}</span>`).join('');
+    const medals = ['easy', 'medium', 'hard', 'impossible'].map(d => `<span class="m ${d === 'impossible' ? 'imp' : ''} ${pr[d] ? 'won' : ''}" title="${DIFFS[d].name}${pr[d] ? ' cleared' : ''}">${icon(d === 'impossible' ? 'skull' : 'medal')}</span>`).join('');
     return `<div class="mapcard panel ${app.sel.map === m.id ? 'on' : ''}" data-id="${m.id}"><div class="thumb" style="background-image:url(${app.thumbs[m.id] || ''})"></div><span class="tag">${m.level}</span><span class="sel">${icon('check')}</span><h2>${m.name}</h2><p>${m.desc}</p><div class="medals">${medals}${best ? `<span class="inf">${icon('infinity')}${best}</span>` : ''}</div></div>`;
   }).join('');
   const d = DIFFS[app.sel.diff];
-  const diffCard = x => `<div class="diff panel ${app.sel.diff === x.id ? 'on' : ''} ${x.infinite ? 'infcard' : ''}" data-id="${x.id}" style="--dc:${x.color}"><h3>${x.infinite ? icon('infinity') : ''}${x.infinite ? 'INFINITY MODE' : x.name.toUpperCase()}</h3>
-    ${x.infinite ? `<p>${x.desc}</p>` : `<div class="rows"><div>${icon('heart')}${x.lives}<small>LIVES</small></div><div>${icon('coin')}${x.money}<small>MONEY</small></div><div>${icon('beancoin')}x${x.coins}<small>COINS</small></div></div><p>${x.desc}</p>`}</div>`;
-  $('diffGrid').innerHTML = ['easy', 'medium', 'hard'].map(k => diffCard(DIFFS[k])).join('') + `<div class="infslot">${diffCard(DIFFS.infinity)}</div>`;
+  const diffCard = x => `<div class="diff panel ${app.sel.diff === x.id ? 'on' : ''} ${x.infinite ? 'infcard' : ''} ${x.oneLife ? 'impcard' : ''}" data-id="${x.id}" style="--dc:${x.color}"><h3>${x.infinite ? icon('infinity') : x.oneLife ? icon('skull') : ''}${x.infinite ? 'INFINITY MODE' : x.name.toUpperCase()}</h3>
+    ${x.infinite ? `<p>${x.desc}</p>` : `<div class="rows"><div>${icon('heart')}${x.lives}<small>${x.lives === 1 ? 'LIFE' : 'LIVES'}</small></div><div>${icon('coin')}${x.money}<small>MONEY</small></div><div>${icon('beancoin')}x${x.coins}<small>COINS</small></div></div><p>${x.desc}</p>`}</div>`;
+  $('diffGrid').innerHTML = ['easy', 'medium', 'hard', 'impossible'].map(k => diffCard(DIFFS[k])).join('') + `<div class="infslot">${diffCard(DIFFS.infinity)}</div>`;
   $('roundSeg').innerHTML = ROUND_OPTIONS.map(r => `<button data-v="${r}" class="${app.sel.rounds === r ? 'on' : ''}">${r}</button>`).join('');
   $('roundRow').classList.toggle('off', !!d.infinite);
   $('mapGrid').querySelectorAll('.mapcard').forEach(el => el.addEventListener('click', () => { app.sel.map = el.dataset.id; app.audio.sfx('select'); renderMapSelect(); }));
@@ -601,6 +601,7 @@ function startGame(mapId = app.sel.map, diffId = app.sel.diff, rounds = app.sel.
     app.audio.play(MUSIC.game);
     if (mp) app.ui.banner(mp.snap ? 'YOU JOINED!' : 'PARTY GAME!', `${MAP[mapId].name} · ${diff.name} · ${g.players.length} players · balloons have ${g.mul}X life · everyone has their own money`, 3.4);
     else if (run) app.ui.banner('WELCOME BACK!', `${MAP[mapId].name} · ${diff.name} · wave ${g.cleared + 1}${diff.infinite ? '' : ' of ' + rounds} · press START WAVE`, 3.2);
+    else if (diff.oneLife) app.ui.banner('IMPOSSIBLE', `${MAP[mapId].name} · ${rounds} waves · ONE balloon gets through and you lose. Good luck!`, 3.6);
     else app.ui.banner(MAP[mapId].name.toUpperCase(), `${diff.name} · ${diff.infinite ? 'endless waves' : rounds + ' waves'} · place some beans, then press START WAVE`, 3.2);
   }, 40);
 }

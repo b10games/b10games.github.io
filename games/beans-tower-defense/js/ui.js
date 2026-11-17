@@ -14,7 +14,7 @@ export class UI {
   // ---------- setup for a new game ----------
   start(game, team, farms) {
     const d = game.diff;
-    $('diffBadge').innerHTML = `<span style="color:${d.color}">${d.infinite ? icon('infinity') : ''}${d.name.toUpperCase()}</span>`;
+    $('diffBadge').innerHTML = `<span style="color:${d.color}">${d.infinite ? icon('infinity') : d.oneLife ? icon('skull') : ''}${d.name.toUpperCase()}</span>`;
     const list = $('beanList'); list.innerHTML = '';
     const card = (def, i, farm) => {
       const el = document.createElement('div'); el.className = 'bcard' + (farm ? ' farmcard' : ''); el.dataset.id = def.id; el.dataset.farm = farm ? 1 : 0;

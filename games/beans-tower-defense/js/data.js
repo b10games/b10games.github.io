@@ -12,7 +12,13 @@ export const DIFFS = {
   medium: { id: 'medium', name: 'Medium', lives: 110, money: 560, rounds: 40, speed: 1.0, hp: 1.25, count: 1.15, cost: 0.85, cash: 0.93, coins: 2.1, color: '#ffd23f',
     desc: 'Lots of strong balloons and less money. More Bean Coins.' },
   hard: { id: 'hard', name: 'Hard', lives: 65, money: 500, rounds: 50, speed: 1.08, hp: 1.45, count: 1.35, cost: 0.85, cash: 0.87, coins: 3.1, color: '#ff4d6d',
-    desc: 'Fast, tough balloons in huge groups and little money. Beatable, but only with a good plan. Most Bean Coins.' },
+    desc: 'Fast, tough balloons in huge groups and little money. Beatable, but only with a good plan. Lots of Bean Coins.' },
+  // Impossible: one life (a single balloon that gets through ends the game). The balloons are faster, tougher and
+  // come in bigger groups than on Hard, with less money, and from wave 25 they keep getting tougher.
+  // Test bot: with one life it lost on wave 5 to 17 every time; even with endless lives it let balloons through
+  // in 8 to 12 waves (always the bosses of waves 30, 40 and 50).
+  impossible: { id: 'impossible', name: 'Impossible', lives: 1, money: 450, rounds: 60, speed: 1.18, hp: 1.75, count: 1.55, cost: 0.85, cash: 0.82, coins: 5.5, grow: 0.04, color: '#ff2a2a', oneLife: true,
+    desc: 'ONE balloon gets through and you lose. The fastest, toughest balloons and the least money. Most Bean Coins.' },
   infinity: { id: 'infinity', name: 'Infinity', lives: 65, money: 500, rounds: Infinity, speed: 1.08, hp: 1.45, count: 1.35, cost: 0.85, cash: 0.87, coins: 3.6, color: '#b15cff', infinite: true,
     desc: 'Endless waves. From wave 30 they get much tougher every single wave. How far can you get?' }
 };
@@ -260,8 +266,10 @@ export function waveInfo(w, rounds) { return { boss: w % 10 === 0 || w === round
 export function waveScale(w, diff) {
   // Infinity: from wave 30 the balloons get a lot tougher every wave (more life, not just more balloons,
   // because more balloons would also mean more money)
-  const mid = Math.max(0, w - 20), late = diff.infinite ? Math.max(0, w - 30) : 0;
-  return { hp: diff.hp * (1 + mid * 0.04) * (1 + late * 0.09) * Math.pow(1.025, late), speed: diff.speed * Math.min(1.35, 1 + mid * 0.006) * Math.min(1.6, 1 + late * 0.012), count: diff.count * Math.min(4, Math.pow(1.025, late)) };
+  // Impossible (grow): from wave 25 the tough balloons and bosses get tougher and everything a bit faster every
+  // wave, so it never gets easy (tougher, not more: more balloons would also mean more money)
+  const mid = Math.max(0, w - 20), late = diff.infinite ? Math.max(0, w - 30) : 0, grow = Math.max(0, w - 25) * (diff.grow || 0);
+  return { hp: diff.hp * (1 + mid * 0.04) * (1 + late * 0.09) * Math.pow(1.025, late) * (1 + grow), speed: diff.speed * Math.min(1.35, 1 + mid * 0.006) * Math.min(1.6, 1 + late * 0.012) * Math.min(1.15, 1 + grow * 0.15), count: diff.count * Math.min(4, Math.pow(1.025, late)) };
 }
 export function makeWave(w, diff, rounds) {
   const groups = [], sc = waveScale(w, diff), info = waveInfo(w, rounds);
