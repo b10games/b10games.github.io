@@ -60,6 +60,7 @@ export class Sound {
       case 'land': this.noiseHit(500, 0.6, Math.min(0.55, 0.15 + k * 0.4), 0.28); this.tone(90, Math.min(0.4, 0.1 + k * 0.3), 0.2, 'sine', 0, 0.6); break;
       case 'trick': [0, 4, 7, 12].forEach((n, i) => this.tone(523 * Math.pow(2, n / 12), 0.09, 0.22, 'triangle', i * 0.06)); break;
       case 'big': [0, 4, 7, 12, 16].forEach((n, i) => this.tone(523 * Math.pow(2, n / 12), 0.1, 0.3, 'triangle', i * 0.07)); break;
+      case 'grab': this.noiseHit(2600, 1.2, 0.07, 0.12, 'bandpass'); this.tone(330, 0.04, 0.08, 'triangle', 0, 1.3); break;
       case 'bail': this.noiseHit(300, 0.5, 0.5, 0.5); this.noiseHit(1200, 0.8, 0.2, 0.3, 'bandpass', 0.1); break;
       case 'gate': this.tone(1046, 0.12, 0.25, 'sine'); this.tone(1568, 0.08, 0.3, 'sine', 0.08); break;
       case 'beep': this.tone(660, 0.14, 0.15, 'square'); break;

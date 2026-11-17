@@ -155,6 +155,12 @@ export class World {
     this.all = this.all.filter(x => x !== c); this.dyn = this.dyn.filter(x => x !== c);
     this.cells.forEach(list => { const i = list.indexOf(c); if (i >= 0) list.splice(i, 1); });
   }
+  // throw away a whole set of colliders at once (when the map changes)
+  removeMany(list) {
+    const gone = new Set(list);
+    this.all = this.all.filter(x => !gone.has(x)); this.dyn = this.dyn.filter(x => !gone.has(x));
+    for (const [k, l] of this.cells) { const keep = l.filter(x => !gone.has(x)); if (keep.length) this.cells.set(k, keep); else this.cells.delete(k); }
+  }
   sync() { for (const c of this.dyn) c.sync(false); }
   // colliders near a point (the ground is always included)
   near(p, r, out) {

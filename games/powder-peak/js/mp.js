@@ -13,7 +13,7 @@ export function packState(ctrl, P, extra) {
   const p = ctrl.p, q = ctrl.quat, v = ctrl.v;
   const r = x => Math.round(x * 100) / 100, r3 = x => Math.round(x * 1000) / 1000;
   return [r(p.x), r(p.y), r(p.z), r3(q.x), r3(q.y), r3(q.z), r3(q.w), r(v.x), r(v.y), r(v.z),
-    r(P.crouch), r(P.edge), r(P.lean), r(P.air), r(P.flip), r(P.land), P.bail, r(P.brake), r(P.tuck), r(P.charge), r(P.speed), r(ctrl.pivot || 0), r(P.wobble), ctrl.state === 'lift' ? 1 : 0];
+    r(P.crouch), r(P.edge), r(P.lean), r(P.air), r(P.flip), r(P.land), P.bail, r(P.brake), r(P.tuck), r(P.charge), r(P.speed), r(ctrl.pivot || 0), r(P.wobble), ctrl.state === 'lift' ? 1 : 0, r(P.grab || 0), P.grabSide || 1];
 }
 
 export class Remotes {
@@ -55,7 +55,7 @@ export class Remotes {
       if (t > c.t) { const x = Math.min(0.25, (t - c.t) / 1000); _p.set(e[0] + e[7] * x, e[1] + e[8] * x, e[2] + e[9] * x); }
       _q.set(s[3], s[4], s[5], s[6]).slerp(new THREE.Quaternion(e[3], e[4], e[5], e[6]), k);
       const P = o.model.pose, L = (i) => s[i] + (e[i] - s[i]) * k;
-      P.crouch = L(10); P.edge = L(11); P.lean = L(12); P.air = L(13); P.flip = L(14); P.land = L(15); P.bail = e[16]; P.brake = L(17); P.tuck = L(18); P.charge = L(19); P.speed = L(20); P.wobble = L(22) || 0;
+      P.crouch = L(10); P.edge = L(11); P.lean = L(12); P.air = L(13); P.flip = L(14); P.land = L(15); P.bail = e[16]; P.brake = L(17); P.tuck = L(18); P.charge = L(19); P.speed = L(20); P.wobble = L(22) || 0; P.grab = L(24) || 0; P.grabSide = e[25] || 1;
       if (world) _p.y += world.drawnHeight(_p.x, _p.z) - world.height(_p.x, _p.z);   // on the snow you see
       o.model.place(_p, _q, L(21));
       o.model.update(dt);

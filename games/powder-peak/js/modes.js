@@ -17,7 +17,7 @@ function gateMesh(finish) {
     else { c.fillStyle = '#ffffff'; c.fillRect(0, 0, W, H); }
     c.fillStyle = finish ? '#ffd84a' : '#0b2a55'; c.font = '900 italic 46px "Barlow Condensed", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
     if (finish) { c.fillStyle = 'rgba(0,0,0,.65)'; c.fillRect(150, 6, 212, 52); c.fillStyle = '#ffd84a'; }
-    c.fillText(finish ? 'FINISH' : 'POWDER PEAK', W / 2, H / 2 + 2);
+    c.fillText(finish ? 'FINISH' : 'STEEP', W / 2, H / 2 + 2);
   });
   tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
   const bannerM = new THREE.MeshStandardMaterial({ color: '#ffffff', map: tex, roughness: 0.6, side: THREE.DoubleSide, emissive: '#ffffff', emissiveIntensity: 0.15, emissiveMap: tex });

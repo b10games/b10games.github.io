@@ -426,6 +426,74 @@ const COSTUMES = {
     const fist = new THREE.Group(); b.hand.add(fist);
     b.weapon = fist;
   },
+  sun(b) {
+    // a crown of sun rays, round sunglasses, and a little sun in the hand
+    const crown = new THREE.Group(); crown.position.y = -0.06; b.top.add(crown);
+    mesh(new THREE.TorusGeometry(0.3, 0.06, 8, 24), std('#ffb703', { emissive: '#ff8c00', ei: 0.6 }), 0, 0, 0, crown).rotation.x = Math.PI / 2;
+    const rays = [];
+    for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; const r = mesh(new THREE.ConeGeometry(0.06, 0.26, 6), glowM(i % 2 ? '#ffd23f' : '#ff8c42', 0.9), Math.cos(a) * 0.36, 0.08, Math.sin(a) * 0.36, crown); r.rotation.set(Math.sin(a) * 1.2, 0, -Math.cos(a) * 1.2); rays.push(r); }
+    b.extra.push((dt, t) => { crown.rotation.y = t * 0.6; });
+    for (const s of [-1, 1]) { const g = mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.03, 16), BLACK, 0.155 * s, 0.21, 0.47, b.pivot); g.rotation.x = Math.PI / 2; g.castShadow = false; }
+    mesh(new THREE.BoxGeometry(0.12, 0.025, 0.025), std('#ffd23f'), 0, 0.23, 0.49, b.pivot).castShadow = false;
+    const orb = new THREE.Group(); b.hand.add(orb); b.hand.rotation.x = 0.6;
+    mesh(new THREE.SphereGeometry(0.14, 16, 12), glowM('#ffd23f', 2.2), 0, 0.05, 0.14, orb);
+    const halo = mesh(new THREE.TorusGeometry(0.2, 0.025, 6, 20), glowM('#ff8c42', 1.5), 0, 0.05, 0.14, orb);
+    b.extra.push((dt, t) => { halo.rotation.x = t * 2; halo.rotation.y = t * 1.3; });
+    b.weapon = orb;
+  },
+  spike(b) {
+    // a spiky helmet, a bag of spikes on the back and a spike ball in the hand
+    const hat = new THREE.Group(); hat.position.y = -0.16; b.top.add(hat);
+    const dome = mesh(new THREE.SphereGeometry(0.52, 22, 12, 0, Math.PI * 2, 0, Math.PI / 2), metal(), 0, 0, 0, hat); dome.scale.y = 0.75;
+    for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2, r = i ? 0.3 : 0; const sp = mesh(new THREE.ConeGeometry(0.06, 0.24, 6), std('#e63946', { rough: 0.3 }), Math.cos(a) * r, i ? 0.3 : 0.45, Math.sin(a) * r, hat); sp.rotation.set(Math.sin(a) * 0.5 * (i ? 1 : 0), 0, -Math.cos(a) * 0.5 * (i ? 1 : 0)); }
+    const bag = mesh(new THREE.SphereGeometry(0.26, 14, 10), cloth('#6f4518'), 0, -0.05, -0.08, b.back); bag.scale.set(1, 1.15, 0.8);
+    for (let i = 0; i < 4; i++) mesh(new THREE.ConeGeometry(0.04, 0.16, 5), metal(), (i - 1.5) * 0.08, 0.25, -0.08, b.back);
+    const ball = new THREE.Group(); b.hand.add(ball);
+    mesh(new THREE.IcosahedronGeometry(0.11, 0), darkMetal(), 0, 0.02, 0.12, ball);
+    for (let i = 0; i < 8; i++) { const v = new THREE.Vector3(Math.sin(i * 2.4) * Math.cos(i), Math.cos(i * 2.4), Math.sin(i * 2.4) * Math.sin(i)).normalize(); const c = mesh(new THREE.ConeGeometry(0.03, 0.12, 5), metal(), v.x * 0.13, 0.02 + v.y * 0.13, 0.12 + v.z * 0.13, ball); c.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), v); }
+    b.weapon = ball;
+  },
+  ghost(b) {
+    // a see-through ghost hood with a wavy hem, and a glowing green lantern
+    const hood = mesh(new THREE.SphereGeometry(0.58, 24, 14, 0, Math.PI * 2, 0, Math.PI * 0.62), new THREE.MeshStandardMaterial({ color: '#f8f9fa', transparent: true, opacity: 0.55, roughness: 0.4, emissive: '#c8b6ff', emissiveIntensity: 0.35, side: THREE.DoubleSide }), 0, -0.25, -0.02, b.top);
+    hood.scale.set(1, 1.05, 1); hood.castShadow = false;
+    const hem = []; for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; if (Math.sin(a) > 0.55) continue; const h = mesh(new THREE.SphereGeometry(0.1, 8, 6), hood.material, Math.cos(a) * 0.52, -0.62, Math.sin(a) * 0.52, b.top); h.castShadow = false; hem.push(h); }
+    b.extra.push((dt, t) => { hem.forEach((h, i) => { h.position.y = -0.62 + Math.sin(t * 4 + i) * 0.04; }); hood.position.y = -0.25 + Math.sin(t * 2) * 0.02; });
+    const lan = new THREE.Group(); b.hand.add(lan); b.hand.rotation.x = 0.3;
+    mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.2, 8), new THREE.MeshStandardMaterial({ color: '#7bd389', emissive: '#7bd389', emissiveIntensity: 1.8, transparent: true, opacity: 0.85 }), 0, -0.02, 0.1, lan);
+    mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.04, 8), darkMetal(), 0, 0.1, 0.1, lan); mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.04, 8), darkMetal(), 0, -0.13, 0.1, lan);
+    mesh(new THREE.TorusGeometry(0.06, 0.012, 6, 12), darkMetal(), 0, 0.16, 0.1, lan);
+    b.weapon = lan;
+  },
+  meteor(b) {
+    // a dark blue star hood, and a glowing rock with hot cracks in the hand
+    const hat = new THREE.Group(); hat.position.y = -0.2; b.top.add(hat);
+    const cone = mesh(new THREE.ConeGeometry(0.5, 0.95, 20), cloth('#240046'), 0, 0.42, -0.04, hat); cone.rotation.x = -0.18;
+    mesh(new THREE.TorusGeometry(0.48, 0.06, 8, 26), std('#ffd23f'), 0, 0.02, 0, hat).rotation.x = Math.PI / 2;
+    for (let i = 0; i < 5; i++) { const a = i * 1.3; const st = mesh(new THREE.OctahedronGeometry(0.05), glowM('#fff3b0', 1.4), Math.cos(a) * 0.33, 0.3 + i * 0.1, Math.sin(a) * 0.33 - 0.02, hat); st.scale.z = 0.4; }
+    const rock = new THREE.Group(); b.hand.add(rock); b.hand.rotation.x = 0.6;
+    mesh(new THREE.DodecahedronGeometry(0.14, 0), std('#3a2a24', { emissive: '#ff5a1f', ei: 0.9, flat: true }), 0, 0.04, 0.14, rock);
+    const glow = mesh(new THREE.SphereGeometry(0.2, 10, 8), new THREE.MeshBasicMaterial({ color: '#ff8c42', transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }), 0, 0.04, 0.14, rock); glow.castShadow = false;
+    b.extra.push((dt, t) => { glow.scale.setScalar(1 + Math.sin(t * 5) * 0.15); rock.rotation.y = t; });
+    b.weapon = rock;
+  },
+  clock(b) {
+    // a top hat with a clock face, a monocle, and a golden pocket watch on a chain
+    const hat = new THREE.Group(); hat.position.y = -0.14; b.top.add(hat);
+    mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.05, 24), cloth('#14101c'), 0, 0, 0, hat);
+    mesh(new THREE.CylinderGeometry(0.32, 0.34, 0.55, 22), cloth('#14101c'), 0, 0.28, 0, hat);
+    mesh(new THREE.CylinderGeometry(0.345, 0.345, 0.08, 22), b.accMat, 0, 0.08, 0, hat);
+    const face = mesh(new THREE.CircleGeometry(0.17, 20), std('#fff8ee'), 0, 0.3, 0.335, hat); face.castShadow = false;
+    const hands = [0.12, 0.08].map((l, i) => { const h = mesh(new THREE.BoxGeometry(0.018, l, 0.01), BLACK, 0, 0.3, 0.34, hat); h.geometry.translate(0, l / 2, 0); h.castShadow = false; return h; });
+    b.extra.push((dt, t) => { hands[0].rotation.z = -t * 2; hands[1].rotation.z = -t * 0.17; });
+    const mono = mesh(new THREE.TorusGeometry(0.1, 0.018, 6, 18), gold(), 0.155, 0.2, 0.48, b.pivot); mono.castShadow = false;
+    const watch = new THREE.Group(); b.hand.add(watch); b.hand.rotation.x = 0.5;
+    const case_ = mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.05, 20), gold(), 0, -0.05, 0.12, watch); case_.rotation.x = Math.PI / 2;
+    mesh(new THREE.CircleGeometry(0.105, 18), std('#fff8ee'), 0, -0.05, 0.148, watch).castShadow = false;
+    const wh = mesh(new THREE.BoxGeometry(0.012, 0.08, 0.01), BLACK, 0, -0.05, 0.152, watch); wh.geometry.translate(0, 0.04, 0);
+    b.extra.push((dt, t) => { wh.rotation.z = -t * 3; watch.rotation.z = Math.sin(t * 2.5) * 0.25; });
+    b.weapon = watch;
+  },
   cannon(b) {
     // pirate hat, eye patch and a little cannon
     const hat = new THREE.Group(); hat.position.y = -0.1; b.top.add(hat);

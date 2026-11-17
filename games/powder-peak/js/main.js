@@ -1,4 +1,4 @@
-// Powder Peak: boot, the lobby, the game loop and the party (multiplayer) flow.
+// STEEP (made as Powder Peak): boot, the lobby, the game loop and the party (multiplayer) flow.
 import { THREE, createRenderer, applyQuality, clamp, lerp, damp } from './engine.js';
 import { World, DROPS, LOBBY, COURSES, TRICK_SPOTS } from './world.js';
 import { Rider, setRiderQuality } from './rider.js';
@@ -277,6 +277,7 @@ function onEvents() {
     else if (e.type === 'land') landed(e);
     else if (e.type === 'bail') { app.sound.sfx('bail'); app.fx.burst(r.p, 1); app.cam.shake = 0.8; }
     else if (e.type === 'hit') app.cam.shake = 1;
+    else if (e.type === 'grab') app.sound.sfx('grab');
   }
 }
 const _side = new THREE.Vector3();

@@ -1,19 +1,33 @@
-// Bean Town: the island where the disasters happen, and the floating lobby island above the sea.
+// The islands where the disasters happen (10 maps, a new one every few rounds), and the floating lobby
+// island above the sea (always the same).
 // Everything solid gets a collider. Static meshes are merged per material at the end so the iPad only
 // has to draw a few hundred things instead of thousands.
 // The bots get "spots": high places (floods, waves, lava), shelters (meteors, rain, lightning),
 // warm places (blizzard), each with a path of waypoints from the street.
+//
+// Bean Town is built right here; the other maps are built from the kit in maps.js. A map is swapped
+// while everyone waits in the lobby: its meshes and colliders are thrown away and the next one is built.
 import { THREE, M, canvasTex, clamp, smooth, rng } from './engine.js';
 import { Collider, Ground, World } from './physics.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { ARENAS, ARENA_LIST } from './maps.js';
 
 export const LAND = 2, SEA = 0;
 export const LOBBY = new THREE.Vector3(0, 92, 104);     // centre of the lobby island's floor
+// the current map's big hill (boulders roll down it in an earthquake); changed when the map changes
 export const HILL = { x: 46, z: -42, r: 26, h: 11 };
+const TOWN_HILL = { x: 46, z: -42, r: 26, h: 11 };
+// all the maps, in the order they are listed
+export const MAPS = [{ id: 'town', name: 'Bean Town', tip: 'The classic little island town.' }, ...ARENA_LIST];
+export const MAP = Object.fromEntries(MAPS.map(m => [m.id, m]));
 
 // ---------- the island's shape ----------
 function noise2(x, z) { return Math.sin(x * 0.11 + Math.sin(z * 0.07) * 2) * Math.cos(z * 0.09 + Math.sin(x * 0.05) * 1.5); }
-export function heightAt(x, z) {
+let H = townHeight;
+// the ground of the map that is loaded right now
+export function heightAt(x, z) { return H(x, z); }
+function townHeight(x, z) {
+  const HILL = TOWN_HILL;
   const r = Math.hypot(x, z);
   let h = LAND;
   // beach down into the sea
@@ -26,21 +40,33 @@ export function heightAt(x, z) {
   return h;
 }
 
-export function buildWorld(quality) {
-  const world = new World();
-  world.ground = new Ground(heightAt);
+// ---------- the kit: helpers that build things and give them colliders ----------
+function makeMats() {
+  const mat = {
+    wallA: M('#f4e1c1'), wallB: M('#cfe8ff'), wallC: M('#ffd6e0'), wallD: M('#d8f3dc'), wallE: M('#fff1b8'),
+    roofA: M('#d1495b', { rough: 0.6 }), roofB: M('#3d5a80', { rough: 0.6 }), roofC: M('#6a994e', { rough: 0.6 }), roofD: M('#8338ec', { rough: 0.6 }),
+    trim: M('#ffffff'), dark: M('#2b2d42'), door: M('#8d5524'), glass: M('#9ad1ff', { rough: 0.1, metal: 0.3, emissive: '#1d4e89', ei: 0.25 }),
+    concrete: M('#b8bcc4'), concrete2: M('#9aa1ab'), stone: M('#8a8f98', { flat: true }), wood: M('#a0673a'), woodDark: M('#6f4a2a'),
+    metal: M('#c9d1d9', { metal: 0.6, rough: 0.35 }), red: M('#e63946'), yellow: M('#ffd23f'), blue: M('#3a86ff'), green: M('#2a9d8f'), white: M('#f8f9fa'), black: M('#1b1b1f'),
+    trunk: M('#8b5a2b'), leaf: M('#4caf50', { flat: true }), leaf2: M('#2e7d32', { flat: true }), leaf3: M('#8bc34a', { flat: true }), pine: M('#2f6f3e', { flat: true }),
+    rock: M('#7d8597', { flat: true }), sand: M('#f2d49b'), lamp: M('#fff3b0', { emissive: '#ffe08a', ei: 0.8 }), tire: M('#2a2a2a', { rough: 0.9 }),
+    lighthouseW: M('#f8f9fa'), lighthouseR: M('#d62828'), grassTop: M('#7bd389'), soil: M('#7a5230', { flat: true })
+  };
+  return mat;
+}
+function makeKit(world, quality, tag = '') {
   const root = new THREE.Group();          // merged later
   const live = new THREE.Group();          // things that move or glow (not merged)
   const lo = quality !== 'high', ultra = quality === 'ultra';
   const R = rng(1234);
-
-  // ---------- helpers ----------
+  const cols = [];                         // every collider made with this kit (removed when the map changes)
+  const blocked = [];                      // footprints of buildings (trees keep out of them)
   const tmp = new THREE.Object3D();
   function place(o, x, y, z, ry = 0, rx = 0, rz = 0) { o.position.set(x, y, z); o.rotation.set(rx, ry, rz); return o; }
   function addMesh(geo, mat, x, y, z, ry = 0, rx = 0, rz = 0, cast = true) {
     const m = new THREE.Mesh(geo, mat); place(m, x, y, z, ry, rx, rz); m.castShadow = cast; m.receiveShadow = true; root.add(m); return m;
   }
-  function collide(shape, obj, o) { obj.updateWorldMatrix(true, false); return world.add(new Collider(shape, obj, o)); }
+  function collide(shape, obj, o) { obj.updateWorldMatrix(true, false); if (tag && !o.tag) o.tag = tag; const c = world.add(new Collider(shape, obj, o)); cols.push(c); return c; }
   // a box: centre (x, y, z), size (w, h, d)
   function box(x, y, z, w, h, d, mat, o = {}) {
     const m = addMesh(new THREE.BoxGeometry(w, h, d), mat, x, y, z, o.ry || 0, o.rx || 0, o.rz || 0, o.cast !== false);
@@ -84,21 +110,34 @@ export function buildWorld(quality) {
     return m;
   }
 
-  // ---------- materials ----------
-  const mat = {
-    wallA: M('#f4e1c1'), wallB: M('#cfe8ff'), wallC: M('#ffd6e0'), wallD: M('#d8f3dc'), wallE: M('#fff1b8'),
-    roofA: M('#d1495b', { rough: 0.6 }), roofB: M('#3d5a80', { rough: 0.6 }), roofC: M('#6a994e', { rough: 0.6 }), roofD: M('#8338ec', { rough: 0.6 }),
-    trim: M('#ffffff'), dark: M('#2b2d42'), door: M('#8d5524'), glass: M('#9ad1ff', { rough: 0.1, metal: 0.3, emissive: '#1d4e89', ei: 0.25 }),
-    concrete: M('#b8bcc4'), concrete2: M('#9aa1ab'), stone: M('#8a8f98', { flat: true }), wood: M('#a0673a'), woodDark: M('#6f4a2a'),
-    metal: M('#c9d1d9', { metal: 0.6, rough: 0.35 }), red: M('#e63946'), yellow: M('#ffd23f'), blue: M('#3a86ff'), green: M('#2a9d8f'), white: M('#f8f9fa'), black: M('#1b1b1f'),
-    trunk: M('#8b5a2b'), leaf: M('#4caf50', { flat: true }), leaf2: M('#2e7d32', { flat: true }), leaf3: M('#8bc34a', { flat: true }), pine: M('#2f6f3e', { flat: true }),
-    rock: M('#7d8597', { flat: true }), sand: M('#f2d49b'), lamp: M('#fff3b0', { emissive: '#ffe08a', ei: 0.8 }), tire: M('#2a2a2a', { rough: 0.9 }),
-    lighthouseW: M('#f8f9fa'), lighthouseR: M('#d62828'), grassTop: M('#7bd389'), soil: M('#7a5230', { flat: true })
-  };
+  const mat = makeMats();
+  return { world, root, live, lo, ultra, R, cols, blocked, mat, place, addMesh, collide, box, cyl, deco, wall, ramp, sign, V, LAND, SEA, M, canvasTex, smooth, clamp, rng, heightAt, quality };
+}
+// merge the static meshes of a kit per material
+function mergeKit(K) {
+  const { root, live, lo, ultra } = K;
+  root.updateMatrixWorld(true);
+  const groups = new Map();
+  root.traverse(o => { if (o.isMesh) { const k = o.material.uuid + (o.castShadow ? 'c' : 'n'); if (!groups.has(k)) groups.set(k, { mat: o.material, cast: o.castShadow, list: [] }); groups.get(k).list.push(o); } });
+  const merged = new THREE.Group();
+  for (const g of groups.values()) {
+    const geos = g.list.map(o => { let geo = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone(); geo.applyMatrix4(o.matrixWorld); for (const k of Object.keys(geo.attributes)) if (!['position', 'normal', 'uv'].includes(k)) geo.deleteAttribute(k); if (!geo.attributes.uv) geo.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(geo.attributes.position.count * 2), 2)); return geo; });
+    const mg = mergeGeometries(geos, false);
+    geos.forEach(x => x.dispose());
+    if (!mg) continue;
+    const m = new THREE.Mesh(mg, g.mat); m.castShadow = g.cast && !lo; m.receiveShadow = !ultra; merged.add(m);
+  }
+  root.traverse(o => { if (o.isMesh) o.geometry.dispose(); });
 
-  // ---------- ground ----------
+  const scene = new THREE.Group(); scene.add(merged, live);
+  if (lo) live.traverse(o => { if (o.isMesh) o.castShadow = false; });
+  return scene;
+}
+// the ground of a map: one big mesh following heightAt, with a painted picture
+function groundOf(K, painter) {
+  const { ultra, lo, live } = K;
   const TEX = ultra ? 512 : lo ? 1024 : 2048, SPAN = 230;
-  const groundTex = canvasTex(TEX, TEX, (g, W, Hh) => paintGround(g, W, SPAN));
+  const groundTex = canvasTex(TEX, TEX, (g, W) => painter(g, W, SPAN));
   groundTex.wrapS = groundTex.wrapT = THREE.ClampToEdgeWrapping;
   const seg = ultra ? 110 : lo ? 150 : 210;
   const gg = new THREE.PlaneGeometry(SPAN, SPAN, seg, seg); gg.rotateX(-Math.PI / 2);
@@ -107,8 +146,21 @@ export function buildWorld(quality) {
   gg.computeVertexNormals();
   const groundMesh = new THREE.Mesh(gg, new THREE.MeshStandardMaterial({ map: groundTex, roughness: 0.92 }));
   groundMesh.receiveShadow = true; live.add(groundMesh);
-  // sea floor further out
   const sf = new THREE.Mesh(new THREE.CircleGeometry(900, 48), M('#c8b27a', { rough: 1 })); sf.rotation.x = -Math.PI / 2; sf.position.y = -6; live.add(sf);
+  return { groundMesh, groundTex };
+}
+// spawn points around the middle of every map (the middle of every map is kept free)
+function mapSpawnsOf(V) {
+  const mapSpawns = []; for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2 + 0.26; mapSpawns.push(V(Math.sin(a) * (8 + (i % 2) * 3.5), LAND + 0.3, Math.cos(a) * (8 + (i % 2) * 3.5))); }
+  return mapSpawns;
+}
+
+// ================= BEAN TOWN =================
+function buildTown(K) {
+  const { world, root, live, R, lo, ultra, mat, place, addMesh, collide, box, cyl, deco, wall, ramp, sign, V } = K;
+  const HILL = TOWN_HILL;
+  // ---------- ground ----------
+  const { groundMesh, groundTex } = groundOf(K, paintGround);
 
   // ---------- roads, plaza, fountain ----------
   // the plaza fountain
@@ -376,6 +428,45 @@ export function buildWorld(quality) {
     const isl = new THREE.Mesh(new THREE.ConeGeometry(s, s * 0.7, 9), M('#6a8f4e', { flat: true })); isl.position.set(x, s * 0.2, z); live.add(isl);
   }
 
+  // ---------- where to go in each kind of disaster (for the bots) ----------
+  const spots = {
+    high: [
+      { name: 'office', path: ofPath, top: V(ofx, OF.top, ofz), y: OF.top, cap: 16, spread: 5 },
+      { name: 'lighthouse', path: lhPath.concat([lhTop]), top: lhTop, y: LH.top, cap: 6, spread: 1.2 },
+      { name: 'hill', path: [V(HILL.x - 14, LAND, HILL.z + 12), V(HILL.x - 3, LAND + 8, HILL.z + 2)], top: V(HILL.x, LAND + HILL.h, HILL.z), y: LAND + HILL.h, cap: 12, spread: 4 },
+      { name: 'mart', path: smPath, top: V(SM.x, LAND + SM.h + 0.3, SM.z), y: LAND + SM.h + 0.3, cap: 10, spread: 5 },
+      ...houses.map((h, i) => ({ name: 'roof' + i, path: h.climb, top: h.top, y: h.top.y, cap: 2, spread: 1.2 }))
+    ],
+    shelter: [
+      { name: 'office floor', path: [V(ofx, LAND, OF.z1 + 4)], top: V(ofx, LAND, ofz), cap: 14, spread: 5 },
+      { name: 'gas', path: [V(GS.x, LAND, GS.z + 7)], top: V(GS.x, LAND, GS.z), cap: 12, spread: 4 },
+      { name: 'mart', path: [smDoor], top: V(SM.x, LAND, SM.z - 2), cap: 12, spread: 6 },
+      { name: 'gazebo', path: [V(GZ.x + 6, LAND, GZ.z)], top: V(GZ.x, LAND, GZ.z), cap: 5, spread: 2 },
+      ...houses.map((h, i) => ({ name: 'house' + i, path: [h.door], top: h.inside, cap: 4, spread: 1.6 })),
+      ...busStops.map((b, i) => ({ name: 'bus' + i, path: [], top: b, cap: 2, spread: 1.2 }))
+    ],
+    warm: [
+      ...fires.map((f, i) => ({ name: 'fire' + i, path: [], top: V(f.x + 2, f.y, f.z), cap: 4, spread: 2, fire: f })),
+      ...houses.map((h, i) => ({ name: 'house' + i, path: [h.door], top: h.inside, cap: 4, spread: 1.6 }))
+    ]
+  };
+  // points that lightning likes (the tall ones)
+  const tallPoints = [V(LH.x, LH.top + 6, LH.z), V(ofx, OF.top, ofz), V(OF.x0 + 3.5, OF.top + 3, OF.z0 + 3.5), V(HILL.x, LAND + HILL.h + 6, HILL.z), V(SM.x, LAND + SM.h, SM.z)];
+
+  return {
+    spots, tallPoints, fires: fireLights, beam, volcano: { pos: VOLC, crater }, houses, buildings: [OF, SM], groundMesh, groundTex,
+    // the outlines of buildings (for falling debris in an earthquake)
+    edges: [
+      { x0: OF.x0, x1: OF.x1, z0: OF.z0, z1: OF.z1, y: OF.top }, { x0: SM.x - SM.w / 2, x1: SM.x + SM.w / 2, z0: SM.z - SM.d / 2, z1: SM.z + SM.d / 2, y: LAND + SM.h },
+      ...houses.map(h => ({ x0: h.inside.x - 4.8, x1: h.inside.x + 3.2, z0: h.inside.z - 3.5, z1: h.inside.z + 3.5, y: h.top.y }))
+    ]
+  };
+}
+
+// ================= THE LOBBY (always there) =================
+function buildLobby(world, quality) {
+  const K = makeKit(world, quality, 'lobby');
+  const { live, lo, mat, collide, wall, sign, V } = K;
   // ---------- the lobby island ----------
   const L = LOBBY, LR = 24;
   const lobbyTex = canvasTex(512, 512, (g, W) => {
@@ -474,60 +565,47 @@ export function buildWorld(quality) {
   const pad = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 0.08, 24), M('#ffd23f', { emissive: '#ffb703', ei: 0.5 })); pad.position.y = 0.04; booth.add(pad);
   // spawn points
   const lobbySpawns = []; for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; lobbySpawns.push(V(L.x + Math.sin(a) * 6, L.y + 0.2, L.z + Math.cos(a) * 6)); }
-  const mapSpawns = []; for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2 + 0.26; mapSpawns.push(V(Math.sin(a) * (8 + (i % 2) * 3.5), LAND + 0.3, Math.cos(a) * (8 + (i % 2) * 3.5))); }
-
-  // ---------- merge the static meshes per material ----------
-  root.updateMatrixWorld(true);
-  const groups = new Map();
-  root.traverse(o => { if (o.isMesh) { const k = o.material.uuid + (o.castShadow ? 'c' : 'n'); if (!groups.has(k)) groups.set(k, { mat: o.material, cast: o.castShadow, list: [] }); groups.get(k).list.push(o); } });
-  const merged = new THREE.Group();
-  for (const g of groups.values()) {
-    const geos = g.list.map(o => { let geo = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone(); geo.applyMatrix4(o.matrixWorld); for (const k of Object.keys(geo.attributes)) if (!['position', 'normal', 'uv'].includes(k)) geo.deleteAttribute(k); if (!geo.attributes.uv) geo.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(geo.attributes.position.count * 2), 2)); return geo; });
-    const mg = mergeGeometries(geos, false);
-    geos.forEach(x => x.dispose());
-    if (!mg) continue;
-    const m = new THREE.Mesh(mg, g.mat); m.castShadow = g.cast && !lo; m.receiveShadow = !ultra; merged.add(m);
-  }
-  root.traverse(o => { if (o.isMesh) o.geometry.dispose(); });
-
-  const scene = new THREE.Group(); scene.add(merged, live);
   if (lo) live.traverse(o => { if (o.isMesh) o.castShadow = false; });
-
-  // ---------- where to go in each kind of disaster (for the bots) ----------
-  const spots = {
-    high: [
-      { name: 'office', path: ofPath, top: V(ofx, OF.top, ofz), y: OF.top, cap: 16, spread: 5 },
-      { name: 'lighthouse', path: lhPath.concat([lhTop]), top: lhTop, y: LH.top, cap: 6, spread: 1.2 },
-      { name: 'hill', path: [V(HILL.x - 14, LAND, HILL.z + 12), V(HILL.x - 3, LAND + 8, HILL.z + 2)], top: V(HILL.x, LAND + HILL.h, HILL.z), y: LAND + HILL.h, cap: 12, spread: 4 },
-      { name: 'mart', path: smPath, top: V(SM.x, LAND + SM.h + 0.3, SM.z), y: LAND + SM.h + 0.3, cap: 10, spread: 5 },
-      ...houses.map((h, i) => ({ name: 'roof' + i, path: h.climb, top: h.top, y: h.top.y, cap: 2, spread: 1.2 }))
-    ],
-    shelter: [
-      { name: 'office floor', path: [V(ofx, LAND, OF.z1 + 4)], top: V(ofx, LAND, ofz), cap: 14, spread: 5 },
-      { name: 'gas', path: [V(GS.x, LAND, GS.z + 7)], top: V(GS.x, LAND, GS.z), cap: 12, spread: 4 },
-      { name: 'mart', path: [smDoor], top: V(SM.x, LAND, SM.z - 2), cap: 12, spread: 6 },
-      { name: 'gazebo', path: [V(GZ.x + 6, LAND, GZ.z)], top: V(GZ.x, LAND, GZ.z), cap: 5, spread: 2 },
-      ...houses.map((h, i) => ({ name: 'house' + i, path: [h.door], top: h.inside, cap: 4, spread: 1.6 })),
-      ...busStops.map((b, i) => ({ name: 'bus' + i, path: [], top: b, cap: 2, spread: 1.2 }))
-    ],
-    warm: [
-      ...fires.map((f, i) => ({ name: 'fire' + i, path: [], top: V(f.x + 2, f.y, f.z), cap: 4, spread: 2, fire: f })),
-      ...houses.map((h, i) => ({ name: 'house' + i, path: [h.door], top: h.inside, cap: 4, spread: 1.6 }))
-    ]
-  };
-  // points that lightning likes (the tall ones)
-  const tallPoints = [V(LH.x, LH.top + 6, LH.z), V(ofx, OF.top, ofz), V(OF.x0 + 3.5, OF.top + 3, OF.z0 + 3.5), V(HILL.x, LAND + HILL.h + 6, HILL.z), V(SM.x, LAND + SM.h, SM.z)];
-
-  return {
-    world, scene, groundMesh, groundTex, spots, tallPoints, mapSpawns, lobbySpawns, fires: fireLights, board, top, mush,
-    lockP, beam, volcano: { pos: VOLC, crater }, houses, buildings: [OF, SM],
-    // the outlines of buildings (for falling debris in an earthquake)
-    edges: [
-      { x0: OF.x0, x1: OF.x1, z0: OF.z0, z1: OF.z1, y: OF.top }, { x0: SM.x - SM.w / 2, x1: SM.x + SM.w / 2, z0: SM.z - SM.d / 2, z1: SM.z + SM.d / 2, y: LAND + SM.h },
-      ...houses.map(h => ({ x0: h.inside.x - 4.8, x1: h.inside.x + 3.2, z0: h.inside.z - 3.5, z1: h.inside.z + 3.5, y: h.top.y }))
-    ]
-  };
+  return { group: live, board, top, mush, lockP, lobbySpawns };
 }
+
+// ================= putting it together =================
+export function buildWorld(quality, mapId = 'town') {
+  const world = new World();
+  world.ground = new Ground(heightAt);
+  const lobby = buildLobby(world, quality);
+  const scene = new THREE.Group(); scene.add(lobby.group);
+  const map = { world, scene, id: null, arena: null, ...lobby };
+  // swap the island: throw the old one away and build the next
+  map.load = (id) => {
+    if (!MAP[id]) id = 'town';
+    if (map.arena) {
+      const old = map.arena;
+      scene.remove(old.group);
+      world.removeMany(old.cols);
+      // geometries and painted textures go; plain colours are shared (engine.js M caches them) and stay
+      const mats = new Set();
+      old.group.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if (m.map) mats.add(m); }); });
+      mats.forEach(m => { m.map.dispose(); if (m.emissiveMap && m.emissiveMap !== m.map) m.emissiveMap.dispose(); m.dispose(); });
+      map.arena = null;
+    }
+    const A = ARENAS[id];
+    H = A ? A.height : townHeight;
+    Object.assign(HILL, A ? A.hill : TOWN_HILL);
+    const K = makeKit(world, quality, '');
+    K.groundOf = (painter) => groundOf(K, painter);
+    const data = A ? A.build(K) : buildTown(K);
+    const group = mergeKit(K);
+    scene.add(group);
+    map.arena = { group, cols: K.cols };
+    map.id = id; map.name = MAP[id].name;
+    Object.assign(map, data, { mapSpawns: mapSpawnsOf(V3) });
+    return map;
+  };
+  map.load(mapId);
+  return map;
+}
+const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 
 function roundRect(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
 

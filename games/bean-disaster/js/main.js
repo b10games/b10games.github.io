@@ -5,7 +5,7 @@
 // Round: intermission (lobby, 15 s) -> prep (on the island, 8 s, the disaster is announced) ->
 //        disaster (60 s or until nobody is left) -> results (6 s) -> back to the lobby.
 import { THREE, createRenderer, makeWorldScene, clamp, lerp, damp, angDiff } from './engine.js';
-import { buildWorld, LOBBY, LAND, SEA, heightAt } from './map.js';
+import { buildWorld, LOBBY, LAND, SEA, heightAt, MAPS, MAP } from './map.js';
 import { Character, nameTag } from './character.js';
 import { Mover } from './mover.js';
 import { Env, makeDisaster, DISASTERS, DIS, DURATION } from './disasters.js';
@@ -51,7 +51,8 @@ let map, world, env, fx;
 const bodies = new Map();
 let me = null;
 const app = { state: 'boot', locker: false, spec: null, paused: false };
-const game = { phase: 'idle', phaseStart: 0, phaseDur: 0, round: 0, disId: null, seed: 0, disaster: null, host: true, ids: new Set(), wins: {}, spotCount: {}, recent: [], survivors: [], startT: 0 };
+const game = { phase: 'idle', phaseStart: 0, phaseDur: 0, round: 0, disId: null, seed: 0, disaster: null, host: true, ids: new Set(), wins: {}, spotCount: {}, recent: [], survivors: [], startT: 0, mapId: 'town', recentMaps: ['town'] };
+const mapName = () => (MAP[game.mapId] || MAPS[0]).name;
 if (TOUCH) document.body.classList.add('touch');
 
 // ============================== BEANS ==============================
@@ -198,8 +199,24 @@ function addCoins(n, why) { prof.coins += n; saveProf(); coinsUI(); if (why) toa
 // ============================== ROUNDS ==============================
 const now = () => net.now();
 const phaseTime = () => (now() - game.phaseStart) / 1000;
+// the next map: one that was not played in the last few rounds
+function pickMap() {
+  const pool = MAPS.filter(x => x.id !== game.mapId && !game.recentMaps.includes(x.id));
+  const p = pool[Math.floor(Math.random() * pool.length)] || MAPS[0];
+  game.recentMaps.push(p.id); if (game.recentMaps.length > 5) game.recentMaps.shift();
+  return p.id;
+}
+// swap the island (only while nobody is standing on it, or when joining a party)
+function loadMap(id) {
+  if (!MAP[id] || (map && map.id === id)) { game.mapId = id in MAP ? id : game.mapId; return; }
+  game.mapId = id;
+  if (!map) return;
+  map.load(id);
+  app.specOffered = false;
+}
 function hostPhase(ph, extra = {}) {
   const m = Object.assign({ t: 'phase', ph, start: now(), round: game.round }, extra);
+  m.map = ph === 'intermission' ? (extra.map ?? pickMap()) : game.mapId;
   if (ph === 'intermission') m.dur = extra.dur ?? TIMES.intermission;
   if (ph === 'prep') { m.dur = TIMES.prep; game.round++; m.round = game.round; }
   if (ph === 'disaster') { m.dur = DURATION; m.dis = game.disId; m.seed = game.seed; }
@@ -221,10 +238,13 @@ function applyPhase(m) {
   if (m.ph === 'intermission') {
     endDisaster();
     let i = 0; for (const b of bodies.values()) if (b.local && b.onMap) toLobby(b, i++);
+    // everyone is back in the lobby: build the next map now
+    if (m.map && m.map !== game.mapId) { loadMap(m.map); toast('Next map: ' + mapName() + '!', 'good'); }
     if (app.spec) stopSpec();
     audio.play(MUSIC.lobby);
   } else if (m.ph === 'prep') {
     endDisaster();
+    if (m.map && m.map !== game.mapId) loadMap(m.map);
     game.disId = m.dis; game.seed = m.seed; game.ids = new Set(m.ids || []); game.spotCount = {};
     let i = 0;
     for (const b of bodies.values()) {
@@ -232,10 +252,11 @@ function applyPhase(m) {
     }
     if (game.ids.has(myId)) {
       if (app.locker) closeLocker();
-      banner('GET READY!', 'Welcome to Bean Town. Something is about to happen...', { warn: 'ROUND ' + game.round, ms: 3000 });
+      banner('GET READY!', 'Welcome to ' + mapName() + '. Something is about to happen...', { warn: 'ROUND ' + game.round, ms: 3000 });
     } else if (me && !me.onMap) toast('Wait here for the next round!');
     audio.play(MUSIC.lobby);
   } else if (m.ph === 'disaster') {
+    if (m.map && m.map !== game.mapId) loadMap(m.map);
     game.disId = m.dis; game.seed = m.seed;
     startDisaster(m.dis, m.seed, phaseTime());
   } else if (m.ph === 'results') {
@@ -251,7 +272,7 @@ function startDisaster(id, seed, already = 0) {
   const d = game.disaster = makeDisaster(id, ctx, seed);
   d.start();
   // joined late: skip what already happened
-  if (already > 1) { while (d.evI < d.events.length && d.events[d.evI].t < already) d.evI++; if (d.jolts) d.jolts.forEach(j => { if (j.t < already) j.done = true; }); if (d.boulders) d.boulders.forEach(b => { if (b.at < already) { b.started = true; b.life = 0; } }); }
+  if (already > 1) { while (d.evI < d.events.length && d.events[d.evI].t < already) d.evI++; if (d.jolts) d.jolts.forEach(j => { if (j.t < already) j.done = true; }); if (d.boulders) d.boulders.forEach(b => { if (b.at < already) { b.started = true; b.life = 0; } }); for (const k of ['junkEv', 'cracks', 'hail', 'geysers', 'blobs']) { const L = d[k]; if (L) while (L.i < L.length && L[L.i].t < already) L.i++; } }
   atmos.set(DIS[id].mood);
   const def = DIS[id];
   banner(def.name, def.tip, { warn: 'WARNING!', icon: def.icon, ms: 3600 });
@@ -529,8 +550,8 @@ function renderPlist() {
 function drawBoard() {
   const t = phaseTime(), ph = game.phase;
   if (ph === 'idle') map.board.draw('BEAN DISASTER', 'HI!', net.code && !game.host ? 'Waiting for the party leader' : 'Press PLAY to start');
-  else if (ph === 'intermission') map.board.draw('NEXT ROUND IN', String(Math.max(0, Math.ceil(game.phaseDur - t))), `${bodies.size} beans in the lobby`);
-  else if (ph === 'prep') map.board.draw('ROUND ' + game.round, 'GO!', 'The beans are in Bean Town');
+  else if (ph === 'intermission') map.board.draw('NEXT ROUND IN', String(Math.max(0, Math.ceil(game.phaseDur - t))), 'Next map: ' + mapName());
+  else if (ph === 'prep') map.board.draw('ROUND ' + game.round, 'GO!', 'The beans are in ' + mapName());
   else if (ph === 'disaster') { const d = DIS[game.disId]; map.board.draw(d.name, String(Math.max(0, Math.ceil(DURATION - t))), [...bodies.values()].filter(b => b.alive && b.onMap).length + ' beans still standing'); }
   else if (ph === 'results') map.board.draw('ROUND OVER', String(game.survivors.length), game.survivors.length === 1 ? 'survivor' : 'survivors');
 }
@@ -636,7 +657,7 @@ function renderPartyMini() {
   $('pmOut').classList.toggle('hidden', inP); $('pmIn').classList.toggle('hidden', !inP);
   const list = inP ? net.list() : [{ id: myId, name: prof.name, leader: true }];
   $('pmList').innerHTML = list.map(p => { const b = bodies.get(p.id); return `<div><span class="dot" style="background:${b ? b.color : '#ffd23f'}"></span>${esc(p.name)}${p.id === myId ? ' (you)' : ''}<small>${inP && p.leader ? 'LEADER' : ''}</small></div>`; }).join('');
-  $('pmMsg').textContent = inP ? (net.leader ? `Friends type the code ${net.code} to join. ${net.members.size} / 10 players.` : 'You are in your friend\'s Bean Town.') : 'Play with friends: make a party and send them the code.';
+  $('pmMsg').textContent = inP ? (net.leader ? `Friends type the code ${net.code} to join. ${net.members.size} / 10 players.` : 'You are on your friend\'s island.') : 'Play with friends: make a party and send them the code.';
 }
 $('pmCreate').onclick = () => $('pCreate').onclick();
 $('pmJoin').onclick = () => { renderParty(); modal('partyM', true); setTimeout(() => $('pCode').focus(), 50); };
@@ -663,7 +684,7 @@ function renderParty() {
   if (inP) {
     $('pShow').textContent = net.code;
     $('pMembers').innerHTML = net.list().map(p => `<div>${icon('user').replace('<svg', '<i style="width:26px;height:26px;display:inline-block"><svg').replace('</svg>', '</svg></i>')}${esc(p.name)}${p.id === myId ? ' (you)' : ''}<small>${p.leader ? 'LEADER' : ''}</small></div>`).join('');
-    $('pNote').textContent = net.leader ? 'You run the rounds for everyone. Bots fill the empty spots.' : 'The party leader runs the rounds. You play in their Bean Town.';
+    $('pNote').textContent = net.leader ? 'You run the rounds for everyone. Bots fill the empty spots.' : 'The party leader runs the rounds. You play on their island.';
   }
   renderTitle();
 }
@@ -723,7 +744,7 @@ net.on('joined', p => {
   if (!game.host) return;
   net.sendTo(p.id, { t: 'botlist', list: botList() });
   net.sendTo(p.id, { t: 'wins', w: game.wins });
-  if (game.phase !== 'idle') net.sendTo(p.id, { t: 'phase', ph: game.phase, start: game.phaseStart, dur: game.phaseDur, round: game.round, dis: game.disId, seed: game.seed, ids: [...game.ids], survivors: game.survivors });
+  if (game.phase !== 'idle') net.sendTo(p.id, { t: 'phase', ph: game.phase, start: game.phaseStart, dur: game.phaseDur, round: game.round, dis: game.disId, seed: game.seed, ids: [...game.ids], survivors: game.survivors, map: game.mapId });
 });
 net.on('left', p => { toast(p.name + ' left'); });
 net.on('ended', why => { toast(why, 'bad'); becomeHost(); renderParty(); });
@@ -777,6 +798,7 @@ function frame() {
   const T3 = performance.now();
   // the lobby's mushrooms wobble, the lighthouse turns
   map.beam.material.emissiveIntensity = 1.5 + Math.sin(tNow / 300) * 0.5;
+  if (map.spinners) for (const sp of map.spinners) sp.rotation.z += dt * sp.userData.spin;
   // send our state
   if (net.code && app.state === 'game') {
     sendT -= dt; if (sendT <= 0) { sendT = 1 / 12; net.send({ t: 's', r: 1, id: myId, at: now(), s: pack(me) }); }

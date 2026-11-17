@@ -11,15 +11,15 @@ import { SEA, LAND, heightAt, HILL } from './map.js';
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), DOWN = new THREE.Vector3(0, -1, 0);
 
 export const DISASTERS = [
-  { id: 'flood', name: 'FLOOD', tip: 'Get up high! The water is rising.', mood: 'rain', icon: 'flood' },
-  { id: 'tsunami', name: 'TSUNAMI', tip: 'Giant waves are coming. Climb up somewhere tall!', mood: 'rain', icon: 'tsunami' },
-  { id: 'tornado', name: 'TORNADO', tip: 'Stay away from the twister, or hide inside!', mood: 'storm', icon: 'tornado' },
-  { id: 'meteor', name: 'METEOR SHOWER', tip: 'Watch for the red circles. Hide under a roof!', mood: 'meteor', icon: 'meteor' },
-  { id: 'quake', name: 'EARTHQUAKE', tip: 'Keep your balance and watch for falling stuff!', mood: 'dust', icon: 'quake' },
-  { id: 'volcano', name: 'VOLCANO', tip: 'Lava is coming! Get up high and dodge the fireballs.', mood: 'volcano', icon: 'volcano' },
-  { id: 'lightning', name: 'LIGHTNING STORM', tip: 'Lightning loves tall places. Hide under a roof!', mood: 'storm', icon: 'lightning' },
-  { id: 'blizzard', name: 'BLIZZARD', tip: 'Stay warm by a campfire or inside a house!', mood: 'snow', icon: 'blizzard' },
-  { id: 'acid', name: 'ACID RAIN', tip: 'The rain burns! Get under a roof, fast!', mood: 'acid', icon: 'acid' }
+  { id: 'flood', name: 'MEGA FLOOD', tip: 'Get up HIGH! The water comes in two surges and the current drags you away.', mood: 'rain', icon: 'flood' },
+  { id: 'tsunami', name: 'TSUNAMI', tip: 'Five giant waves from every side, and the last one is a MEGA wave. Climb!', mood: 'rain', icon: 'tsunami' },
+  { id: 'tornado', name: 'TORNADO OUTBREAK', tip: 'Twisters everywhere, flying junk, and a monster tornado at the end!', mood: 'storm', icon: 'tornado' },
+  { id: 'meteor', name: 'METEOR STORM', tip: 'Watch the red circles, hide under a roof, and run from the GIANT one!', mood: 'meteor', icon: 'meteor' },
+  { id: 'quake', name: 'EARTHQUAKE', tip: 'The ground cracks open, boulders roll and buildings fall apart!', mood: 'dust', icon: 'quake' },
+  { id: 'volcano', name: 'VOLCANO', tip: 'Lava floods the town, geysers burst from the ground and fireballs rain down!', mood: 'volcano', icon: 'volcano' },
+  { id: 'lightning', name: 'LIGHTNING STORM', tip: 'Lightning hunts you, forks and strikes tall places. Hide under a roof!', mood: 'storm', icon: 'lightning' },
+  { id: 'blizzard', name: 'BLIZZARD', tip: 'Freezing wind and falling hail! Stay warm by a fire or inside.', mood: 'snow', icon: 'blizzard' },
+  { id: 'acid', name: 'ACID RAIN', tip: 'The rain burns, acid blobs splash and puddles sizzle. Get under a roof!', mood: 'acid', icon: 'acid' }
 ];
 export const DIS = Object.fromEntries(DISASTERS.map(d => [d.id, d]));
 export const DURATION = 60;
@@ -171,6 +171,13 @@ export class Env {
 class Base {
   constructor(ctx, seed) { this.ctx = ctx; this.env = ctx.env; this.seed = seed; this.r = rng(seed); this.group = new THREE.Group(); ctx.scene.add(this.group); this.done = 0; this.events = []; this.evI = 0; this.hitOnce = new Map(); }
   start() {} update() {} affect() {} onEvent() {}
+  // a big moment: a warning on everyone's screen, the camera shakes, the sky flashes
+  mega(text, shake = 1, sfx = 'siren') { this.ctx.announce(text); this.env.shake = Math.max(this.env.shake, shake); if (this.ctx.atmos) this.ctx.atmos.flash = Math.max(this.ctx.atmos.flash || 0, 0.6); if (sfx) this.ctx.audio.sfx(sfx); }
+  // things falling at seeded times onto seeded spots: { t, x, z, R, dmg } with a warning circle
+  dropFall(list, t, WARN, color, onHit, onFly) {
+    while (list.i < list.length && list[list.i].t - (list[list.i].warn || WARN) <= t) { const e = list[list.i++]; e.y = this.surfaceY(e.x, e.z); this.env.warn(e.x, e.y, e.z, e.R * 0.8, e.t, color); list.live.push(e); }
+    for (let i = list.live.length - 1; i >= 0; i--) { const e = list.live[i]; if (t >= e.t) { list.live.splice(i, 1); onHit(e); } else if (onFly) onFly(e, e.t - t); }
+  }
   water() { return SEA; } lava() { return -10; } waterAt() { return null; }
   end() { this.group.removeFromParent(); this.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
   // the first surface straight below (x, z): roofs count, the lobby does not
@@ -198,21 +205,44 @@ class Base {
   }
 }
 
-// ---------- FLOOD ----------
+// ---------- MEGA FLOOD ----------
+// the water comes in two surges, swells up and down, and a current drags swimmers across the island
 class Flood extends Base {
   start() {
-    this.env.setRain(1);
-    this.top = LAND + 7.6 + this.r() * 0.6;
-    // crates that float on the water
+    this.env.setRain(1, '#cfe3ff', 50);
+    this.top = LAND + 9.4 + this.r() * 0.8;
+    this.curA = this.r() * Math.PI * 2;
     this.crates = [];
-    const geo = new THREE.BoxGeometry(1.2, 1.2, 1.2);
-    for (let i = 0; i < 14; i++) { const m = new THREE.Mesh(geo, M('#a0673a')); const a = this.r() * 6.28, d = 10 + this.r() * 55; m.position.set(Math.cos(a) * d, 0, Math.sin(a) * d); m.userData.ph = this.r() * 6; this.group.add(m); this.crates.push(m); }
+    const geo = new THREE.BoxGeometry(1.2, 1.2, 1.2), car = new THREE.BoxGeometry(3.8, 1.5, 1.9);
+    for (let i = 0; i < 30; i++) {
+      const big = i % 5 === 0, m = new THREE.Mesh(big ? car : geo, M(big ? ['#e63946', '#3a86ff', '#ffd23f', '#2a9d8f'][i % 4] : '#a0673a'));
+      const a = this.r() * 6.28, d = 10 + this.r() * 58; m.position.set(Math.cos(a) * d, 0, Math.sin(a) * d); m.userData.ph = this.r() * 6; this.group.add(m); this.crates.push(m);
+    }
+    this.said = 0;
   }
-  water(t) { return SEA + (this.top - SEA) * smooth(4, 42, t); }
+  water(t) {
+    const k = smooth(3, 18, t) * 0.55 + smooth(24, 38, t) * 0.45;
+    return SEA + (this.top - SEA) * k + Math.sin(t * 0.9) * 0.45 * smooth(8, 16, t) * (1 - smooth(56, 60, t));
+  }
+  current(t, out) { const a = this.curA + Math.sin(t * 0.07) * 1.4; return out.set(Math.cos(a), 0, Math.sin(a)); }
   update(dt, t) {
-    const w = this.water(t);
-    for (const c of this.crates) { const g = heightAt(c.position.x, c.position.z); c.visible = w > g + 0.3; c.position.y = Math.max(g + 0.6, w + Math.sin(t * 1.6 + c.userData.ph) * 0.15); c.rotation.y += dt * 0.1; c.position.x += Math.sin(t * 0.2 + c.userData.ph) * dt * 0.4; }
-    if (Math.random() < dt * 4) { const p = this.ctx.camPos(); this.ctx.fx.emit({ p: _v.set(p.x + (Math.random() - 0.5) * 30, w + 0.05, p.z + (Math.random() - 0.5) * 30), v: new THREE.Vector3(0, 0.5, 0), life: 0.8, size: 0.2, color: '#e6f6ff', g: 0 }); }
+    const w = this.water(t), c = this.current(t, _w);
+    for (const m of this.crates) {
+      const g = heightAt(m.position.x, m.position.z); m.visible = w > g + 0.3;
+      m.position.y = Math.max(g + 0.6, w + Math.sin(t * 1.6 + m.userData.ph) * 0.2); m.rotation.y += dt * 0.15; m.rotation.z = Math.sin(t + m.userData.ph) * 0.12;
+      if (m.visible) { m.position.x += c.x * dt * 2.2; m.position.z += c.z * dt * 2.2; const d = Math.hypot(m.position.x, m.position.z); if (d > 80) m.position.multiplyScalar(-0.95); }
+    }
+    if (this.said === 0 && t > 6) { this.said = 1; this.mega('THE WATER IS RISING FAST!', 0.4, 'wave'); }
+    if (this.said === 1 && t > 23) { this.said = 2; this.mega('SECOND SURGE! GET EVEN HIGHER!', 0.9, 'wave'); }
+    if (this.said === 2 && t > 40) { this.said = 3; this.mega('WATCH THE CURRENT!', 0.5, null); }
+    if (Math.random() < dt * 6) { const p = this.ctx.camPos(); this.ctx.fx.emit({ p: _v.set(p.x + (Math.random() - 0.5) * 30, w + 0.05, p.z + (Math.random() - 0.5) * 30), v: new THREE.Vector3(c.x * 2, 0.6, c.z * 2), life: 0.8, size: 0.25, color: '#e6f6ff', g: 0 }); }
+    if (t > 23 && t < 30) this.env.shake = Math.max(this.env.shake, 0.25);
+  }
+  affect(b, dt, t) {
+    const w = this.water(t), p = b.mover.pos;
+    if (p.y > w - 0.4) return;
+    const c = this.current(t, _v), k = 2 + 3.5 * smooth(10, 45, t);
+    b.mover.ext.x += c.x * k; b.mover.ext.z += c.z * k;
   }
 }
 
@@ -220,9 +250,10 @@ class Flood extends Base {
 class Tsunami extends Base {
   start() {
     this.env.setRain(0.7);
+    // five waves from different sides; the last one is a MEGA wave
     const base = this.r() * Math.PI * 2;
-    this.waveList = [8, 24, 40].map((at, i) => { const a = base + (this.r() - 0.5) * 0.9; return { at, dx: Math.cos(a), dz: Math.sin(a), H: 10 + this.r() * 1.5 + i * 0.5, i }; });
-    this.speed = 20; this.from = -160;
+    this.waveList = [6, 16, 26, 35, 45].map((at, i) => { const a = base + (this.r() - 0.5) * 2.6 + i * 1.3; return { at, dx: Math.cos(a), dz: Math.sin(a), H: i === 4 ? 15.5 + this.r() * 1.5 : 10 + this.r() * 1.5 + i * 0.7, i, mega: i === 4 }; });
+    this.speed = 23; this.from = -170;
     // the wave: a long curved wall of water with white foam on top
     const W = 360, D = 34, gx = 90, gz = 24;
     const geo = new THREE.PlaneGeometry(W, D, gx, gz); geo.rotateX(-Math.PI / 2);
@@ -247,7 +278,7 @@ class Tsunami extends Base {
   water(t) {
     // after each wave a little water stays on the land; it drains at the end
     let n = 0; for (const w of this.waveList) if (this.waveS(w, t) > 60) n++;
-    return SEA + Math.min(3.2, n * 1.15) * (1 - smooth(52, 59, t));
+    return SEA + Math.min(4.2, n * 1.05) * (1 - smooth(54, 59.5, t));
   }
   waterAt(x, z, t) {
     let best = null;
@@ -264,14 +295,14 @@ class Tsunami extends Base {
       const m = this.meshes[i], s = this.waveS(w, t);
       m.visible = t >= w.at - 1 && s < 200;
       m.position.set(w.dx * s, SEA - 0.4, w.dz * s);
-      if (m.visible && t >= w.at && !w.warned) { w.warned = true; this.ctx.announce('A GIANT WAVE IS COMING!'); this.ctx.audio.sfx('wave'); }
+      if (m.visible && t >= w.at - 3 && !w.warned) { w.warned = true; if (w.mega) this.mega('MEGA WAVE!!! CLIMB AS HIGH AS YOU CAN!', 1.2, 'wave'); else { this.ctx.announce('A GIANT WAVE IS COMING!'); this.ctx.audio.sfx('wave'); } }
       // spray along the crest near the camera
       if (m.visible && Math.random() < dt * 30) {
         const cp = this.ctx.camPos(), across = -cp.x * w.dz + cp.z * w.dx + (Math.random() - 0.5) * 80;
         this.ctx.fx.emit({ p: _v.set(w.dx * (s + 2) - w.dz * across, SEA + w.H - 0.5, w.dz * (s + 2) + w.dx * across), v: new THREE.Vector3(w.dx * 8 + (Math.random() - 0.5) * 3, 3 + Math.random() * 4, w.dz * 8 + (Math.random() - 0.5) * 3), life: 1, size: 0.5, color: '#ffffff', g: -8 });
       }
       const cd = Math.abs(this.ctx.camPos().x * w.dx + this.ctx.camPos().z * w.dz - s);
-      if (m.visible && cd < 40) this.env.shake = Math.max(this.env.shake, (1 - cd / 40) * 0.5);
+      if (m.visible && cd < 50) this.env.shake = Math.max(this.env.shake, (1 - cd / 50) * (w.mega ? 1 : 0.6));
     });
   }
   affect(b, dt, t) {
@@ -283,7 +314,8 @@ class Tsunami extends Base {
       // inside the wave: carried along with it
       b.mover.ext.x += w.dx * 60 * k; b.mover.ext.z += w.dz * 60 * k;
       const key = b.id + ':' + w.i;
-      if (!this.hitOnce.has(key) && k > 0.4) { this.hitOnce.set(key, 1); b.hurt(24, 'wave'); b.mover.knock(w.dx, w.dz, 18, 9, 1.4); }
+      if (w.mega) { b.mover.ext.x += w.dx * 12 * k; b.mover.ext.z += w.dz * 12 * k; }
+      if (!this.hitOnce.has(key) && k > 0.4) { this.hitOnce.set(key, 1); b.hurt(w.mega ? 34 : 24, 'wave'); b.mover.knock(w.dx, w.dz, w.mega ? 22 : 18, 9, 1.4); }
     }
   }
 }
@@ -295,7 +327,14 @@ class Tornado extends Base {
   start() {
     this.env.setRain(0.6);
     const r = this.r;
-    this.tw = [0, 1].map(i => ({ at: i ? 26 : 2, ax: 40 + r() * 20, az: 40 + r() * 20, wx: 0.06 + r() * 0.05, wz: 0.07 + r() * 0.05, px: r() * 6, pz: r() * 6, ox: (r() - 0.5) * 20, oz: (r() - 0.5) * 20, pos: new THREE.Vector3() }));
+    // three twisters, then a monster at the end
+    this.tw = [3, 17, 30, 44].map((at, i) => ({ at, big: i === 3 ? 1.5 : 1, ax: 42 + r() * 22, az: 42 + r() * 22, wx: 0.07 + r() * 0.06, wz: 0.08 + r() * 0.06, px: r() * 6, pz: r() * 6, ox: (r() - 0.5) * 24, oz: (r() - 0.5) * 24, pos: new THREE.Vector3() }));
+    // junk the twisters throw at the town (thrown from where the twister will be, so everyone sees the same)
+    this.junkEv = [];
+    for (let t = 6; t < 57; t += lerp(1.4, 0.55, smooth(6, 50, t)) * (0.6 + r() * 0.8)) { const [x, z] = this.randomSpot(r, 0.25); this.junkEv.push({ t, x, z, R: 3.2, dmg: 22, k: Math.floor(r() * 4) }); }
+    fallList(this.junkEv);
+    this.junkGeo = [new THREE.BoxGeometry(1.4, 0.5, 2.6), new THREE.CylinderGeometry(0.5, 0.5, 1.4, 10), new THREE.BoxGeometry(2.4, 0.2, 1.2), new THREE.BoxGeometry(1.1, 1.1, 1.1)];
+    this.junkMat = [M('#e63946'), M('#3a86ff'), M('#7a5230'), M('#a0673a')];
     // the funnel: two spinning see-through layers, wide at the top
     const tex = canvasTex(256, 256, (g, W) => {
       g.fillStyle = 'rgba(0,0,0,0)'; g.clearRect(0, 0, W, W);
@@ -327,7 +366,8 @@ class Tornado extends Base {
       const f = this.funnels[i], on = t >= w.at;
       this.posAt(w, t, w.pos); f.g.visible = on;
       if (!on) return;
-      const grow = smooth(w.at, w.at + 4, t) * (1 - smooth(57, 60, t));
+      if (w.big > 1 && !w.said) { w.said = true; this.mega('A MONSTER TORNADO IS FORMING!!!', 1.1, 'siren'); }
+      const grow = smooth(w.at, w.at + 4, t) * (1 - smooth(57, 60, t)) * w.big;
       f.g.position.copy(w.pos); f.g.scale.set(grow, Math.max(0.01, grow), grow);
       f.a.rotation.y -= dt * 4; f.b.rotation.y -= dt * 2.6; f.a.material.map.offset.y += dt * 0.6;
       const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(1, 1, 1);
@@ -338,17 +378,27 @@ class Tornado extends Base {
       this.env.shake = Math.max(this.env.shake, clamp(1 - cd / 40, 0, 1) * 0.35);
     });
     this.windLoop.set(0.15 + near * 0.85);
+    // flying junk: from the nearest twister to its target, then it crashes down
+    this.dropFall(this.junkEv, t, 1.6, '#ffb000', (e) => {
+      if (e.m) e.m.removeFromParent();
+      const p = _v.set(e.x, e.y, e.z); this.env.boom(p, 1.6, '#c8b89a', '#6a6050'); this.ctx.audio.sfxAt('crash', p);
+      this.blast(new THREE.Vector3(e.x, e.y + 0.6, e.z), e.R, e.dmg, 12, 'wind');
+    }, (e, left) => {
+      if (!e.m) { e.m = new THREE.Mesh(this.junkGeo[e.k], this.junkMat[e.k]); this.group.add(e.m); let best = null, bd = 1e9; for (const w of this.tw) if (t >= w.at) { const d = Math.hypot(w.pos.x - e.x, w.pos.z - e.z); if (d < bd) { bd = d; best = w; } } e.from = best ? best.pos.clone() : new THREE.Vector3(e.x * 2, 0, e.z * 2); e.from.y += 22; }
+      const k = clamp(1 - left / 1.6, 0, 1);
+      e.m.position.set(lerp(e.from.x, e.x, k), lerp(e.from.y, e.y, k) + Math.sin(k * Math.PI) * 10, lerp(e.from.z, e.z, k)); e.m.rotation.x += 0.3; e.m.rotation.y += 0.2;
+    });
   }
   affect(b, dt, t) {
     for (const w of this.tw) {
       if (t < w.at + 1) continue;
-      const p = b.mover.pos, dx = p.x - w.pos.x, dz = p.z - w.pos.z, d = Math.hypot(dx, dz) || 0.01, R = 24;
+      const p = b.mover.pos, dx = p.x - w.pos.x, dz = p.z - w.pos.z, d = Math.hypot(dx, dz) || 0.01, R = 26 * w.big;
       if (d > R) continue;
-      let k = Math.pow(1 - d / R, 1.1);
-      if (b.sheltered) k *= 0.2;
+      let k = Math.pow(1 - d / R, 1.3);
+      if (b.sheltered) k *= w.big > 1 ? 0.35 : 0.2;
       const nx = dx / d, nz = dz / d;
-      b.mover.ext.x += (-nx * 34 - nz * 30) * k; b.mover.ext.z += (-nz * 34 + nx * 30) * k;
-      if (d < 6.5 && !b.sheltered) {
+      b.mover.ext.x += (-nx * 36 - nz * 34) * k; b.mover.ext.z += (-nz * 36 + nx * 34) * k;
+      if (d < 6.5 * w.big && (!b.sheltered || (w.big > 1 && d < 4))) {
         b.mover.ext.y += 58; b.mover.stun = Math.max(b.mover.stun, 0.4);
         b.hurt(12 * dt, 'wind', true);
         const ground = heightAt(p.x, p.z);
@@ -365,37 +415,48 @@ class Meteor extends Base {
     const r = this.r;
     const da = r() * Math.PI * 2; this.dir = new THREE.Vector3(Math.cos(da) * 0.55, 1, Math.sin(da) * 0.55).normalize();
     let t = 3;
-    for (let i = 0; i < 400 && t < 56; i++) {
-      t += 1 / lerp(1.0, 3.4, smooth(3, 50, t)) * (0.6 + r() * 0.8);
-      const [x, z] = this.randomSpot(r, 0.3), big = i % 7 === 6;
-      this.events.push({ t, x, z, big, R: big ? 8 : 4.6, dmg: big ? 60 : 42 });
+    for (let i = 0; i < 600 && t < 56; i++) {
+      t += 1 / lerp(1.6, 5.5, smooth(3, 50, t)) * (0.6 + r() * 0.8);
+      const [x, z] = this.randomSpot(r, 0.3), big = i % 5 === 4;
+      this.events.push({ t, x, z, big, R: big ? 9.5 : 5, dmg: big ? 65 : 42, warn: 2 });
     }
+    // and one GIANT meteor near the end, aimed at a popular place
+    const [gx, gz] = this.randomSpot(r, 1);
+    this.events.push({ t: 50, x: gx, z: gz, big: true, giant: true, R: 22, dmg: 95, warn: 6 });
+    this.events.sort((a, b) => a.t - b.t);
+    this.burns = [];
     this.rocks = [];
     this.geo = new THREE.DodecahedronGeometry(1, 1); this.mat = M('#3a2a24', { emissive: '#ff5a1f', ei: 0.7, flat: true });
   }
   update(dt, t) {
-    const WARN = 2.0, FALL = 1.6, SPEED = 75;
-    while (this.evI < this.events.length && this.events[this.evI].t - WARN <= t) {
+    const FALL = 1.6, SPEED = 75;
+    while (this.evI < this.events.length && this.events[this.evI].t - this.events[this.evI].warn <= t) {
       const e = this.events[this.evI++];
       e.y = this.surfaceY(e.x, e.z);
-      this.env.warn(e.x, e.y, e.z, e.R * 0.75, e.t);
-      const m = new THREE.Mesh(this.geo, this.mat); m.scale.setScalar(e.big ? 2.2 : 1.2); m.visible = false; this.group.add(m);
+      this.env.warn(e.x, e.y, e.z, e.R * 0.75, e.t, e.giant ? '#ff00aa' : '#ff2a2a');
+      if (e.giant) this.mega('A GIANT METEOR IS COMING! RUN!!!', 0.6, 'siren');
+      const m = new THREE.Mesh(this.geo, this.mat); m.scale.setScalar(e.giant ? 9 : e.big ? 2.4 : 1.2); m.visible = false; this.group.add(m);
       this.rocks.push({ e, m });
     }
+    // burning craters
+    this.burns = this.burns.filter(f => f.until > t);
+    for (const f of this.burns) if (Math.random() < dt * 10) this.ctx.fx.emit({ p: _v.set(f.x + (Math.random() - 0.5) * f.r * 1.5, f.y + 0.2, f.z + (Math.random() - 0.5) * f.r * 1.5), v: new THREE.Vector3(0, 2 + Math.random() * 2, 0), life: 0.7, size: 0.4, color: Math.random() < 0.5 ? '#ff6a00' : '#ffd23f', g: 1 });
     for (let i = this.rocks.length - 1; i >= 0; i--) {
       const { e, m } = this.rocks[i], left = e.t - t;
       if (left <= 0) {
         m.removeFromParent();
         const p = _v.set(e.x, e.y, e.z);
         this.env.boom(p, e.R * 0.6, '#ff7b00', '#3d2f2a');
+        if (e.giant) { for (let k = 0; k < 4; k++) this.env.boom(_w.set(e.x + (Math.random() - 0.5) * 12, e.y, e.z + (Math.random() - 0.5) * 12), 6, '#ff5a00', '#2a2020'); this.env.shake = 2; this.ctx.atmos.flash = 1; }
         this.env.mark('crater', e.x, e.y, e.z, e.R * 0.55, 30);
         this.ctx.audio.sfxAt(e.big ? 'bigboom' : 'boom', p);
-        this.blast(p.clone().add(_w.set(0, 0.5, 0)), e.R, e.dmg, 16, 'meteor', (b) => { b.burn(0.5); });
+        this.blast(p.clone().add(_w.set(0, 0.5, 0)), e.R, e.dmg, e.giant ? 30 : 18, 'meteor', (b) => { b.burn(0.5); });
+        if (e.big) this.burns.push({ x: e.x, y: e.y, z: e.z, r: e.R * 0.35, until: t + (e.giant ? 9 : 5) });
         this.rocks.splice(i, 1); continue;
       }
-      if (left < FALL) {
+      if (left < (e.giant ? 4 : FALL)) {
         m.visible = true;
-        m.position.set(e.x, e.y, e.z).addScaledVector(this.dir, left * SPEED); m.rotation.x += dt * 5; m.rotation.y += dt * 3;
+        m.position.set(e.x, e.y, e.z).addScaledVector(this.dir, left * (e.giant ? 40 : SPEED)); m.rotation.x += dt * 5; m.rotation.y += dt * 3;
         if (Math.random() < 0.9) this.ctx.fx.emit({ p: m.position, v: new THREE.Vector3((Math.random() - 0.5) * 2, 2, (Math.random() - 0.5) * 2), life: 0.5, size: e.big ? 1.1 : 0.7, color: Math.random() < 0.5 ? '#ff7b00' : '#ffd23f', g: 0, drag: 2 });
         if (Math.random() < 0.4) this.ctx.fx.emit({ p: m.position, v: new THREE.Vector3(0, 1, 0), life: 1.2, size: 0.9, color: '#4a3c36', g: 0.5, drag: 1 });
       }
@@ -403,38 +464,51 @@ class Meteor extends Base {
   }
 }
 
+Meteor.prototype.affect = function (b, dt, t) {
+  const p = b.mover.pos;
+  for (const f of this.burns) if (Math.hypot(p.x - f.x, p.z - f.z) < f.r && Math.abs(p.y - f.y) < 1.4) { b.hurt(16 * dt, 'meteor', true); b.burn(dt * 0.4); }
+};
+
 // ---------- EARTHQUAKE ----------
 class Quake extends Base {
   start() {
     const r = this.r;
-    this.jolts = []; for (let t = 7; t < 56; t += 6 + r() * 4) this.jolts.push({ t, done: false });
+    this.jolts = []; for (let t = 6; t < 56; t += 4 + r() * 3) this.jolts.push({ t, done: false });
+    // the ground splits open along a line and throws everyone on it into the air
+    this.cracks = [];
+    for (let t = 9; t < 56; t += 5 + r() * 3) { const [x, z] = this.randomSpot(r, 0.2), a = r() * Math.PI; for (let k = -2; k <= 2; k++) this.cracks.push({ t: t + Math.abs(k) * 0.12, x: x + Math.cos(a) * k * 4.2, z: z + Math.sin(a) * k * 4.2, R: 3.4, dmg: 16 }); }
+    this.cracks.sort((a, b) => a.t - b.t); fallList(this.cracks);
     // falling bits from buildings
     const edges = this.ctx.map.edges;
     let t = 4;
     while (t < 56) {
-      t += lerp(1.1, 0.45, smooth(4, 45, t)) * (0.6 + r() * 0.8);
+      t += lerp(0.8, 0.3, smooth(4, 45, t)) * (0.6 + r() * 0.8);
       const e = edges[Math.floor(r() * edges.length)], side = Math.floor(r() * 4), k = r(), out = 0.4 + r() * 3;
       let x, z;
       if (side === 0) { x = lerp(e.x0, e.x1, k); z = e.z0 - out; } else if (side === 1) { x = lerp(e.x0, e.x1, k); z = e.z1 + out; } else if (side === 2) { x = e.x0 - out; z = lerp(e.z0, e.z1, k); } else { x = e.x1 + out; z = lerp(e.z0, e.z1, k); }
       const inside = r() < 0.25;          // the ceiling comes down inside too!
       if (inside) { x = lerp(e.x0 + 1, e.x1 - 1, r()); z = lerp(e.z0 + 1, e.z1 - 1, r()); }
-      this.events.push({ t, x, z, inside, from: e.y + 2, size: 0.6 + r() * 0.7 });
+      this.events.push({ t, x, z, inside, from: e.y + 2, size: 0.7 + r() * 0.9 });
     }
-    // boulders that roll down the hill
-    this.boulders = [10, 19, 28, 37, 46].map(at => { const a = r() * Math.PI * 2; return { at, a, started: false }; });
+    // boulders: down the big hill, and giant ones rolling in from the coast across the town
+    this.boulders = [8, 14, 20, 26, 32, 38, 44, 50].map((at, i) => { const a = r() * Math.PI * 2; return { at, a, edge: i % 2 === 1, started: false }; });
     this.bm = []; this.debris = [];
     this.rumble = this.ctx.audio.loop('rumble', 0);
     this.geo = new THREE.BoxGeometry(1, 0.6, 1);
     this.crackT = 0;
   }
-  level(t) { return smooth(0, 4, t) * (0.55 + 0.45 * Math.max(0, Math.sin(t * 0.8))) * (1 - smooth(57, 60, t)); }
+  level(t) { return smooth(0, 4, t) * (0.6 + 0.4 * Math.max(0, Math.sin(t * 0.8)) + 0.35 * smooth(30, 50, t)) * (1 - smooth(57, 60, t)); }
   update(dt, t) {
     const I = this.level(t);
-    this.env.shake = Math.max(this.env.shake, I * 0.55);
+    this.env.shake = Math.max(this.env.shake, I * 0.75);
+    this.dropFall(this.cracks, t, 1.4, '#ff7b00', (e) => {
+      const p = _v.set(e.x, e.y, e.z); this.env.boom(p, 2, '#a07a52', '#6a5440'); this.env.mark('crack', e.x, e.y, e.z, 3.5, 40); this.ctx.audio.sfxAt('jolt', p);
+      for (const b of this.ctx.localBodies()) { const c = b.mover.pos; if (Math.hypot(c.x - e.x, c.z - e.z) < e.R && Math.abs(c.y - e.y) < 2) { b.hurt(e.dmg, 'quake'); b.mover.vel.y = Math.max(b.mover.vel.y, 15); b.mover.stun = Math.max(b.mover.stun, 0.5); } }
+    });
     this.rumble.set(0.3 + I * 0.7);
     this.crackT -= dt;
     if (this.crackT < 0 && t > 3) { this.crackT = 1.2; const a = Math.random() * 6.28, d = Math.random() * 60, x = Math.cos(a) * d, z = Math.sin(a) * d; this.env.mark('crack', x, heightAt(x, z), z, 2 + Math.random() * 3, 40); }
-    for (const j of this.jolts) if (!j.done && t >= j.t) { j.done = true; this.env.shake = 1.2; this.ctx.audio.sfx('jolt'); this.ctx.announce('BIG SHAKE!'); for (const b of this.ctx.localBodies()) if (b.mover.grounded && hashf(b.id, j.t) < 0.65) { b.mover.knock(Math.sin(j.t * 7 + b.id.length), Math.cos(j.t * 5), 6, 6, 0.9); b.hurt(5, 'quake'); } }
+    for (const j of this.jolts) if (!j.done && t >= j.t) { j.done = true; this.env.shake = 1.6; this.ctx.audio.sfx('jolt'); this.ctx.announce(t > 40 ? 'MEGA SHAKE!!!' : 'BIG SHAKE!'); for (const b of this.ctx.localBodies()) if (b.mover.grounded && hashf(b.id, j.t) < 0.75) { b.mover.knock(Math.sin(j.t * 7 + b.id.length), Math.cos(j.t * 5), 9, 8, 1.0); b.hurt(t > 40 ? 10 : 7, 'quake'); } }
     // falling bits
     const WARN = 1.3;
     while (this.evI < this.events.length && this.events[this.evI].t - WARN <= t) {
@@ -456,24 +530,31 @@ class Quake extends Base {
     // boulders (moved in fixed steps so every computer rolls them the same way)
     for (const bo of this.boulders) {
       if (!bo.started && t >= bo.at) {
-        bo.started = true; bo.p = new THREE.Vector3(HILL.x + Math.cos(bo.a) * 3, 0, HILL.z + Math.sin(bo.a) * 3); bo.p.y = heightAt(bo.p.x, bo.p.z) + 1.4;
-        bo.v = new THREE.Vector3(Math.cos(bo.a) * 3, 0, Math.sin(bo.a) * 3); bo.acc = 0; bo.life = 14;
-        bo.m = new THREE.Mesh(new THREE.DodecahedronGeometry(1.4, 1), M('#7d6e60', { flat: true })); this.group.add(bo.m);
-        this.ctx.announce('ROCKS ARE ROLLING DOWN THE HILL!');
+        bo.started = true; bo.acc = 0; bo.life = 14; bo.r = bo.edge ? 2.4 : 1.4;
+        if (bo.edge) {
+          // a giant boulder rolls in from the coast, straight across the island
+          bo.p = new THREE.Vector3(Math.cos(bo.a) * 66, 0, Math.sin(bo.a) * 66); bo.v = new THREE.Vector3(-Math.cos(bo.a + 0.3) * 15, 0, -Math.sin(bo.a + 0.3) * 15);
+          this.ctx.announce('A GIANT BOULDER IS ROLLING THROUGH TOWN!');
+        } else {
+          bo.p = new THREE.Vector3(HILL.x + Math.cos(bo.a) * 3, 0, HILL.z + Math.sin(bo.a) * 3); bo.v = new THREE.Vector3(Math.cos(bo.a) * 4, 0, Math.sin(bo.a) * 4);
+          this.ctx.announce('ROCKS ARE ROLLING DOWN THE HILL!');
+        }
+        bo.p.y = heightAt(bo.p.x, bo.p.z) + bo.r;
+        bo.m = new THREE.Mesh(new THREE.DodecahedronGeometry(bo.r, 1), M('#7d6e60', { flat: true })); this.group.add(bo.m);
       }
       if (!bo.started || bo.life <= 0) continue;
       bo.acc += dt; bo.life -= dt;
       while (bo.acc > 1 / 60) {
         bo.acc -= 1 / 60; const h = 1 / 60, e2 = 0.5;
         const gx = heightAt(bo.p.x - e2, bo.p.z) - heightAt(bo.p.x + e2, bo.p.z), gz = heightAt(bo.p.x, bo.p.z - e2) - heightAt(bo.p.x, bo.p.z + e2);
-        bo.v.x += gx * 14 * h; bo.v.z += gz * 14 * h; bo.v.multiplyScalar(Math.exp(-0.25 * h));
-        bo.p.addScaledVector(bo.v, h); bo.p.y = heightAt(bo.p.x, bo.p.z) + 1.4;
+        bo.v.x += gx * 14 * h; bo.v.z += gz * 14 * h; bo.v.multiplyScalar(Math.exp(-(bo.edge ? 0.08 : 0.25) * h));
+        bo.p.addScaledVector(bo.v, h); bo.p.y = heightAt(bo.p.x, bo.p.z) + bo.r;
       }
       bo.m.position.copy(bo.p); bo.m.rotation.x += bo.v.z * dt * 0.7; bo.m.rotation.z -= bo.v.x * dt * 0.7;
       if (bo.life < 1) bo.m.scale.setScalar(Math.max(0.01, bo.life));
       for (const b of this.ctx.localBodies()) {
         const c = _w.copy(b.mover.pos); c.y += 0.7;
-        if (c.distanceTo(bo.p) < 2.1 && !(this.hitOnce.get(b.id) > t)) { this.hitOnce.set(b.id, t + 1); const sp = Math.hypot(bo.v.x, bo.v.z); if (sp > 2) { b.hurt(Math.min(40, 12 + sp * 2), 'quake'); b.mover.knock(bo.v.x, bo.v.z, 12 + sp * 0.5, 8, 1.2); this.ctx.audio.sfxAt('crash', c); } }
+        if (c.distanceTo(bo.p) < bo.r + 0.7 && !(this.hitOnce.get(b.id) > t)) { this.hitOnce.set(b.id, t + 1); const sp = Math.hypot(bo.v.x, bo.v.z); if (sp > 2) { b.hurt(Math.min(bo.edge ? 55 : 40, 12 + sp * 2.4), 'quake'); b.mover.knock(bo.v.x, bo.v.z, 12 + sp * 0.5, 8, 1.2); this.ctx.audio.sfxAt('crash', c); } }
       }
     }
   }
@@ -481,7 +562,7 @@ class Quake extends Base {
     const I = this.level(t);
     if (!b.mover.grounded || b.sheltered && I < 0.2) return;
     const id = b.id.length * 1.7 + b.id.charCodeAt(0);
-    b.mover.ext.x += wave(t * 6, id) * 18 * I; b.mover.ext.z += wave(t * 6, id + 9) * 18 * I;
+    b.mover.ext.x += wave(t * 6, id) * 26 * I; b.mover.ext.z += wave(t * 6, id + 9) * 26 * I;
   }
   end() { super.end(); this.rumble.stop(); }
 }
@@ -492,18 +573,36 @@ class Volcano extends Base {
   start() {
     const r = this.r;
     let t = 4;
-    while (t < 57) { t += lerp(0.95, 0.38, smooth(4, 45, t)) * (0.6 + r() * 0.8); const [x, z] = this.randomSpot(r, 0.3); this.events.push({ t, x, z }); }
-    this.top = LAND + 2.3 + r() * 0.4;
+    while (t < 57) { t += lerp(0.7, 0.24, smooth(4, 45, t)) * (0.6 + r() * 0.8); const [x, z] = this.randomSpot(r, 0.3); this.events.push({ t, x, z }); }
+    // the big eruption: a burst of fireballs all at once
+    for (let i = 0; i < 16; i++) { const [x, z] = this.randomSpot(r, 0.4); this.events.push({ t: 40 + r() * 3.5, x, z }); }
+    this.events.sort((a, b) => a.t - b.t);
+    // lava geysers burst out of the ground
+    this.geysers = [];
+    for (let t2 = 10; t2 < 57; t2 += lerp(2.4, 1.0, smooth(10, 50, t2)) * (0.6 + r() * 0.8)) { const [x, z] = this.randomSpot(r, 0.15); this.geysers.push({ t: t2, x, z, R: 3.6, dmg: 30 }); }
+    fallList(this.geysers);
+    this.cols = [];
+    this.top = LAND + 4.4 + r() * 0.6;
     this.bombs = []; this.fires = [];
     this.geo = new THREE.DodecahedronGeometry(0.9, 0); this.mat = M('#2a1a14', { emissive: '#ff4500', ei: 1.2, flat: true });
     this.ctx.map.volcano.crater.material.emissiveIntensity = 2;
     this.bub = this.ctx.audio.loop('rumble', 0.25);
   }
-  lava(t) { return lerp(-4, this.top, smooth(14, 36, t)) - smooth(57, 60, t) * 8; }
+  lava(t) { return lerp(-4, this.top, smooth(12, 34, t)) + Math.sin(t * 1.3) * 0.25 * smooth(30, 36, t) - smooth(57, 60, t) * 10; }
   update(dt, t) {
     const V = this.ctx.map.volcano.pos;
+    if (!this.said && t > 39) { this.said = true; this.mega('THE VOLCANO IS EXPLODING!!!', 1.4, 'bigboom'); }
+    // geysers: a warning, then a column of lava that throws you up high
+    this.dropFall(this.geysers, t, 1.5, '#ff5a00', (e) => {
+      const p = _v.set(e.x, e.y, e.z); this.env.boom(p, 2.4, '#ff5a00', '#3a2018'); this.env.mark('fire', e.x, e.y, e.z, 2.8, 6); this.ctx.audio.sfxAt('boom', p);
+      this.fires.push({ x: e.x, y: e.y, z: e.z, until: t + 5 });
+      const col = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 2.2, 16, 12, 1, true), M('#ff6a00', { emissive: '#ff4500', ei: 1.6, double: true }));
+      col.position.set(e.x, e.y + 8, e.z); this.group.add(col); this.cols.push({ m: col, until: t + 1.4 });
+      for (const b of this.ctx.localBodies()) { const c = b.mover.pos; if (Math.hypot(c.x - e.x, c.z - e.z) < e.R && Math.abs(c.y - e.y) < 3) { b.hurt(e.dmg, 'lava'); b.burn(0.8); b.mover.vel.y = Math.max(b.mover.vel.y, 20); b.mover.stun = Math.max(b.mover.stun, 0.4); } }
+    });
+    for (let i = this.cols.length - 1; i >= 0; i--) { const c = this.cols[i]; const k = clamp((c.until - t) / 1.4, 0, 1); c.m.scale.set(k, 0.4 + k * 0.6, k); c.m.rotation.y += dt * 3; if (Math.random() < 0.6) this.ctx.fx.emit({ p: _v.set(c.m.position.x, c.m.position.y + 6, c.m.position.z), v: new THREE.Vector3((Math.random() - 0.5) * 6, 6 + Math.random() * 6, (Math.random() - 0.5) * 6), life: 0.8, size: 0.6, color: Math.random() < 0.5 ? '#ff6a00' : '#ffd23f', g: -14 }); if (t > c.until) { c.m.removeFromParent(); c.m.geometry.dispose(); this.cols.splice(i, 1); } }
     // smoke and fire from the volcano
-    if (Math.random() < dt * 14) this.ctx.fx.emit({ p: _v.set(V.x + (Math.random() - 0.5) * 10, V.y, V.z + (Math.random() - 0.5) * 10), v: new THREE.Vector3((Math.random() - 0.5) * 4, 14 + Math.random() * 8, (Math.random() - 0.5) * 4), life: 4, size: 5 + Math.random() * 4, color: Math.random() < 0.3 ? '#ff6a00' : '#3b302c', g: 0, drag: 0.3, shrink: false });
+    if (Math.random() < dt * (t > 39 && t < 46 ? 40 : 18)) this.ctx.fx.emit({ p: _v.set(V.x + (Math.random() - 0.5) * 10, V.y, V.z + (Math.random() - 0.5) * 10), v: new THREE.Vector3((Math.random() - 0.5) * 6, 16 + Math.random() * 12, (Math.random() - 0.5) * 6), life: 4.5, size: 6 + Math.random() * 5, color: Math.random() < 0.35 ? '#ff6a00' : '#3b302c', g: 0, drag: 0.3, shrink: false });
     const WARN = 1.8, FLY = 3.2;
     while (this.evI < this.events.length && this.events[this.evI].t - FLY <= t) {
       const e = this.events[this.evI++]; e.y = this.surfaceY(e.x, e.z); e.warned = false;
@@ -514,8 +613,8 @@ class Volcano extends Base {
       if (!e.warned && left <= WARN) { e.warned = true; this.env.warn(e.x, e.y, e.z, 3.4, e.t, '#ff5a00'); }
       if (left <= 0) {
         m.removeFromParent(); this.bombs.splice(i, 1);
-        const p = _v.set(e.x, e.y, e.z); this.env.boom(p, 3, '#ff5a00', '#2e2420'); this.env.mark('fire', e.x, e.y, e.z, 2.6, 6); this.ctx.audio.sfxAt('boom', p);
-        this.blast(p.clone().add(_w.set(0, 0.5, 0)), 4.2, 36, 12, 'lava', b => b.burn(0.6));
+        const p = _v.set(e.x, e.y, e.z); this.env.boom(p, 3.6, '#ff5a00', '#2e2420'); this.env.mark('fire', e.x, e.y, e.z, 3, 7); this.ctx.audio.sfxAt('boom', p);
+        this.blast(p.clone().add(_w.set(0, 0.5, 0)), 5.2, 40, 14, 'lava', b => b.burn(0.6));
         this.fires.push({ x: e.x, y: e.y, z: e.z, until: t + 5 });
         continue;
       }
@@ -550,16 +649,26 @@ class Lightning extends Base {
     this.env.setRain(1, '#d6e2ff', 46);
     const r = this.r, tall = this.ctx.map.tallPoints;
     let t = 3;
-    while (t < 57) { t += lerp(1.3, 0.55, smooth(3, 45, t)) * (0.6 + r() * 0.8); if (r() < 0.45) { const p = tall[Math.floor(r() * tall.length)]; this.events.push({ t, x: p.x + (r() - 0.5) * 3, z: p.z + (r() - 0.5) * 3 }); } else { const [x, z] = this.randomSpot(r, 0.15); this.events.push({ t, x, z }); } }
+    while (t < 57) {
+      t += lerp(0.95, 0.32, smooth(3, 45, t)) * (0.6 + r() * 0.8);
+      let x, z;
+      if (r() < 0.45) { const p = tall[Math.floor(r() * tall.length)]; x = p.x + (r() - 0.5) * 3; z = p.z + (r() - 0.5) * 3; } else [x, z] = this.randomSpot(r, 0.15);
+      this.events.push({ t, x, z });
+      // forked lightning: one or two more strikes right next to it
+      const forks = r() < 0.35 ? (t > 40 ? 2 : 1) : 0;
+      for (let k = 0; k < forks; k++) { const a = r() * 6.28, d = 4 + r() * 4; this.events.push({ t: t + 0.18 * (k + 1), x: x + Math.cos(a) * d, z: z + Math.sin(a) * d }); }
+    }
+    this.events.sort((a, b) => a.t - b.t);
     this.extra = []; this.bolts = []; this.huntT = 4;
   }
   onEvent(e) { if (e.k === 'strike') this.extra.push({ t: e.at, x: e.x, z: e.z, pending: true }); }
   update(dt, t) {
+    if (!this.said && t > 40) { this.said = true; this.mega('SUPERCELL! THE STORM GETS EVEN WORSE!', 0.8, 'thunder'); this.env.setRain(1, '#c2d2ff', 60); }
     // the leader picks beans to aim at, and tells everyone
     if (this.ctx.host) {
       this.huntT -= dt;
       if (this.huntT <= 0 && t < 56) {
-        this.huntT = lerp(1.6, 0.8, smooth(4, 45, t));
+        this.huntT = lerp(1.1, 0.45, smooth(4, 45, t));
         const list = this.ctx.allBodies().filter(b => b.alive && b.onMap);
         if (list.length) { const b = list[Math.floor(Math.random() * list.length)], a = Math.random() * 6.28, d = Math.random() * 2.5; const e = { k: 'strike', x: b.mover.pos.x + Math.cos(a) * d, z: b.mover.pos.z + Math.sin(a) * d, at: t + 1.3 }; this.onEvent(e); this.ctx.send(e); }
       }
@@ -580,7 +689,7 @@ class Lightning extends Base {
         this.env.mark('crater', e.x, e.y, e.z, 1.8, 20); this.env.shock(_w.set(e.x, e.y + 0.3, e.z), '#cfe8ff', 5, 0.35);
         for (let k = 0; k < 20; k++) { const a = Math.random() * 6.28; this.ctx.fx.emit({ p, v: new THREE.Vector3(Math.cos(a) * 6, 4 + Math.random() * 6, Math.sin(a) * 6), life: 0.5, size: 0.15, color: k % 2 ? '#ffffff' : '#9fd0ff', g: -12 }); }
         this.ctx.audio.sfxAt('thunder', p);
-        this.blast(_v.set(e.x, e.y + 0.6, e.z), 5.5, 55, 13, 'zap', b => b.burn(0.7));
+        this.blast(_v.set(e.x, e.y + 0.6, e.z), 6.5, 55, 15, 'zap', b => b.burn(0.7));
       }
       if (t > e.until) { e.mesh.removeFromParent(); e.mesh.geometry.dispose(); e.mesh.material.dispose(); e.mesh.children[0].material.dispose(); this.bolts.splice(i, 1); }
       else e.mesh.material.opacity = Math.random() < 0.5 ? 1 : 0.4;
@@ -604,22 +713,33 @@ class Blizzard extends Base {
     this.ctx.map.fires.forEach(f => { f.flame.visible = true; if (f.light) f.light.intensity = 30; });
     this.windLoop = this.ctx.audio.loop('wind', 0.4);
     this.windA = this.r() * 6.28;
+    // hailstones: ice chunks that fall on the island (a roof keeps you safe)
+    this.hail = [];
+    for (let t = 8; t < 57; t += lerp(1.2, 0.3, smooth(8, 50, t)) * (0.6 + this.r() * 0.8)) { const [x, z] = this.randomSpot(this.r, 0.1); this.hail.push({ t, x, z, R: 2.4, dmg: 18 }); }
+    fallList(this.hail);
+    this.hailGeo = new THREE.IcosahedronGeometry(0.7, 0); this.hailMat = M('#e6f6ff', { rough: 0.15, metal: 0.1, emissive: '#9fd0ff', ei: 0.25 });
   }
   windAt(t, out) {
-    const a = this.windA + wave(t * 0.15, this.seed % 100) * 1.5, s = (8 + 9 * Math.max(0, wave(t * 0.5, 3.3))) * smooth(2, 8, t);
+    const a = this.windA + wave(t * 0.15, this.seed % 100) * 1.5, s = (9 + 10 * Math.max(0, wave(t * 0.5, 3.3)) + 4 * smooth(35, 50, t)) * smooth(2, 8, t);
     return out.set(Math.cos(a) * s, 0, Math.sin(a) * s);
   }
   update(dt, t) {
     this.windAt(t, this.env.wind);
     this.windLoop.set(0.3 + this.env.wind.length() / 30);
+    if (!this.said && t > 35) { this.said = true; this.mega('WHITEOUT! THE STORM IS GETTING STRONGER!', 0.5, null); }
+    this.dropFall(this.hail, t, 1.3, '#9fd0ff', (e) => {
+      if (e.m) e.m.removeFromParent();
+      const p = _v.set(e.x, e.y, e.z); this.env.boom(p, 1.2, '#e6f6ff', '#c8d8e8'); this.ctx.audio.sfxAt('crash', p);
+      this.blast(new THREE.Vector3(e.x, e.y + 0.6, e.z), e.R, e.dmg, 8, 'cold', b => { b.cold = Math.min(120, b.cold + 12); });
+    }, (e, left) => { if (!e.m) { e.m = new THREE.Mesh(this.hailGeo, this.hailMat); e.m.scale.setScalar(1 + (e.t % 1) * 0.6); this.group.add(e.m); } e.m.position.set(e.x - this.env.wind.x * left * 0.4, e.y + left * 30, e.z - this.env.wind.z * left * 0.4); e.m.rotation.x += 0.2; });
     this.ctx.map.fires.forEach(f => { f.flame.children.forEach((c, i) => { c.scale.set(1 + Math.sin(t * 14 + i) * 0.1, 1 + Math.sin(t * 11 + i * 2) * 0.18, 1); }); if (f.light) f.light.intensity = 26 + Math.sin(t * 13) * 5; if (Math.random() < dt * 12) this.ctx.fx.emit({ p: _v.copy(f.p).add(_w.set((Math.random() - 0.5) * 0.6, 1.2, (Math.random() - 0.5) * 0.6)), v: new THREE.Vector3(0, 2.5, 0), life: 0.8, size: 0.15, color: '#ffb703', g: 0 }); });
   }
   affect(b, dt, t) {
     const p = b.mover.pos;
     b.mover.slip = 1;
-    if (!b.sheltered) { b.mover.ext.x += this.env.wind.x * 0.55; b.mover.ext.z += this.env.wind.z * 0.55; }
+    if (!b.sheltered) { b.mover.ext.x += this.env.wind.x * 0.5; b.mover.ext.z += this.env.wind.z * 0.5; }
     const fire = this.ctx.map.fires.some(f => Math.hypot(f.p.x - p.x, f.p.z - p.z) < 6 && Math.abs(f.p.y - p.y) < 3);
-    const rate = fire ? -30 : b.sheltered ? -9 : (5 + this.env.wind.length() * 0.15) * smooth(3, 10, t);
+    const rate = fire ? -30 : b.sheltered ? -9 : (6 + this.env.wind.length() * 0.2) * smooth(3, 10, t);
     b.cold = clamp(b.cold + rate * dt, 0, 120);
     b.warm = fire || b.sheltered;
     if (b.cold >= 100) b.hurt(8 * dt, 'cold', true);
@@ -632,14 +752,35 @@ class Blizzard extends Base {
 }
 
 // ---------- ACID RAIN ----------
+// burning rain, acid blobs that splash, and sizzling puddles left on the ground
 class Acid extends Base {
-  start() { this.env.setRain(1, '#b6ff5a', 34); this.sizzleT = 0; }
+  start() {
+    this.env.setRain(1, '#b6ff5a', 38); this.sizzleT = 0;
+    const r = this.r;
+    this.blobs = [];
+    for (let t = 12; t < 57; t += lerp(1.6, 0.5, smooth(12, 50, t)) * (0.6 + r() * 0.8)) { const [x, z] = this.randomSpot(r, 0.2); this.blobs.push({ t, x, z, R: 3, dmg: 18 }); }
+    fallList(this.blobs);
+    this.puddles = [];
+    this.blobGeo = new THREE.SphereGeometry(0.9, 12, 10); this.blobMat = M('#b6ff5a', { emissive: '#7bd389', ei: 0.8, rough: 0.2 });
+  }
   update(dt, t) {
     if (Math.random() < dt * 3 && t > 4) { const [x, z] = this.randomSpot(Math.random, 0); this.env.mark('acid', x, heightAt(x, z), z, 1 + Math.random() * 2.5, 30); }
+    if (!this.said && t > 38) { this.said = true; this.mega('THE ACID IS GETTING STRONGER!', 0.4, null); this.env.setRain(1, '#d4ff3a', 50); }
+    this.dropFall(this.blobs, t, 1.4, '#b6ff5a', (e) => {
+      if (e.m) e.m.removeFromParent();
+      const p = _v.set(e.x, e.y, e.z); this.env.boom(p, 1.6, '#b6ff5a', '#7a9a3a'); this.env.mark('acid', e.x, e.y, e.z, 3.4, 12); this.ctx.audio.sfxAt('sizzle', p);
+      this.blast(new THREE.Vector3(e.x, e.y + 0.6, e.z), e.R, e.dmg, 8, 'acid');
+      this.puddles.push({ x: e.x, y: e.y, z: e.z, r: 3, until: t + 10 });
+    }, (e, left) => { if (!e.m) { e.m = new THREE.Mesh(this.blobGeo, this.blobMat); this.group.add(e.m); } e.m.position.set(e.x, e.y + left * 28, e.z); e.m.scale.set(1, 1.3, 1); });
+    this.puddles = this.puddles.filter(f => f.until > t);
+    for (const f of this.puddles) if (Math.random() < dt * 5) this.ctx.fx.emit({ p: _v.set(f.x + (Math.random() - 0.5) * 4, f.y + 0.1, f.z + (Math.random() - 0.5) * 4), v: new THREE.Vector3(0, 1.4, 0), life: 0.6, size: 0.22, color: '#d4ff3a', g: 0 });
   }
   affect(b, dt, t) {
+    const p = b.mover.pos;
+    // puddles hurt even under a roof
+    for (const f of this.puddles) if (Math.hypot(p.x - f.x, p.z - f.z) < f.r && Math.abs(p.y - f.y) < 1.2) { b.hurt(10 * dt, 'acid', true); b.acid = true; }
     if (b.sheltered) { b.acid = false; return; }
-    const k = smooth(5, 9, t) * lerp(6, 11, smooth(10, 55, t));
+    const k = smooth(5, 9, t) * lerp(7, 12.5, smooth(12, 55, t));
     if (k <= 0) return;
     b.acid = true;
     b.hurt(k * dt, 'acid', true);
@@ -647,5 +788,6 @@ class Acid extends Base {
   }
 }
 
+function fallList(events) { events.i = 0; events.live = []; return events; }
 const CLASSES = { flood: Flood, tsunami: Tsunami, tornado: Tornado, meteor: Meteor, quake: Quake, volcano: Volcano, lightning: Lightning, blizzard: Blizzard, acid: Acid };
 export function makeDisaster(id, ctx, seed) { const C = CLASSES[id]; const d = new C(ctx, seed); d.id = id; d.def = DIS[id]; return d; }

@@ -45,6 +45,32 @@ const MATS = {
   rocket: new THREE.MeshStandardMaterial({ color: '#f1f3f5', metalness: 0.3, roughness: 0.35 }), nose: new THREE.MeshStandardMaterial({ color: '#e63946', roughness: 0.4 }),
   fire: new THREE.MeshStandardMaterial({ color: '#ffd23f', emissive: '#ff5a00', emissiveIntensity: 2 }), fireGlow: add('#ff8c42', 0.55)
 };
+const NEW_GEO = {
+  spike: (() => { const g = new THREE.ConeGeometry(0.09, 0.42, 5); g.translate(0, 0.21, 0); return g; })(),
+  plate: new THREE.CylinderGeometry(0.62, 0.7, 0.08, 14),
+  ghost: (() => { const g = new THREE.CapsuleGeometry(0.42, 0.5, 6, 14); return g; })(),
+  eye: new THREE.SphereGeometry(0.08, 8, 6),
+  rock: new THREE.DodecahedronGeometry(0.75, 0)
+};
+const NEW_MATS = {
+  spike: new THREE.MeshStandardMaterial({ color: '#dfe6ee', metalness: 0.75, roughness: 0.25 }), plate: new THREE.MeshStandardMaterial({ color: '#495057', roughness: 0.6 }),
+  ghost: new THREE.MeshStandardMaterial({ color: '#f8f9fa', emissive: '#c8b6ff', emissiveIntensity: 0.6, transparent: true, opacity: 0.82, roughness: 0.4 }),
+  eye: new THREE.MeshBasicMaterial({ color: '#2a1546' }),
+  rock: new THREE.MeshStandardMaterial({ color: '#3a2a24', emissive: '#ff5a1f', emissiveIntensity: 0.9, flatShading: true }), rockGlow: add('#ff8c42', 0.55)
+};
+// a pile of spikes on a little metal plate
+function spikeMesh() {
+  const g = new THREE.Group(); g.add(new THREE.Mesh(NEW_GEO.plate, NEW_MATS.plate));
+  for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2, r = i ? 0.36 : 0; const m = new THREE.Mesh(NEW_GEO.spike, NEW_MATS.spike); m.position.set(Math.cos(a) * r, 0.04, Math.sin(a) * r); m.rotation.set(Math.sin(a) * 0.3, 0, Math.cos(a) * 0.3); g.add(m); }
+  return g;
+}
+// a friendly little ghost (it floats backwards along the road)
+function ghostMesh() {
+  const g = new THREE.Group(); const b = new THREE.Mesh(NEW_GEO.ghost, NEW_MATS.ghost); g.add(b);
+  for (const sd of [-1, 1]) { const e = new THREE.Mesh(NEW_GEO.eye, NEW_MATS.eye); e.position.set(0.15 * sd, 0.25, 0.38); e.scale.set(1, 1.4, 0.6); g.add(e); }
+  return g;
+}
+function meteorMesh() { const g = new THREE.Group(); g.add(new THREE.Mesh(NEW_GEO.rock, NEW_MATS.rock)); const gl = new THREE.Mesh(GEO.glow, NEW_MATS.rockGlow); gl.scale.setScalar(2.4); g.add(gl); return g; }
 // a bee with a stripe and two wings
 function beeMesh() {
   const g = new THREE.Group(); const body = new THREE.Mesh(GEO.bee, MATS.bee); body.scale.set(1, 0.9, 1.35); g.add(body);
@@ -508,6 +534,73 @@ export class Game {
       }
       if (t.def.proj === 'bee') { this.fx.burst(hand, '#ffd23f', 8, 3, 0.12, 3, 0.4); this.sound('zap', 0.25); }
       else { this.fx.burst(hand, '#ffd23f', 10, 3, 0.15, 3, 0.4); this.fx.burst(hand, '#ff6fd8', 6, 2.5, 0.13, 3, 0.4); this.sound('magic', 0.5); }
+    } else if (k === 'pulse') {
+      // a heat wave: every balloon around it gets hit at once (every 4th pulse with Supernova is huge)
+      t.shots = (t.shots || 0) + 1;
+      const nova = s.nova && t.shots % 4 === 0, R = s.range + (t.buffR || 0) + (nova ? 3 : 0), dmg = nova ? s.dmg * 3 : s.dmg, max = s.maxHits * (nova ? 2 : 1);
+      const list = []; this.near(t.x, t.z, R, x => { list.push(x); });
+      list.sort((a, c) => c.d - a.d);
+      let n = 0;
+      for (const x of list) {
+        if (n++ >= max) break;
+        this.damage(x, dmg, t);
+        if (s.burn && x.alive) { x.dot = Math.max(x.dot, s.burn); x.dotSrc = t; x.glueT = Math.max(x.glueT, 2.2); x.burnT = 2.2; }
+      }
+      const c = _v.set(t.x, t.y + 0.5, t.z);
+      this.fx.ring(c, nova ? '#ffffff' : '#ffd23f', 0.5, R, nova ? 0.6 : 0.45, 0.85); this.fx.ring(c, '#ff8c42', 0.3, R * 0.75, 0.4, 0.6);
+      this.fx.flash(_w.set(t.x, t.y + 1.6, t.z), nova ? '#ffffff' : '#fff3b0', nova ? 3.4 : 1.5, nova ? 0.3 : 0.18); this.fx.light(_w.set(t.x, t.y + 1.6, t.z), '#ffb703', nova ? 60 : 25, 0.25, R * 2);
+      if (nova) { this.fx.burst(_w.set(t.x, t.y + 1.5, t.z), '#ffd23f', 40, R * 2, 0.22, 3, 0.7); this.fx.rays(_v.set(t.x, t.y, t.z), '#ffd23f', 14, R, 0.6); }
+      else this.fx.burst(_w.set(t.x, t.y + 1.5, t.z), '#ffd23f', 12, R * 1.2, 0.16, 2, 0.4);
+      t.hop = nova ? 1 : 0.4;
+      this.sound(nova ? 'boom' : 'magic', nova ? 0.5 : 0.35);
+    } else if (k === 'spike') {
+      // piles of spikes on the road just in front of the balloons
+      for (let i = 0; i < (s.count || 1); i++) {
+        const d0 = Math.min(this.leakAt - 1, b.d + 1.2 + this.rnd() * 3.5 + i * 2.4), pos = this.map.path.at(d0, new THREE.Vector3());
+        if ((pos.x - t.x) ** 2 + (pos.z - t.z) ** 2 > (s.range + 2) ** 2) pos.set(b.x, 0, b.z);
+        const mine = this.projectiles.filter(q => q.kind === 'trap' && q.tower === t && q.life > 0);
+        if (mine.length >= s.maxTraps) mine[0].life = 0;
+        this.addProj({ kind: 'trap', sx: hand.x, sy: hand.y, sz: hand.z, x: hand.x, y: hand.y, z: hand.z, tx: pos.x, tz: pos.z, s: 0, dur: 0.4 + i * 0.08, landed: false, pierce: s.pierce, max: s.pierce, dmg: s.dmg, life: s.life, r: 0.85, tower: t, mesh: spikeMesh(), hit: new Set() });
+      }
+      this.fx.burst(hand, '#dfe6ee', 6, 3, 0.12, 3, 0.3);
+      this.sound('lob', 0.5);
+    } else if (k === 'ghost') {
+      // ghosts appear in front of the balloons and float BACKWARDS along the road, through them
+      for (let i = 0; i < (s.count || 1); i++) {
+        const d0 = Math.min(this.leakAt - 0.5, b.d + 3 + i * 1.6);
+        this.addProj({ kind: 'ghost', d: d0, end: Math.max(0, d0 - s.travel), speed: s.speed, pierce: s.pierce, dmg: s.dmg, r: 0.95, tower: t, mesh: ghostMesh(), hit: new Set(), x: b.x, z: b.z, y: 1.7, age: 0 });
+        const p0 = this.map.path.at(d0, new THREE.Vector3());
+        this.fx.smoke(_v.set(p0.x, 1.2, p0.z), '#e0d7ff', 6, 0.8); this.fx.burst(_w.set(p0.x, 1.6, p0.z), '#c8b6ff', 8, 3, 0.14, 2, 0.4);
+      }
+      this.fx.burst(hand, '#c8b6ff', 10, 3, 0.14, 3, 0.4);
+      this.sound('magic', 0.4);
+    } else if (k === 'meteor') {
+      // meteors from the sky onto the road
+      for (let i = 0; i < (s.count || 1); i++) {
+        const aim = this.lead(b, 0.8 + i * 0.15, new THREE.Vector3()), ox = i ? (this.rnd() - 0.5) * 3.5 : 0, oz = i ? (this.rnd() - 0.5) * 3.5 : 0;
+        const tx = aim.x + ox, tz = aim.z + oz;
+        this.addProj({ kind: 'meteor', tx, tz, sx: tx + 9, sy: 30, sz: tz - 7, x: tx + 9, y: 30, z: tz - 7, s: 0, dur: 0.8 + i * 0.15, tower: t, mesh: meteorMesh() });
+        this.fx.ring(_v.set(tx, 0.15, tz), '#ff4d1a', 0.4, s.radius, 0.8, 0.6);
+      }
+      this.fx.flash(_w.set(t.x, t.y + 2.4, t.z), '#ff8c42', 1.4, 0.2); this.fx.burst(_w.set(t.x, t.y + 2.2, t.z), '#ffd23f', 12, 3, 0.16, 3, 0.5);
+      this.sound('launch', 0.5);
+    } else if (k === 'clock') {
+      // time stops for the balloons around it (bosses only slow down), with Rewind they go back too
+      const list = []; this.near(t.x, t.z, s.range + (t.buffR || 0), x => { list.push(x); });
+      let n = 0;
+      for (const x of list) {
+        if (n++ >= s.maxHits) break;
+        if (x.def.boss) { x.slowT = Math.max(x.slowT, s.stop); x.slowPct = Math.max(x.slowPct, s.bossStop ? 0.85 : 0.5); }
+        else x.stunT = Math.max(x.stunT || 0, s.stop);
+        if (s.rewind && !x.def.boss) x.d = Math.max(0, x.d - s.rewind * (x.def.tough ? 0.6 : 1));
+        if (s.dmg) this.damage(x, s.dmg, t);
+        if (n < 40) this.fx.sparks(_v.set(x.x, 2, x.z), '#c77dff', 3);
+      }
+      const c = _v.set(t.x, t.y + 0.3, t.z), R = Math.min(s.range, 18);
+      this.fx.ring(c, '#ffd23f', 0.6, R, 0.7, 0.9); this.fx.ring(c, '#c77dff', 0.4, R * 0.7, 0.6, 0.7); this.fx.ring(c, '#ffffff', 0.3, R * 0.4, 0.5, 0.6);
+      this.fx.flash(_w.set(t.x, t.y + 1.8, t.z), '#e0c3fc', 2.2, 0.3); this.fx.rays(_v.set(t.x, t.y, t.z), '#ffd23f', 12, Math.min(R, 10), 0.5);
+      t.hop = 0.8;
+      this.sound('freeze', 0.8);
     }
   }
   // one electric shock: big damage, a short stun, and with Arc Jump it hops on to balloons next to it
@@ -714,6 +807,59 @@ export class Game {
         if (Math.random() < 0.6) this.fx.trail(_v.set(p.x, p.y, p.z), p.tower.stats.blaze ? '#ff8c42' : '#ffe08a', 0.18);
         if (p.tower.stats.blaze && Math.random() < 0.4) this.fx.flames(_v.set(p.x, p.y - 0.2, p.z), 1, 0.3);
         if (p.s >= 1) alive = false;
+      } else if (p.kind === 'trap') {
+        if (!p.landed) {
+          p.s += dt / p.dur; const k = Math.min(1, p.s);
+          p.x = p.sx + (p.tx - p.sx) * k; p.z = p.sz + (p.tz - p.sz) * k; p.y = p.sy * (1 - k) + 0.12 * k + Math.sin(Math.PI * k) * 2.2;
+          if (p.s >= 1) { p.landed = true; p.y = 0.12; this.fx.dust(_v.set(p.x, 0.1, p.z), 3); this.fx.sparks(_v.set(p.x, 0.3, p.z), '#ffffff', 4); }
+        } else {
+          p.life -= dt;
+          this.near(p.x, p.z, p.r, b => {
+            if (p.hit.has(b.id) || p.pierce <= 0) return;
+            p.hit.add(b.id); this.damage(b, p.dmg, p.tower); p.pierce--;
+            this.fx.sparks(_v.set(b.x, 1, b.z), '#ffffff', 3);
+          });
+          if (p.pierce <= 0 || p.life <= 0) { alive = false; this.fx.smoke(_v.set(p.x, 0.3, p.z), '#adb5bd', 3, 0.5); }
+        }
+        if (p.mesh) { p.mesh.position.set(p.x, p.y, p.z); const sc = p.landed ? 0.55 + 0.45 * p.pierce / p.max : 1; p.mesh.scale.set(sc, sc * Math.min(1, p.life + 0.2), sc); if (!p.landed) p.mesh.rotation.y += dt * 10; }
+      } else if (p.kind === 'ghost') {
+        p.age += dt; p.d -= p.speed * dt;
+        this.map.path.at(Math.max(0, p.d), _v); p.x = _v.x; p.z = _v.z;
+        const sc = p.tower.stats.scare || 0;
+        this.near(p.x, p.z, p.r, b => {
+          if (p.hit.has(b.id) || p.pierce <= 0) return;
+          p.hit.add(b.id); this.damage(b, p.dmg, p.tower);
+          if (sc && b.alive && !b.def.boss) b.stunT = Math.max(b.stunT || 0, sc);
+          p.pierce--;
+          this.fx.burst(_w.set(b.x, 1.9, b.z), '#c8b6ff', 5, 2.5, 0.12, 2, 0.3);
+        });
+        if (p.pierce <= 0 || p.d <= p.end || p.d <= 0) { alive = false; this.fx.smoke(_v.set(p.x, 1.4, p.z), '#e0d7ff', 6, 0.7); }
+        if (p.mesh) {
+          p.mesh.position.set(p.x, p.y + Math.sin(p.age * 6) * 0.2, p.z);
+          p.mesh.rotation.y = this.map.path.heading(Math.max(0, p.d)) + Math.PI;
+          const f = Math.min(1, p.age * 4); p.mesh.scale.setScalar(f);
+        }
+        if (Math.random() < 0.5) this.fx.trail(_v.set(p.x, p.y, p.z), '#e0d7ff', 0.2);
+      } else if (p.kind === 'meteor') {
+        p.s += dt / p.dur; const k = Math.min(1, p.s);
+        p.x = p.sx + (p.tx - p.sx) * k; p.z = p.sz + (p.tz - p.sz) * k; p.y = p.sy + (0.4 - p.sy) * k;
+        if (p.mesh) { p.mesh.position.set(p.x, p.y, p.z); p.mesh.rotation.x += dt * 6; p.mesh.rotation.z += dt * 4; }
+        if (Math.random() < 0.9) this.fx.flames(_v.set(p.x, p.y, p.z), 1, 0.4);
+        if (Math.random() < 0.5) this.fx.trail(_v.set(p.x, p.y, p.z), '#ff8c42', 0.4);
+        if (p.s >= 1) {
+          const st = p.tower.stats;
+          this.explode(p.tx, p.tz, p.tower, st.radius, false, true);
+          this.fx.decal(_v.set(p.tx, 0.06, p.tz), '#2a1a12', st.radius * 0.9, 4, 0.5);
+          this.fx.burst(_w.set(p.tx, 1, p.tz), '#ffd23f', 18, st.radius * 2.4, 0.22, 6, 0.6);
+          if (st.burn) this.addProj({ kind: 'zone', x: p.tx, z: p.tz, y: 0, r: st.radius * 0.85, life: st.burnT || 3, tick: 0, dmg: st.burn, tower: p.tower });
+          alive = false;
+        }
+      } else if (p.kind === 'zone') {
+        // burning ground: hurts every balloon on it twice a second
+        p.life -= dt; p.tick += dt;
+        if (p.tick >= 0.5) { p.tick -= 0.5; this.near(p.x, p.z, p.r, b => { this.damage(b, p.dmg, p.tower); }); }
+        if (Math.random() < dt * 14) this.fx.flames(_v.set(p.x + (Math.random() - 0.5) * p.r * 1.4, 0.15, p.z + (Math.random() - 0.5) * p.r * 1.4), 1, 0.45);
+        if (p.life <= 0) alive = false;
       } else if (p.kind === 'bomb') {
         p.s += dt / p.dur; const k = Math.min(1, p.s);
         p.x = p.sx + (p.tx - p.sx) * k; p.z = p.sz + (p.tz - p.sz) * k; p.y = p.sy * (1 - k) + 1.2 * k + (p.cannon ? 0 : Math.sin(Math.PI * k) * 3.2);
@@ -749,8 +895,8 @@ export class Game {
       if (tw.atk >= 0) { tw.atk += dt / Math.min(0.4, Math.max(0.16, tw.stats.cd * 0.6)); if (tw.atk > 1) tw.atk = -1; }
       if (tw.cheerT > 0) tw.cheerT -= dt;
       if (tw.hop > 0) tw.hop = Math.max(0, tw.hop - dt * 2.5);
-      const k = tw.def.kind, cast = k === 'chain' || k === 'magic';
-      m.update(dt, { speed: 0, attack: cast || k === 'tack' ? -1 : tw.atk, cast: cast ? tw.atk : -1, spin: k === 'tack' && tw.atk >= 0 ? tw.atk : -1, melee: k === 'dart' || k === 'boom' || k === 'bomb', dance: this.won || tw.cheerT > 0 });
+      const k = tw.def.kind, cast = k === 'chain' || k === 'magic' || k === 'pulse' || k === 'clock' || k === 'meteor' || k === 'ghost';
+      m.update(dt, { speed: 0, attack: cast || k === 'tack' ? -1 : tw.atk, cast: cast ? tw.atk : -1, spin: k === 'tack' && tw.atk >= 0 ? tw.atk : -1, melee: k === 'dart' || k === 'boom' || k === 'bomb' || k === 'spike', dance: this.won || tw.cheerT > 0 });
       m.root.position.y = tw.y + Math.sin(tw.hop * Math.PI) * 0.8 + dy;
       // glued balloons drip, frozen ones sparkle a little
     }

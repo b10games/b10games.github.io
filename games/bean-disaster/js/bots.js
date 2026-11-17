@@ -107,8 +107,8 @@ export class BotBrain {
       return null;
     }
     if (id === 'quake') {
-      // away from walls: pick an open place
-      if (!this.wander || this.b.mover.pos.distanceTo(this.wander) < 1.5 || Math.random() < 0.003) { const opens = [[0, 22], [-22, 0], [22, -26], [-8, -50], [56, 6], [-52, 24], [10, 52]]; const o = opens[Math.floor(Math.random() * opens.length)]; this.wander = new THREE.Vector3(o[0] + (Math.random() - 0.5) * 8, 2, o[1] + (Math.random() - 0.5) * 8); }
+      // away from walls: pick an open place (on the roads: every map keeps them free)
+      if (!this.wander || this.b.mover.pos.distanceTo(this.wander) < 1.5 || Math.random() < 0.003) { const opens = [[0, 22], [-22, 0], [22, 0], [0, -22], [0, -44], [44, 0], [-44, 0], [0, 44]]; const o = opens[Math.floor(Math.random() * opens.length)]; this.wander = new THREE.Vector3(o[0] + (Math.random() - 0.5) * 8, 2, o[1] + (Math.random() - 0.5) * 8); }
       return this.wander;
     }
     const kind = GOAL[id];

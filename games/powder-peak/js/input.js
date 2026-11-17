@@ -1,6 +1,7 @@
 // Keyboard and touch, turned into one set of controls.
 // On the snow: W/S speed up and slow down, A/D turn, hold SPACE to charge a jump and let go to jump.
-// In the air: W frontflip, S backflip, A/D spins, and two keys together for the diagonal flips.
+// In the air: W frontflip, S backflip, A/D spins, and two keys together for the diagonal flips. Hold
+// SPACE (or the middle of the trick pad) to grab the board or the skis.
 // Opposite keys (W+S or A+D) never fight: the one pressed last wins.
 //
 // Touch: a joystick on the left, a big jump button on the right (hold, then let go). In the air the jump
@@ -53,7 +54,9 @@ export class Input {
       for (const d of this.pad.values()) { if (d.f) f = d.f; if (d.s) s = d.s; }
       flip = f; spin = s;
     }
-    return { fwd, steer, jump: !!this.down.jump || this.jumpTouch !== null, flip, spin };
+    // in the air, the middle of the trick pad grabs (like holding SPACE)
+    let padGrab = false; if (this.air) for (const d of this.pad.values()) if (!d.f && !d.s) padGrab = true;
+    return { fwd, steer, jump: !!this.down.jump || this.jumpTouch !== null || padGrab, flip, spin };
   }
   reset() { this.down = {}; this.order = { ws: null, ad: null }; this.pad.clear(); this.jumpTouch = null; this.joy.id = null; this.joy.x = this.joy.y = 0; this.paint(); }
 

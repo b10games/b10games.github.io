@@ -1,4 +1,4 @@
-// Rendering basics for Powder Peak: renderer, sky, small math helpers and canvas textures.
+// Rendering basics for STEEP: renderer, sky, small math helpers and canvas textures.
 import * as THREE from 'three';
 export { THREE };
 
@@ -16,7 +16,7 @@ export function createRenderer(canvas, q, scale = 1) {
   r.outputColorSpace = THREE.SRGBColorSpace;
   // AgX keeps bright snow white and soft instead of flat grey
   r.toneMapping = THREE.AgXToneMapping;
-  r.toneMappingExposure = 1.24;
+  r.toneMappingExposure = 1.42;
   r.shadowMap.type = THREE.PCFSoftShadowMap;
   applyQuality(r, q, scale);
   return r;

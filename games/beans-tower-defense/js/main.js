@@ -211,7 +211,7 @@ function makeThumb(def) {
 }
 
 // ---------- the Bean Shop (buy beans and farms with Bean Coins, pick your team) ----------
-const KIND_NAME = { dart: 'Darts', hitscan: 'Long range shots', boom: 'Boomerang', bomb: 'Explosions', ice: 'Freezing', tack: 'Tack ring', glue: 'Slowing glue', laser: 'Laser beam', tazer: 'Electric zaps', chain: 'Chain lightning', magic: 'Homing magic', cannon: 'Heavy cannon', wind: 'Blows balloons back', support: 'Makes beans faster' };
+const KIND_NAME = { dart: 'Darts', hitscan: 'Long range shots', boom: 'Boomerang', bomb: 'Explosions', ice: 'Freezing', tack: 'Tack ring', glue: 'Slowing glue', laser: 'Laser beam', tazer: 'Electric zaps', chain: 'Chain lightning', magic: 'Homing magic', cannon: 'Heavy cannon', wind: 'Blows balloons back', support: 'Makes beans faster', pulse: 'Heat wave all around', spike: 'Spikes on the road', ghost: 'Ghosts float backwards', meteor: 'Meteors from the sky', clock: 'Stops time' };
 const KIND_OF = b => b.proj === 'arrow' ? 'Long range arrows' : b.proj === 'bullet' ? 'Super fast bullets' : b.proj === 'thorn' ? 'Thorn ring' : b.proj === 'fire' ? 'Fire and burning' : b.proj === 'bee' ? 'Homing bees' : b.proj === 'rocket' ? 'Map-wide rockets' : b.proj === 'super' ? 'Heat vision' : b.proj === 'grape' ? 'Double cannon' : KIND_NAME[b.kind];
 function renderShop() {
   const sv = app.save;
@@ -238,8 +238,8 @@ function renderShop() {
 }
 
 // ---------- Bean Book: every level of a bean with a live preview ----------
-const STAT_NAME = { dmg: 'Damage', rate: 'Attacks / sec', range: 'Range', pierce: 'Pierce', count: 'Shots', radius: 'Blast size', maxHits: 'Hits per attack', freeze: 'Freeze time', slow: 'Slow', slowT: 'Effect time', area: 'Area', dot: 'Damage per sec', chain: 'Jumps', bounceR: 'Jump distance', ricochet: 'Bounces', bossMul: 'Boss damage', push: 'Push back', boost: 'Beans faster', rangeUp: 'Extra range for beans', cluster: 'Mini bombs', shatter: 'Shatter damage', blizzard: 'Blizzard', blaze: 'Burning', stun: 'Stun', arc: 'Arc jumps' };
-const statVal = (k, v) => v == null ? '-' : k === 'rate' ? v.toFixed(2) : k === 'slow' || k === 'boost' ? Math.round(v * 100) + '%' : k === 'bossMul' ? 'x' + v : k === 'freeze' || k === 'slowT' || k === 'stun' ? (+v).toFixed(1) + 's' : k === 'blizzard' || k === 'blaze' ? (v ? 'Yes' : 'No') : k === 'range' && v > 100 ? 'Map' : +(+v).toFixed(1);
+const STAT_NAME = { dmg: 'Damage', rate: 'Attacks / sec', range: 'Range', pierce: 'Pierce', count: 'Shots', radius: 'Blast size', maxHits: 'Hits per attack', freeze: 'Freeze time', slow: 'Slow', slowT: 'Effect time', area: 'Area', dot: 'Damage per sec', chain: 'Jumps', bounceR: 'Jump distance', ricochet: 'Bounces', bossMul: 'Boss damage', push: 'Push back', boost: 'Beans faster', rangeUp: 'Extra range for beans', cluster: 'Mini bombs', shatter: 'Shatter damage', blizzard: 'Blizzard', blaze: 'Burning', stun: 'Stun', arc: 'Arc jumps', burn: 'Burn per sec', nova: 'Supernova', life: 'Pile lasts', maxTraps: 'Piles on the road', travel: 'Ghost float', scare: 'Scare stop', burnT: 'Fire lasts', stop: 'Time stop', rewind: 'Rewind', bossStop: 'Stops bosses' };
+const statVal = (k, v) => v == null ? '-' : k === 'rate' ? v.toFixed(2) : k === 'slow' || k === 'boost' ? Math.round(v * 100) + '%' : k === 'bossMul' ? 'x' + v : k === 'freeze' || k === 'slowT' || k === 'stun' || k === 'life' || k === 'scare' || k === 'burnT' || k === 'stop' ? (+v).toFixed(1) + 's' : k === 'blizzard' || k === 'blaze' || k === 'nova' || k === 'bossStop' ? (v ? 'Yes' : 'No') : k === 'range' && v > 100 ? 'Map' : +(+v).toFixed(1);
 const book = { id: null, lvl: 0, view: null };
 function openBook(id, lvl = 0) {
   book.id = id; const b = BEAN[id];

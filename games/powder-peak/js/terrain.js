@@ -7,7 +7,7 @@ import { clamp, smooth, rng } from './math.js';
 
 const N1 = makeNoise(7), N2 = makeNoise(31), N3 = makeNoise(77), N4 = makeNoise(123), N5 = makeNoise(555);
 
-export const BOUNDS = { x: 3800, z0: -3800, z1: 3800 };
+export const BOUNDS = { x: 5600, z0: -5600, z1: 5600 };
 
 // the big peaks you can ride (name, position, height, how wide the mountain is)
 export const PEAKS = [
@@ -18,7 +18,16 @@ export const PEAKS = [
   { id: 'glacier', name: 'Glacier Dome', x: 1900, z: 1500, h: 2400, r: 3600 },
   { id: 'wolf', name: 'Wolf Tooth', x: 3300, z: 450, h: 1950, r: 2900 },
   { id: 'raven', name: 'Raven Ridge', x: -3300, z: 350, h: 1850, r: 2800 },
-  { id: 'sunset', name: 'Sunset Point', x: 200, z: 2900, h: 1650, r: 2600 }
+  { id: 'sunset', name: 'Sunset Point', x: 200, z: 2900, h: 1650, r: 2600 },
+  // the outer ring: more giants further out
+  { id: 'nord', name: 'Nordwall', x: -1100, z: -4700, h: 2950, r: 4000 },
+  { id: 'aurora', name: 'Aurora Peak', x: 2900, z: -4300, h: 2750, r: 3800 },
+  { id: 'fang', name: 'Ice Fang', x: -4600, z: -3300, h: 2600, r: 3600 },
+  { id: 'thunder', name: 'Thunder Wall', x: 4800, z: -2200, h: 2500, r: 3500 },
+  { id: 'ghost', name: 'Ghost Ridge', x: -4800, z: 2800, h: 2100, r: 3100 },
+  { id: 'lynx', name: 'Lynx Horn', x: 4700, z: 3400, h: 2200, r: 3200 },
+  { id: 'ember', name: 'Ember Cliffs', x: -2300, z: 4700, h: 1850, r: 2900 },
+  { id: 'moon', name: 'Moon Bowl', x: 2600, z: 4800, h: 1800, r: 2800 }
 ];
 // a quiet spot in the valley for the lobby (the big peak right behind it)
 for (const p of PEAKS) p.r2 = p.r * p.r;
@@ -44,7 +53,7 @@ function massif(x, z) {
   let h = 240 * Math.log(acc);
   // far outside the riding area: more giant mountains all around the horizon
   const R = Math.max(Math.abs(x), Math.abs(z));
-  if (R > 4300) h += smooth(4300, 7000, R) * (1600 + 1300 * ridged(x / 1900 + 3, z / 1900, 3));
+  if (R > 5900) h += smooth(5900, 8000, R) * (1600 + 1300 * ridged(x / 1900 + 3, z / 1900, 3));
   const k = clamp(h / 2600, 0, 1);
   // arêtes and couloirs on the high parts, softer folds lower down
   h += (ridged(wx / 1300, wz / 1300, 4) - 0.5) * 190 * Math.pow(k, 0.85);
@@ -57,11 +66,11 @@ function massif(x, z) {
 // natural lips (wind lips, rolls that drop away): placed once, on rideable slopes
 export const LIPS = [];
 // a plain grid of 200 m cells (fast to look up: no text keys)
-const LC = 200, LN = 48, LOFF = 24, LIPGRID = new Array(LN * LN).fill(null);
+const LC = 200, LN = 62, LOFF = 31, LIPGRID = new Array(LN * LN).fill(null);
 const lipCell = (cx, cz) => (cx + LOFF < 0 || cz + LOFF < 0 || cx + LOFF >= LN || cz + LOFF >= LN) ? null : LIPGRID[(cx + LOFF) * LN + cz + LOFF];
 (function placeLips() {
   const r = rng(99);
-  for (let gx = -3600; gx <= 3600; gx += 140) for (let gz = -3600; gz <= 3600; gz += 140) {
+  for (let gx = -5400; gx <= 5400; gx += 140) for (let gz = -5400; gz <= 5400; gz += 140) {
     const x = gx + (r() - 0.5) * 120, z = gz + (r() - 0.5) * 120, e = 6;
     if (r() > 0.2) continue;
     const h = massif(x, z), dx = (massif(x + e, z) - massif(x - e, z)) / (2 * e), dz = (massif(x, z + e) - massif(x, z - e)) / (2 * e), s = Math.hypot(dx, dz);

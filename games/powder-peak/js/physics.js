@@ -9,11 +9,12 @@ import { Assist } from './assist.js';
 import { BOUNDS } from './terrain.js';
 
 export const G = 12;
-// in the air gravity is softer: jumps hang longer and you fall more slowly
-export const G_AIR = 7.6;
+// in the air gravity is a little softer than on the snow (so jumps still hang a moment), but you come
+// back down at a natural pace (keep assist.js G the same)
+export const G_AIR = 9.4;
 const GEAR = {
-  board: { grip: 5.2, turn: [2.5, 1.2], pop: [3.4, 9.6], drag: 0.0088, carveKeep: 0.6 },
-  skis: { grip: 6.6, turn: [2.8, 1.35], pop: [3.1, 9.0], drag: 0.0082, carveKeep: 0.66 }
+  board: { grip: 5.2, turn: [2.5, 1.2], pop: [2.9, 8.2], drag: 0.0088, carveKeep: 0.6 },
+  skis: { grip: 6.6, turn: [2.8, 1.35], pop: [2.7, 7.7], drag: 0.0082, carveKeep: 0.66 }
 };
 const Y = new THREE.Vector3(0, 1, 0);
 const _n = new THREE.Vector3(), _f = new THREE.Vector3(), _r = new THREE.Vector3(), _a = new THREE.Vector3(), _b = new THREE.Vector3(), _m = new THREE.Matrix4();
@@ -32,6 +33,7 @@ export class Rider3D {
     this.lean = 0; this.edge = 0; this.brake = 0; this.tuck = 0; this.landK = 0; this.bailT = 0; this.wob = 0;
     this.revertT = 0; this.speed = 0; this.airT = 0; this.topSpeed = 0; this.lastLand = null;
     this.assistLevel = 2;
+    this.grab = 0;                               // 0..1: how far the hand is down at the board / skis
   }
   setGear(g) { this.gear = g === 'skis' ? 'skis' : 'board'; }
   // put the rider somewhere, facing downhill
@@ -147,16 +149,17 @@ export class Rider3D {
     this.v.addScaledVector(this.n, pop * 0.75).y += pop * 0.35;
     this.charging = false; this.charge = 0;
     this.emit('jump', { k });
-    this.takeoff(true);
+    // a strong pop also gives the most turning speed for tricks
+    this.takeoff(true, 0.85 + 0.15 * k);
   }
-  takeoff(popped) {
+  takeoff(popped, power = 0.85) {
     this.grounded = false; this.airT = 0; this.coyote = popped ? 0 : 0.16;
     this.p.y += 0.02;
     // the rotation on the snow becomes the start of the rotation in the air
     this.groundQuat(_q);
     this.airNeutral(this.neutral, 0);
     _q2.copy(this.neutral).invert().multiply(_q);
-    this.tricks.start(_q2);
+    this.tricks.start(_q2, power);
     this.assist.takeoff();
     this.emit('takeoff', { popped });
   }
@@ -169,14 +172,18 @@ export class Rider3D {
     if (this.coyote > 0) {
       this.coyote -= dt;
       if (inp.jump) { this.charging = true; this.charge = Math.min(1, this.charge + dt / 0.85); }
-      else if (this.charging) { const g = GEAR[this.gear], k = this.charge; this.v.y += lerp(g.pop[0], g.pop[1], k) * 0.8; this.charging = false; this.charge = 0; this.emit('jump', { k }); }
+      else if (this.charging) { const g = GEAR[this.gear], k = this.charge; this.v.y += lerp(g.pop[0], g.pop[1], k) * 0.8; this.charging = false; this.charge = 0; this.tricks.power = Math.max(this.tricks.power, 0.85 + 0.15 * k); this.emit('jump', { k }); }
     } else { this.charging = false; this.charge = 0; }
+    // holding SPACE in the air: grab the board / the skis
+    const grabbing = inp.jump && this.coyote <= 0 && !this.charging;
+    if (grabbing && !this.tricks.grabbing) this.emit('grab', {});
+    this.tricks.grab(grabbing, dt, this.gear);
     this.v.y -= G_AIR * dt;
     const sp = this.v.length(); this.v.multiplyScalar(1 - 0.0016 * sp * dt);
     this.assist.update(dt, this.assistLevel, this.p, this.v);
     this.p.addScaledVector(this.v, dt);
-    // tricks
-    const relax = this.tricks.rotating ? 0 : 2.4 + this.assist.alignRate(this.assistLevel, false);
+    // tricks (with no keys held you slowly settle back to a riding position)
+    const relax = this.tricks.rotating ? 0 : 1.5 + this.assist.alignRate(this.assistLevel, false) * 0.5;
     this.tricks.update(dt, inp.flip, inp.spin, relax);
     const h = W.height(this.p.x, this.p.z);
     if (this.p.y <= h) { this.p.y = h; this.land(dt); }
@@ -185,7 +192,14 @@ export class Rider3D {
   airNeutral(out, k = 1) {
     const hz = Math.hypot(this.v.x, this.v.z);
     const yaw = hz > 0.5 ? Math.atan2(this.v.x, this.v.z) + (this.switch ? Math.PI : 0) : this.yaw + (this.switch ? Math.PI : 0);
-    const pitch = clamp(Math.atan2(-this.v.y, Math.max(1, hz)) * 0.55 * k, -0.6, 0.7);
+    let pitch = clamp(Math.atan2(-this.v.y, Math.max(1, hz)) * 0.55 * k, -0.6, 0.7);
+    // just before touching down the rider tips the board to the slope below (like you would for real)
+    const A = this.assist, im = A.impact;
+    if (k > 0 && im && im.score > -1 && A.t < 0.6 && hz > 0.5) {
+      const dx = this.v.x / hz, dz = this.v.z / hz, slope = Math.atan2(im.n.x * dx + im.n.z * dz, Math.max(0.3, im.n.y)) * (this.switch ? -1 : 1);
+      const w = smooth(0.6, 0.12, A.t) * (this.assistLevel > 0 ? 1 : 0.55);
+      pitch = lerp(pitch, clamp(slope, -0.6, 0.9), w);
+    }
     _q3.setFromAxisAngle(Y, yaw);
     out.setFromAxisAngle(_a.set(1, 0, 0), pitch).premultiply(_q3);
     return out;
@@ -195,13 +209,17 @@ export class Rider3D {
     const into = -this.v.dot(n);
     _a.copy(this.v).addScaledVector(n, -this.v.dot(n));
     const travel = _a.lengthSq() > 0.01 ? _a.clone().normalize() : this.heading(new THREE.Vector3());
+    const grabbed = this.grab > 0.6 && this.tricks.grabbing;
     const res = this.tricks.land(this.quat, n, travel, this.assistLevel);
+    // still holding the grab when you touch down: hard to land well (the assist lets go for you on HIGH)
+    if (grabbed && this.assistLevel < 3) { if (res.quality === 'perfect') res.quality = 'clean'; else if (res.quality === 'clean') { res.quality = 'sketchy'; res.total = Math.round(res.total * 0.5); } }
     // where you land matters too: a flat bottom far below hurts, rock or a cliff face is a wipeout
     if (into > 30 || n.y < 0.45) { res.quality = 'crash'; res.total = 0; }
     else if ((into > 19 || n.y < 0.6) && (res.quality === 'clean' || res.quality === 'perfect')) { res.quality = 'sketchy'; res.total = Math.round(res.total * 0.5); res.hard = true; }
     // keep the speed along the snow, lose a bit on hard landings
     this.v.copy(_a).multiplyScalar(1 - Math.min(0.3, Math.max(0, into - 6) / 70));
     this.grounded = true; this.coyote = 0;
+    this.tricks.grabbing = false;
     this.yaw = Math.atan2(this.v.x, this.v.z);
     this.switch = res.switch && res.quality !== 'crash'; this.revertT = 0;
     this.landK = Math.min(1, 0.35 + into / 18);
@@ -288,15 +306,21 @@ export class Rider3D {
       this.pivot = Math.max(0, (this.pivot || 0) - dt * 6);
     } else {
       this.airNeutral(this.neutral);
-      // the landing assist straightens you up just before you touch down
+      // the landing assist straightens you up just before you touch down: gently at first, so that you
+      // are lined up right when you touch the snow (it never snaps)
       const ar = this.assist.alignRate(this.assistLevel, this.tricks.rotating);
       if (ar > 0) {
         const tgt = this.tricks.nearestClean(), ang = this.tricks.local.angleTo(tgt);
-        if (ang < this.assist.alignMax(this.assistLevel)) this.tricks.local.slerp(tgt, 1 - Math.exp(-ar * dt));
+        if (ang < this.assist.alignMax(this.assistLevel)) this.tricks.local.slerp(tgt, 1 - Math.exp(-ar * 0.35 * dt / Math.max(0.08, this.assist.t)));
       }
       this.quat.copy(this.neutral).multiply(this.tricks.local);
       this.pivot = Math.min(1, (this.pivot || 0) + dt * 6);
     }
+    // the hand goes down to the board (and comes back up) quickly but not instantly; on HIGH the assist
+    // lets go of the grab for you just before landing
+    const autoLet = this.assistLevel >= 3 && this.assist.impact && this.assist.t < 0.2;
+    const wantGrab = !this.grounded && this.state !== 'bail' && this.tricks.grabbing && !autoLet ? 1 : 0;
+    this.grab += (wantGrab - this.grab) * (1 - Math.exp(-(wantGrab ? 14 : 10) * dt));
     this.landK = Math.max(0, this.landK - dt * 2.4);
     this.wob = Math.max(0, this.wob - dt * 1.4);
     // turning edge for the snowboard: toes when turning right (we stand left foot forward), heels when turning left
@@ -311,5 +335,6 @@ export class Rider3D {
     P.flip = air && this.tricks.rotating ? 1 : Math.max(0, (P.flip || 0) - 0.08);
     P.land = this.landK; P.bail = this.state === 'bail' ? 1 : 0; P.wobble = this.wob; P.speed = this.speed;
     P.push = this.grounded && this.speed < 7.5 && this._pushing ? 1 : 0;
+    P.grab = this.grab; P.grabSide = this.tricks.grabSide;
   }
 }

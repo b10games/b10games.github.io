@@ -35,7 +35,7 @@
 
   var GAMES = {
     'bean-disaster': 'Bean Disaster',
-    'powder-peak': 'Powder Peak',
+    'powder-peak': 'STEEP',
     'crown-clash': 'Crown Clash',
     'beans-tower-defense': 'Beans Tower Defense',
     'bean-of-legends': 'Bean of Legends',

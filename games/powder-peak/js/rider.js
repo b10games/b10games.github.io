@@ -8,6 +8,8 @@ const A = 0.44, B = 0.43;                  // thigh and shin
 export const PIVOT = 0.95;                 // flips turn around the belly, this high above the feet
 const V = () => new THREE.Vector3();
 const _a = V(), _b = V(), _c = V(), _d = V(), _k = V(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), DOWN = new THREE.Vector3(0, -1, 0);
+const _gt = V(), _gm = new THREE.Matrix4(), _gq = new THREE.Quaternion(), _gq2 = new THREE.Quaternion(), _pole = V();
+const UA = 0.28, FA = 0.27;                // upper arm and forearm (shoulder -> elbow -> hand)
 
 function cap(r, len, mat, seg = 10) { return new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 4, seg), mat); }
 function std(c, rough = 0.7, o = {}) { return new THREE.MeshStandardMaterial({ color: c, roughness: rough, ...o }); }
@@ -32,7 +34,7 @@ function gearTex(d, w, h) {
     else if (d.pat === 'stars') { for (let i = 0; i < 40; i++) { g.fillStyle = i % 3 ? d.c : d.b; const x = Math.random() * w, y = Math.random() * h, s = h * (0.04 + Math.random() * 0.06); g.beginPath(); for (let p = 0; p < 10; p++) { const a = p / 10 * Math.PI * 2, r = p % 2 ? s * 0.45 : s; g.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); } g.fill(); } }
     else if (d.pat === 'camo') { for (let i = 0; i < 60; i++) { g.fillStyle = i % 2 ? d.b : d.c; g.beginPath(); g.ellipse(Math.random() * w, Math.random() * h, h * 0.25, h * 0.14, Math.random() * 3, 0, 7); g.fill(); } }
     g.fillStyle = 'rgba(255,255,255,0.85)'; g.font = `900 ${Math.round(h * 0.28)}px Nunito, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText('POWDER', w * 0.5, h * 0.5);
+    g.fillText('STEEP', w * 0.5, h * 0.5);
   });
   t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
   TEX.set(k, t); return t;
@@ -70,7 +72,7 @@ export class Rider {
       skin: std('#f1c7a5', 0.7), board: std('#fff', 0.35), base: std('#1a1a1a', 0.4), bind: std('#1b1c20', 0.5), pole: std('#c9ced6', 0.3, { metalness: 0.8 })
     };
     this.build();
-    this.pose = { crouch: 0.3, edge: 0, lean: 0, air: 0, tuck: 0, flip: 0, land: 0, bail: 0, idle: 0, push: 0, brake: 0, speed: 0, charge: 0, wobble: 0, lobby: 0 };
+    this.pose = { crouch: 0.3, edge: 0, lean: 0, air: 0, tuck: 0, flip: 0, land: 0, bail: 0, idle: 0, push: 0, brake: 0, speed: 0, charge: 0, wobble: 0, lobby: 0, grab: 0, grabSide: 1 };
     this.t = Math.random() * 10; this.idleT = 3; this.idleAct = 0; this.idleK = 0;
     this.setOutfit(outfit); this.setGear(gear);
   }
@@ -186,6 +188,26 @@ export class Rider {
     L.ankle.quaternion.copy(_q).invert().multiply(footQ);
   }
 
+  // a grab: the hand reaches the target T (in the rider's own space, like the board), blended by w
+  solveArm(arm, T, w) {
+    this.body.updateMatrix(); this.hips.updateMatrix(); this.spine.updateMatrix();
+    _gm.multiplyMatrices(this.body.matrix, this.hips.matrix).multiply(this.spine.matrix).invert();
+    _gt.copy(T).applyMatrix4(_gm);                              // the target, seen from the chest
+    const S = arm.sh.position;
+    _a.subVectors(_gt, S); let len = _a.length(); _a.normalize();
+    len = clamp(len, 0.06, UA + FA - 0.004);
+    const ang = Math.acos(clamp((UA * UA + len * len - FA * FA) / (2 * UA * len), -1, 1));
+    _pole.set(arm.s * 0.8, 0.1, -0.6).normalize();               // elbows out and a little back
+    _b.crossVectors(_a, _pole); if (_b.lengthSq() < 1e-6) _b.set(1, 0, 0); _b.normalize();
+    _c.copy(_a).applyAxisAngle(_b, ang);                        // upper arm direction
+    _k.copy(S).addScaledVector(_c, UA);                         // elbow
+    _d.copy(_gt).sub(_k).normalize();                           // forearm direction
+    _gq.setFromUnitVectors(DOWN, _c);
+    _gq2.setFromUnitVectors(DOWN, _d); _gq2.premultiply(_q.copy(_gq).invert());
+    arm.sh.quaternion.slerp(_gq, w);
+    arm.el.quaternion.slerp(_gq2, w);
+  }
+
   update(dt) {
     const P = this.pose, board = this.gear === 'board';
     this.t += dt;
@@ -205,14 +227,15 @@ export class Rider {
     // how low the hips are
     // charging a jump: down low at once (knees bent, body forward), deeper the longer you hold
     const ch = P.charge > 0 ? 0.55 + Math.sqrt(P.charge) * 0.45 : 0;
-    let crouch = P.crouch + ch * 0.75 + P.land * 0.45 + P.air * 0.18 + P.flip * 0.35 - (still ? 0.15 : 0);
+    const grab = P.grab || 0;
+    let crouch = P.crouch + ch * 0.75 + P.land * 0.45 + P.air * 0.18 + P.flip * 0.35 + grab * 0.45 - (still ? 0.15 : 0);
     crouch = clamp(crouch, 0, 1);
     const edge = P.edge;
     const hipH = 0.11 + (A + B) * lerp(0.95, 0.5, crouch) + breathe;
     const hipZ = board ? (edge > 0 ? 0.07 * edge : 0.13 * edge) - P.brake * 0.08 : -0.06 - crouch * 0.08;
     this.hips.position.set(board ? 0 : -P.lean * 0.06, hipH - (board && edge < 0 ? -edge * 0.06 : 0), hipZ);
     // upper body
-    const lean = (board ? 0.12 + crouch * 0.35 + Math.max(0, edge) * 0.25 - Math.max(0, -edge) * 0.08 : 0.3 + crouch * 0.5 + P.tuck * 0.35) + ch * 0.35;
+    const lean = (board ? 0.12 + crouch * 0.35 + Math.max(0, edge) * 0.25 - Math.max(0, -edge) * 0.08 : 0.3 + crouch * 0.5 + P.tuck * 0.35) + ch * 0.35 + grab * (board ? 0.3 : 0.2);
     this.spine.rotation.set(lean - P.bail * 0.6 + Math.sin(t * 9) * P.wobble * 0.15, board ? (0.38 - P.air * 0.15) * (1 - P.lobby * 0.8) : 0, board ? Math.sin(t * 7) * P.wobble * 0.2 : -P.lean * 0.25 + Math.sin(t * 7) * P.wobble * 0.2);
     // head looks where you are going
     this.head.rotation.set(-lean * 0.55 + P.bail * 0.3 - P.lobby * 0.08, (board ? 1.05 : 0) * (1 - P.lobby) + look - (board ? P.lobby * 0.25 : 0), board ? 0 : P.lean * 0.15);
@@ -233,7 +256,10 @@ export class Rider {
       if (this.poles) this.poles.forEach((p, i) => { p.rotation.set(lerp(1.2, 2.2, tuck) + P.air * 0.4, 0, (i ? 1 : -1) * 0.12); });
     }
     // legs
-    const footY = board ? 0.12 : 0.12, stance = board ? 0.26 : 0.12;
+    // grabbing: the knees come up and bring the board (or the skis) up to the hand
+    const lift = grab * (board ? 0.34 : 0.3);
+    this.gearGroup.position.y = lift;
+    const footY = 0.12 + lift, stance = board ? 0.26 : 0.12;
     const kneeDir = _c.set(0, 0, 1);
     _q2.identity();
     for (const Lg of this.legs) {
@@ -246,6 +272,22 @@ export class Rider {
       // a board turns the feet a little outwards (duck stance)
       if (board) _q2.setFromAxisAngle(_d.set(0, 1, 0), -s * 0.12); else _q2.identity();
       this.solveLeg(Lg, Lg.hip, Lg.foot, kneeDir.set(board ? s * 0.25 : P.lean * 0.3, 0, 1).normalize(), _q2);
+    }
+    // the grabbing hand: Indy = back hand on the toe edge, Method = front hand on the heel edge,
+    // on skis the hand takes the outside of the ski next to the boot
+    if (grab > 0.01) {
+      if (board) {
+        const side = P.grabSide || 1, arm = side > 0 ? this.arms[1] : this.arms[0];
+        _gt.set(side > 0 ? -0.16 : 0.17, lift + 0.07, side > 0 ? -0.02 : 0.06);
+        this.solveArm(arm, _gt, grab);
+        // the free arm swings out for balance
+        const other = side > 0 ? this.arms[0] : this.arms[1];
+        other.sh.rotation.z += other.s * grab * 0.6; other.sh.rotation.x -= grab * 0.4;
+      } else {
+        _gt.set(0.21, lift + 0.08, 0.1);
+        this.solveArm(this.arms[0], _gt, grab);
+        this.arms[1].sh.rotation.z -= grab * 0.5;
+      }
     }
   }
 }

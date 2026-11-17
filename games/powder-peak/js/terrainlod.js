@@ -9,8 +9,9 @@ import { makeNoise } from './noise.js';
 
 const RES = 32;
 const NZ = makeNoise(99);
-const C_SNOW = new THREE.Color('#fdfeff'), C_SHADE = new THREE.Color('#e6eef9'), C_DEEP = new THREE.Color('#cfdcef'),
-  C_ICE = new THREE.Color('#eef6ff'), C_ROCK = new THREE.Color('#6b717c'), C_ROCK2 = new THREE.Color('#857d74'), C_LOW = new THREE.Color('#fbfcfd');
+// the snow is white; only hollows get a very faint cool shade. Rock faces are black with grey on them.
+const C_SNOW = new THREE.Color('#ffffff'), C_SHADE = new THREE.Color('#f1f4f9'), C_DEEP = new THREE.Color('#dfe7f2'),
+  C_ICE = new THREE.Color('#f3f8ff'), C_ROCK = new THREE.Color('#1c1d21'), C_ROCK2 = new THREE.Color('#5d6066'), C_LOW = new THREE.Color('#ffffff');
 
 export class TerrainLOD {
   constructor(scene, material, o = {}) {
@@ -88,10 +89,15 @@ export class TerrainLOD {
       // colour: snow, a cool shade in hollows, ice up high, rock where it is too steep for snow
       const lap = (H[gi - 1] + H[gi + 1] + H[gi - G] + H[gi + G] - 4 * h) / (s * s * Math.max(1, s / 6));
       const hollow = clamp(lap * 5, -1, 1), nv = NZ(x / 34, z / 34), steep = smooth(0.74, 0.56, ny);
-      c.copy(h < 700 ? C_LOW : C_SNOW).lerp(C_SHADE, clamp(0.06 + nv * 0.18 + Math.max(0, hollow) * 0.45, 0, 1));
-      if (hollow > 0.5) c.lerp(C_DEEP, (hollow - 0.5) * 0.45);
-      if (h > 2300) c.lerp(C_ICE, smooth(2300, 2900, h) * 0.5);
-      if (steep > 0) c.lerp(nv > 0 ? C_ROCK : C_ROCK2, steep * (0.55 + 0.35 * smooth(-0.4, 0.6, NZ(x / 14, z / 14))));
+      c.copy(h < 700 ? C_LOW : C_SNOW).lerp(C_SHADE, clamp(0.04 + nv * 0.12 + Math.max(0, hollow) * 0.4, 0, 1));
+      if (hollow > 0.5) c.lerp(C_DEEP, (hollow - 0.5) * 0.4);
+      if (h > 2300) c.lerp(C_ICE, smooth(2300, 2900, h) * 0.4);
+      if (steep > 0) {
+        // black rock, with grey bands and patches, and snow caught on the ledges
+        const band = NZ(x / 9, z / 9 + h / 6), grey = smooth(0.15, 0.7, band) * 0.7 + smooth(0.3, 0.8, nv) * 0.3;
+        c.lerp(C_ROCK, steep * (0.6 + 0.35 * smooth(-0.4, 0.6, NZ(x / 14, z / 14))));
+        c.lerp(C_ROCK2, steep * grey * 0.75);
+      }
       col[v * 3] = c.r * 255; col[v * 3 + 1] = c.g * 255; col[v * 3 + 2] = c.b * 255;
     }
     // skirts hang below the edges

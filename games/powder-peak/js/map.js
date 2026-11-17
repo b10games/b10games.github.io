@@ -52,7 +52,7 @@ export class MapView {
     app.world.scene.add(this.group);
     const r = app.ctrl.p;
     // start with the whole mountain in view, seen from the valley, a little towards where you are
-    this.want = { tx: clamp(r.x * 0.3, -1500, 1500), tz: clamp(400 + r.z * 0.3, -1500, 1800), yaw: 0.1, pitch: 0.55, dist: 8200 };
+    this.want = { tx: clamp(r.x * 0.3, -1500, 1500), tz: clamp(400 + r.z * 0.3, -1500, 1800), yaw: 0.1, pitch: 0.55, dist: 11000 };
     Object.assign(this, this.want);
     this.pin = null; this.hover = null;
     this.saveFog = app.world.fogBase; app.world.fogBase = this.saveFog * 0.45;
@@ -146,7 +146,7 @@ export class MapView {
       const pts = this.ptrs; if (pts && pts.has(e.pointerId)) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (this.pinch && pts && pts.size === 2) {
         const [a, b] = [...pts.values()], d = Math.hypot(a.x - b.x, a.y - b.y), ang = Math.atan2(b.y - a.y, b.x - a.x);
-        this.want.dist = clamp(this.pinch.dist * this.pinch.d / Math.max(20, d), 600, 14000); this.want.yaw = this.pinch.yaw - (ang - this.pinch.ang);
+        this.want.dist = clamp(this.pinch.dist * this.pinch.d / Math.max(20, d), 600, 18000); this.want.yaw = this.pinch.yaw - (ang - this.pinch.ang);
         return;
       }
       const d = this.drag;
@@ -156,8 +156,8 @@ export class MapView {
         else {
           // pan along the ground: the snow follows your finger
           const k = this.want.dist / 900 * 1.2, s = Math.sin(this.want.yaw), c = Math.cos(this.want.yaw);
-          this.want.tx = clamp(this.want.tx + (-s * dy - c * dx) * k, -4000, 4000);
-          this.want.tz = clamp(this.want.tz + (-c * dy + s * dx) * k, -4000, 4000);
+          this.want.tx = clamp(this.want.tx + (-s * dy - c * dx) * k, -5800, 5800);
+          this.want.tz = clamp(this.want.tz + (-c * dy + s * dx) * k, -5800, 5800);
         }
       }
       if (e.pointerType === 'mouse') { this.hover = this.pick(e.clientX, e.clientY); this.paintPin(); }
@@ -171,7 +171,7 @@ export class MapView {
       if (d && d.moved < 8 && d.btn === 0) { const p = this.pick(e.clientX, e.clientY); if (p) { this.pin = p; this.app.sound.sfx('click'); } this.paintPin(); }
     };
     cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
-    cv.addEventListener('wheel', e => { if (!this.on) return; e.preventDefault(); this.want.dist = clamp(this.want.dist * Math.exp(e.deltaY * 0.0012), 600, 14000); }, { passive: false });
+    cv.addEventListener('wheel', e => { if (!this.on) return; e.preventDefault(); this.want.dist = clamp(this.want.dist * Math.exp(e.deltaY * 0.0012), 600, 18000); }, { passive: false });
     cv.addEventListener('contextmenu', e => { if (this.on) e.preventDefault(); });
     $('mapClose').onclick = () => this.close();
     $('mapDrop').onclick = () => this.dropHere();
@@ -191,7 +191,7 @@ export class MapView {
     if (keys) {
       const k = w.dist / 900 * 420 * dt, s = Math.sin(w.yaw), c = Math.cos(w.yaw);
       const f = (keys.w ? 1 : 0) - (keys.s ? 1 : 0), r = (keys.d ? 1 : 0) - (keys.a ? 1 : 0);
-      w.tx = clamp(w.tx + (-f * s + r * c) * k, -4000, 4000); w.tz = clamp(w.tz + (-f * c - r * s) * k, -4000, 4000);
+      w.tx = clamp(w.tx + (-f * s + r * c) * k, -5800, 5800); w.tz = clamp(w.tz + (-f * c - r * s) * k, -5800, 5800);
     }
     for (const key of ['tx', 'tz', 'pitch', 'dist']) this[key] = damp(this[key], w[key], 8, dt);
     this.yaw = this.yaw + (w.yaw - this.yaw) * (1 - Math.exp(-8 * dt));
