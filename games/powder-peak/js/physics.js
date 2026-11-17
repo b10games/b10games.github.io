@@ -95,7 +95,10 @@ export class Rider3D {
     }
     // snow friction, air drag, braking, pushing off when slow
     speed = this.v.length();
-    let dec = 0.035 * G * n.y + g.drag * speed * speed * (tucking ? 0.62 : 1);
+    // holding SPACE: you crouch low, which cuts the wind and makes you a bit faster
+    const crouched = inp.jump && !braking;
+    let dec = 0.035 * G * n.y + g.drag * speed * speed * (crouched ? 0.55 : tucking ? 0.62 : 1);
+    if (crouched) this.v.addScaledVector(_f, 1.8 * dt);
     if (braking) dec += 8.5;
     if (speed > 1e-4) this.v.multiplyScalar(Math.max(0, speed - dec * dt) / speed);
     this._pushing = tucking && speed < 7.5;

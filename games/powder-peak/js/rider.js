@@ -203,14 +203,16 @@ export class Rider {
     } else this.idleAct = 0;
     const breathe = Math.sin(t * 2.1) * 0.012;
     // how low the hips are
-    let crouch = P.crouch + P.charge * 0.55 + P.land * 0.45 + P.air * 0.18 + P.flip * 0.35 - (still ? 0.15 : 0);
+    // charging a jump: down low at once (knees bent, body forward), deeper the longer you hold
+    const ch = P.charge > 0 ? 0.55 + Math.sqrt(P.charge) * 0.45 : 0;
+    let crouch = P.crouch + ch * 0.75 + P.land * 0.45 + P.air * 0.18 + P.flip * 0.35 - (still ? 0.15 : 0);
     crouch = clamp(crouch, 0, 1);
     const edge = P.edge;
     const hipH = 0.11 + (A + B) * lerp(0.95, 0.5, crouch) + breathe;
     const hipZ = board ? (edge > 0 ? 0.07 * edge : 0.13 * edge) - P.brake * 0.08 : -0.06 - crouch * 0.08;
     this.hips.position.set(board ? 0 : -P.lean * 0.06, hipH - (board && edge < 0 ? -edge * 0.06 : 0), hipZ);
     // upper body
-    const lean = board ? 0.12 + crouch * 0.35 + Math.max(0, edge) * 0.25 - Math.max(0, -edge) * 0.08 : 0.3 + crouch * 0.5 + P.tuck * 0.35;
+    const lean = (board ? 0.12 + crouch * 0.35 + Math.max(0, edge) * 0.25 - Math.max(0, -edge) * 0.08 : 0.3 + crouch * 0.5 + P.tuck * 0.35) + ch * 0.35;
     this.spine.rotation.set(lean - P.bail * 0.6 + Math.sin(t * 9) * P.wobble * 0.15, board ? (0.38 - P.air * 0.15) * (1 - P.lobby * 0.8) : 0, board ? Math.sin(t * 7) * P.wobble * 0.2 : -P.lean * 0.25 + Math.sin(t * 7) * P.wobble * 0.2);
     // head looks where you are going
     this.head.rotation.set(-lean * 0.55 + P.bail * 0.3 - P.lobby * 0.08, (board ? 1.05 : 0) * (1 - P.lobby) + look - (board ? P.lobby * 0.25 : 0), board ? 0 : P.lean * 0.15);
@@ -218,15 +220,15 @@ export class Rider {
     const [L, R] = this.arms;
     if (board) {
       const fly = P.air * 0.6 + P.bail * Math.sin(t * 14) * 0.8;
-      L.sh.rotation.set(-0.35 - P.charge * 0.4 + idleArm * -1.6, 0, 0.55 + fly + P.brake * 0.3); L.el.rotation.set(-0.5 - idleArm * 1.2, 0, 0);
-      R.sh.rotation.set(0.25 + P.charge * 0.5, 0, -0.45 - fly - P.brake * 0.2); R.el.rotation.set(-0.35, 0, 0);
+      L.sh.rotation.set(-0.35 - ch * 0.7 + idleArm * -1.6, 0, 0.55 + fly + P.brake * 0.3 - ch * 0.25); L.el.rotation.set(-0.5 - idleArm * 1.2 - ch * 0.6, 0, 0);
+      R.sh.rotation.set(0.25 + ch * 0.8, 0, -0.45 - fly - P.brake * 0.2 + ch * 0.2); R.el.rotation.set(-0.35 - ch * 0.5, 0, 0);
       if (P.flip > 0.1) { L.sh.rotation.x -= P.flip * 0.9; R.sh.rotation.x -= P.flip * 0.9; L.el.rotation.x -= P.flip; R.el.rotation.x -= P.flip; }
     } else {
       const pole = Math.sin(t * 4.5) * clamp(P.push, 0, 1);
       const tuck = P.tuck, fly = P.air * 0.5 + P.bail * Math.sin(t * 14) * 0.8;
       for (const a of this.arms) {
-        a.sh.rotation.set(lerp(-0.45, -1.15, tuck) - P.charge * 0.25 + pole * 0.7 * a.s - (a.s > 0 ? idleArm * 1.4 : 0), 0, a.s * (0.22 + fly + P.brake * 0.2));
-        a.el.rotation.set(lerp(-0.55, -1.5, tuck) - (a.s > 0 ? Math.abs(idleArm) * 1.1 : 0), 0, 0);
+        a.sh.rotation.set(lerp(-0.45, -1.15, Math.max(tuck, ch)) - ch * 0.2 + pole * 0.7 * a.s - (a.s > 0 ? idleArm * 1.4 : 0), 0, a.s * (0.22 + fly + P.brake * 0.2));
+        a.el.rotation.set(lerp(-0.55, -1.5, Math.max(tuck, ch)) - (a.s > 0 ? Math.abs(idleArm) * 1.1 : 0), 0, 0);
       }
       if (this.poles) this.poles.forEach((p, i) => { p.rotation.set(lerp(1.2, 2.2, tuck) + P.air * 0.4, 0, (i ? 1 : -1) * 0.12); });
     }

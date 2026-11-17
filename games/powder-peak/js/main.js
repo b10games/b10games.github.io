@@ -380,17 +380,22 @@ function step(dt) {
       const P = app.rider.pose;
       r.poseInto(P); P.lobby = 0;
       if (r.state === 'lift') { P.crouch = 0.95; P.speed = 0; P.air = 0; }
-      app.rider.place(r.p, r.quat, r.pivot || 0);
+      // the rider stands on the snow you see: the drawn tiles can sit a little above or below the exact
+      // shape, so the rider is moved by that difference (smoothly, so swapping tiles never pops)
+      const off = W.drawnHeight(r.p.x, r.p.z) - W.height(r.p.x, r.p.z);
+      app.visOff = app.visOff == null || Math.abs(off - app.visOff) > 6 ? off : damp(app.visOff, off, 18, dt);
+      _vp.copy(r.p); _vp.y += app.visOff;
+      app.rider.place(_vp, r.quat, r.pivot || 0);
       app.rider.update(dt);
-      placeBlob(r.p.x, r.p.z, r.p.y, r.gear === 'skis' ? 0.8 : 1);
+      placeBlob(r.p.x, r.p.z, _vp.y, r.gear === 'skis' ? 0.8 : 1);
       app.input.setAir(!r.grounded && r.state !== 'bail');
       // snow lines
-      if (app.trail) { _side.set(Math.cos(r.yaw), 0, -Math.sin(r.yaw)); app.trail.add(r.p, _side, r.n, r.grounded && r.state === 'ride' && r.speed > 1); }
+      if (app.trail) { _side.set(Math.cos(r.yaw), 0, -Math.sin(r.yaw)); app.trail.add(_vp, _side, r.n, r.grounded && r.state === 'ride' && r.speed > 1); }
       app.fx.update(dt);
       // camera
       if (r.state === 'lift') {
         const p = r.p; camera.position.lerp(_v.set(p.x + 9, p.y + 4, p.z + 6), 1 - Math.exp(-3 * dt)); camera.lookAt(p.x, p.y + 1.5, p.z);
-      } else app.cam.update(dt, r);
+      } else app.cam.update(dt, r, false, app.visOff || 0);
       app.sound.ride(r.speed, r.grounded && r.state === 'ride', Math.abs(r.lean), r.brake, settings.gear === 'skis', true);
       // stats
       zoneT -= dt;
@@ -404,9 +409,13 @@ function step(dt) {
       }
     }
     if (net.inParty && s && s.party) sendState(dt);
-    app.remotes.update(dt, net.now(), camera);
+    app.remotes.update(dt, net.now(), camera, W);
     if (app.map.on) { app.map.update(dt, app.input.down); W.focus(app.ctrl.p, app.map.cam); }
-    else { W.focus(app.ctrl.p, camera); app.ui.hud(dt); }
+    else {
+      // build snow detail where the rider will be in a second or two
+      const r = app.ctrl; _ah.copy(r.p).addScaledVector(r.v, 2.6);
+      W.focus(r.p, camera, _ah); app.ui.hud(dt);
+    }
   } else {
     // lobby
     const P = app.rider.pose; P.speed = 0; P.crouch = 0.12; P.lobby = 1;
@@ -422,8 +431,9 @@ function step(dt) {
 }
 app.step = step;
 const _bn = new THREE.Vector3(), _bz = new THREE.Vector3(0, 0, 1);
+const _vp = new THREE.Vector3(), _ah = new THREE.Vector3();
 function placeBlob(x, z, y, k) {
-  const W = app.world, g = W.height(x, z), up = Math.max(0, y - g);
+  const W = app.world, g = W.drawnHeight(x, z), up = Math.max(0, y - g);
   W.normal(x, z, _bn);
   app.blob.position.set(x, g + 0.04, z);
   app.blob.quaternion.setFromUnitVectors(_bz, _bn);

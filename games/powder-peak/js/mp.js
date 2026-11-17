@@ -41,7 +41,7 @@ export class Remotes {
   }
   remove(id) { const o = this.map.get(id); if (!o) return; this.scene.remove(o.model.root); this.map.delete(id); }
   clear() { for (const id of [...this.map.keys()]) this.remove(id); }
-  update(dt, now, cam) {
+  update(dt, now, cam, world) {
     const t = now - DELAY;
     for (const o of this.map.values()) {
       const b = o.buf; if (!b.length) continue;
@@ -56,6 +56,7 @@ export class Remotes {
       _q.set(s[3], s[4], s[5], s[6]).slerp(new THREE.Quaternion(e[3], e[4], e[5], e[6]), k);
       const P = o.model.pose, L = (i) => s[i] + (e[i] - s[i]) * k;
       P.crouch = L(10); P.edge = L(11); P.lean = L(12); P.air = L(13); P.flip = L(14); P.land = L(15); P.bail = e[16]; P.brake = L(17); P.tuck = L(18); P.charge = L(19); P.speed = L(20); P.wobble = L(22) || 0;
+      if (world) _p.y += world.drawnHeight(_p.x, _p.z) - world.height(_p.x, _p.z);   // on the snow you see
       o.model.place(_p, _q, L(21));
       o.model.update(dt);
       // hide riders who stopped sending

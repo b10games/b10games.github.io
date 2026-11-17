@@ -9,8 +9,8 @@ import { makeNoise } from './noise.js';
 
 const RES = 32;
 const NZ = makeNoise(99);
-const C_SNOW = new THREE.Color('#f8fbff'), C_SHADE = new THREE.Color('#d2e1f5'), C_DEEP = new THREE.Color('#b5cae6'),
-  C_ICE = new THREE.Color('#e6f2ff'), C_ROCK = new THREE.Color('#6b717c'), C_ROCK2 = new THREE.Color('#857d74'), C_LOW = new THREE.Color('#f3f6f9');
+const C_SNOW = new THREE.Color('#fdfeff'), C_SHADE = new THREE.Color('#e6eef9'), C_DEEP = new THREE.Color('#cfdcef'),
+  C_ICE = new THREE.Color('#eef6ff'), C_ROCK = new THREE.Color('#6b717c'), C_ROCK2 = new THREE.Color('#857d74'), C_LOW = new THREE.Color('#fbfcfd');
 
 export class TerrainLOD {
   constructor(scene, material, o = {}) {
@@ -20,6 +20,32 @@ export class TerrainLOD {
     this.nodes = new Map(); this.visible = new Set(); this.queue = new Set(); this.frame = 0;
     this.index = this.makeIndex();
     this.group = new THREE.Group(); scene.add(this.group);
+    // the heights are worked out in background workers (no stutter); without workers it is done here
+    this.workers = []; this.jobs = new Map(); this.done = []; this.nextId = 1;
+    try {
+      const n = Math.max(1, Math.min(o.workers || 2, (navigator.hardwareConcurrency || 2) - 1));
+      for (let i = 0; i < n; i++) {
+        const w = new Worker(new URL('./tileworker.js', import.meta.url), { type: 'module' });
+        w.busy = 0;
+        w.onmessage = (e) => { w.busy--; const n = this.jobs.get(e.data.id); this.jobs.delete(e.data.id); if (n) this.done.push([n, e.data.H]); };
+        w.onerror = () => { this.workers = []; };
+        this.workers.push(w);
+      }
+    } catch (e) { this.workers = []; }
+  }
+  // ask a worker for a tile's heights
+  request(n) {
+    if (n.pending || n.mesh) return;
+    const w = this.workers.reduce((a, b) => (b.busy < a.busy ? b : a));
+    if (w.busy >= 3) return;
+    const id = this.nextId++, s = n.size / RES;
+    n.pending = true; this.jobs.set(id, n); w.busy++;
+    w.postMessage({ id, x0: n.cx - n.size / 2, z0: n.cz - n.size / 2, s, G: RES + 3 });
+  }
+  heights(n) {
+    const s = n.size / RES, G = RES + 3, x0 = n.cx - n.size / 2, z0 = n.cz - n.size / 2, H = new Float32Array(G * G);
+    for (let j = 0; j < G; j++) for (let i = 0; i < G; i++) H[j * G + i] = terrain(x0 + (i - 1) * s, z0 + (j - 1) * s);
+    return H;
   }
   makeIndex() {
     const W = RES + 1, idx = [];
@@ -45,10 +71,9 @@ export class TerrainLOD {
     return n;
   }
   // ---------- building one tile ----------
-  build(n) {
+  build(n, H = this.heights(n)) {
+    n.pending = false;
     const s = n.size / RES, W = RES + 1, G = RES + 3, x0 = n.cx - n.size / 2, z0 = n.cz - n.size / 2;
-    const H = new Float32Array(G * G);
-    for (let j = 0; j < G; j++) for (let i = 0; i < G; i++) H[j * G + i] = terrain(x0 + (i - 1) * s, z0 + (j - 1) * s);
     const E = this.edges.length, V = W * W + E;
     const pos = new Float32Array(V * 3), nor = new Float32Array(V * 3), col = new Uint8Array(V * 3), uv = new Float32Array(V * 2);
     const c = new THREE.Color();
@@ -63,8 +88,8 @@ export class TerrainLOD {
       // colour: snow, a cool shade in hollows, ice up high, rock where it is too steep for snow
       const lap = (H[gi - 1] + H[gi + 1] + H[gi - G] + H[gi + G] - 4 * h) / (s * s * Math.max(1, s / 6));
       const hollow = clamp(lap * 5, -1, 1), nv = NZ(x / 34, z / 34), steep = smooth(0.74, 0.56, ny);
-      c.copy(h < 700 ? C_LOW : C_SNOW).lerp(C_SHADE, clamp(0.22 + nv * 0.28 + Math.max(0, hollow) * 0.5, 0, 1));
-      if (hollow > 0.4) c.lerp(C_DEEP, (hollow - 0.4) * 0.5);
+      c.copy(h < 700 ? C_LOW : C_SNOW).lerp(C_SHADE, clamp(0.06 + nv * 0.18 + Math.max(0, hollow) * 0.45, 0, 1));
+      if (hollow > 0.5) c.lerp(C_DEEP, (hollow - 0.5) * 0.45);
       if (h > 2300) c.lerp(C_ICE, smooth(2300, 2900, h) * 0.5);
       if (steep > 0) c.lerp(nv > 0 ? C_ROCK : C_ROCK2, steep * (0.55 + 0.35 * smooth(-0.4, 0.6, NZ(x / 14, z / 14))));
       col[v * 3] = c.r * 255; col[v * 3 + 1] = c.g * 255; col[v * 3 + 2] = c.b * 255;
@@ -98,6 +123,17 @@ export class TerrainLOD {
       const cnt = this.root / size;
       for (let j = 0; j < cnt; j++) for (let i = 0; i < cnt; i++) list.push([size, -this.root / 2 + (i + 0.5) * size, -this.root / 2 + (j + 0.5) * size]);
     }
+    if (this.workers.length) {
+      const nodes = list.map(([size, cx, cz]) => this.node(size, cx, cz));
+      let left = nodes.length;
+      while (left > 0) {
+        for (const n of nodes) if (!n.mesh && !n.pending) this.request(n);
+        await new Promise(r => setTimeout(r, 15));
+        while (this.done.length) { const [n, H] = this.done.shift(); this.build(n, H); left--; }
+        onProgress && onProgress(1 - left / nodes.length);
+      }
+      return;
+    }
     let t = performance.now();
     for (let i = 0; i < list.length; i++) {
       const [size, cx, cz] = list[i]; this.build(this.node(size, cx, cz));
@@ -105,17 +141,21 @@ export class TerrainLOD {
     }
   }
   // ---------- every frame ----------
-  update(cam) {
+  // ahead: a point where the rider will be in a moment; detail is built there before you arrive
+  update(cam, ahead) {
     this.frame++;
     const want = [], cp = cam.position, self = this;
-    function dist(n) { const dx = Math.max(Math.abs(cp.x - n.cx) - n.size / 2, 0), dz = Math.max(Math.abs(cp.z - n.cz) - n.size / 2, 0); const y = cp.y - clamp(cp.y, n.minY ?? 0, n.maxY ?? 3000); return Math.hypot(dx, dz, y); }
+    function d1(p, n) { const dx = Math.max(Math.abs(p.x - n.cx) - n.size / 2, 0), dz = Math.max(Math.abs(p.z - n.cz) - n.size / 2, 0); const y = p.y - clamp(p.y, n.minY ?? 0, n.maxY ?? 3000); return Math.hypot(dx, dz, y); }
+    function dist(n) { return ahead ? Math.min(d1(cp, n), d1(ahead, n)) : d1(cp, n); }
     function visit(n) {
       n.used = self.frame;
       const half = n.size / 2;
       if (n.size > self.leaf && dist(n) < n.size * self.split) {
         const q = half / 2, kids = [self.node(half, n.cx - q, n.cz - q), self.node(half, n.cx + q, n.cz - q), self.node(half, n.cx - q, n.cz + q), self.node(half, n.cx + q, n.cz + q)];
+        // keep the ready ones (they must not be thrown away while their brothers are still being made)
+        for (const k of kids) k.used = self.frame;
         if (kids.every(k => k.mesh)) { kids.forEach(visit); return; }
-        for (const k of kids) if (!k.mesh) { k.prio = dist(k) / k.size; self.queue.add(k); }
+        for (const k of kids) if (!k.mesh && !k.pending) { k.prio = dist(k) / k.size; self.queue.add(k); }
       }
       want.push(n);
     }
@@ -124,20 +164,48 @@ export class TerrainLOD {
     for (const n of this.visible) if (!now.has(n) && n.mesh) n.mesh.visible = false;
     for (const n of now) if (n.mesh) n.mesh.visible = true;
     this.visible = now;
-    // build the most wanted tiles, a few milliseconds per frame
+    const t0 = performance.now();
+    // tiles the workers have finished: turn them into meshes (quick)
+    while (this.done.length && performance.now() - t0 < this.budget) { const [n, H] = this.done.shift(); if (this.nodes.get(n.k) === n && !n.mesh) this.build(n, H); else n.pending = false; }
+    // the most wanted tiles next
     if (this.queue.size) {
-      const t0 = performance.now(), q = [...this.queue].sort((a, b) => a.prio - b.prio);
-      for (const n of q) { if (performance.now() - t0 > this.budget) break; this.queue.delete(n); if (!n.mesh && n.used >= this.frame - 1) this.build(n); }
+      const q = [...this.queue].sort((a, b) => a.prio - b.prio);
+      for (const n of q) {
+        if (n.mesh || n.used < this.frame - 1) { this.queue.delete(n); continue; }
+        if (this.workers.length) { this.request(n); if (n.pending) this.queue.delete(n); }
+        else { if (performance.now() - t0 > this.budget) break; this.queue.delete(n); this.build(n); }
+      }
       for (const n of this.queue) if (n.used < this.frame - 2) this.queue.delete(n);
     }
     // forget detailed tiles nobody looked at for a while
     if (this.nodes.size > this.maxNodes && this.frame % 30 === 0) {
-      const old = [...this.nodes.values()].filter(n => n.mesh && n.size < this.keep && !now.has(n)).sort((a, b) => a.used - b.used);
+      const old = [...this.nodes.values()].filter(n => n.mesh && !n.pending && n.size < this.keep && !now.has(n)).sort((a, b) => a.used - b.used);
       // the index is shared by all tiles: take it off before freeing the rest
       for (const n of old.slice(0, this.nodes.size - this.maxNodes)) { this.group.remove(n.mesh); n.mesh.geometry.setIndex(null); n.mesh.geometry.dispose(); n.mesh = null; this.nodes.delete(n.k); }
     }
   }
   // make sure everything around a point is detailed right now (after jumping somewhere on the map)
-  warm(cam, frames = 40) { const b = this.budget; this.budget = 1000; for (let i = 0; i < frames; i++) { this.update(cam); if (!this.queue.size) break; } this.budget = b; }
+  // with workers the detail arrives over the next few frames; without them it is built right now
+  warm(cam, frames = 40) {
+    if (this.workers.length) { this.update(cam); return; }
+    const b = this.budget; this.budget = 1000; for (let i = 0; i < frames; i++) { this.update(cam); if (!this.queue.size) break; } this.budget = b;
+  }
+  // the height of the snow as it is drawn right now (the tiles are a little coarser than the real shape)
+  heightAt(x, z) {
+    let best = null;
+    for (const n of this.visible) {
+      if (!n.mesh) continue;
+      const h = n.size / 2;
+      if (x < n.cx - h || x > n.cx + h || z < n.cz - h || z > n.cz + h) continue;
+      if (!best || n.size < best.size) best = n;
+    }
+    if (!best) return null;
+    const W = RES + 1, s = best.size / RES, P = best.mesh.geometry.attributes.position.array;
+    let fx = (x - (best.cx - best.size / 2)) / s, fz = (z - (best.cz - best.size / 2)) / s;
+    const i = Math.min(RES - 1, Math.max(0, Math.floor(fx))), j = Math.min(RES - 1, Math.max(0, Math.floor(fz))), u = fx - i, v = fz - j;
+    const a = j * W + i, b = a + W, ha = P[a * 3 + 1], ha1 = P[(a + 1) * 3 + 1], hb = P[b * 3 + 1], hb1 = P[(b + 1) * 3 + 1];
+    // the same two triangles the tile is drawn with
+    return u + v <= 1 ? ha + u * (ha1 - ha) + v * (hb - ha) : hb1 + (1 - u) * (hb - hb1) + (1 - v) * (ha1 - hb1);
+  }
   get count() { let n = 0; for (const v of this.nodes.values()) if (v.mesh) n++; return n; }
 }

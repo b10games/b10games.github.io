@@ -35,8 +35,9 @@ export class Post {
     this.c.addPass(this.pass); this.c.addPass(this.bloom); this.c.addPass(new ShaderPass(GRADE)); this.c.addPass(new OutputPass());
     this.size();
   }
-  size() { if (!this.c) return; this.c.setPixelRatio(this.r.getPixelRatio()); this.c.setSize(innerWidth, innerHeight); }
+  size() { if (!this.c) return; this.c.setPixelRatio(this.r.getPixelRatio()); this.c.setSize(Math.max(1, innerWidth), Math.max(1, innerHeight)); }
   render(scene, cam, dt) {
+    if (!innerWidth || !innerHeight) return;            // a hidden window has no size: nothing to draw
     if (!this.ok || !this.c) { this.r.render(scene, cam); return; }
     this.pass.scene = scene; this.pass.camera = cam;
     this.c.render(dt);

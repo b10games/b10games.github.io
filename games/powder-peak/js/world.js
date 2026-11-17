@@ -111,23 +111,49 @@ function snowNormalMap() {
     g.putImageData(img, 0, 0);
   });
 }
-// the snow surface: the bump texture at two sizes (so it never looks tiled), a soft blue in the shade,
-// and on the better settings a little glitter that twinkles as you move
+// wind ripples in the snow (sastrugi): thin wavy ridges, tileable
+function rippleNormalMap() {
+  const S = 256, n = makeNoise(17), hgt = new Float32Array(S * S);
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const u = x / S, v = y / S;
+    const w = n(Math.cos(u * 6.283) * 1.3 + Math.cos(v * 6.283) * 0.7, Math.sin(u * 6.283) * 1.3 + Math.sin(v * 6.283) * 0.9);
+    const ph = 6.283 * (5 * u + 2 * v) + w * 2.4, r = 0.5 + 0.5 * Math.sin(ph);
+    hgt[y * S + x] = Math.pow(r, 3) * (0.7 + 0.3 * n(u * 9.1, v * 9.1));
+  }
+  return canvasTex(S, S, (g) => {
+    const img = g.createImageData(S, S);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+      const l = hgt[y * S + ((x + S - 1) % S)], r = hgt[y * S + ((x + 1) % S)], u = hgt[((y + S - 1) % S) * S + x], d = hgt[((y + 1) % S) * S + x];
+      let nx = (l - r) * 1.6, ny = (u - d) * 1.6, nz = 1; const len = Math.hypot(nx, ny, nz); nx /= len; ny /= len; nz /= len;
+      const i = (y * S + x) * 4; img.data[i] = (nx * 0.5 + 0.5) * 255; img.data[i + 1] = (ny * 0.5 + 0.5) * 255; img.data[i + 2] = (nz * 0.5 + 0.5) * 255; img.data[i + 3] = 255;
+    }
+    g.putImageData(img, 0, 0);
+  });
+}
+// the snow surface: the bump texture at three sizes (so it never looks tiled), wind ripples and fine
+// grains close to you, and on the better settings glitter that twinkles as you move
 function snowShader(mat, sparkle) {
+  const ripple = rippleNormalMap();
   mat.onBeforeCompile = (sh) => {
+    sh.uniforms.ripple = { value: ripple };
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos;').replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-    let f = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos;\nfloat hsh(vec3 p){ return fract(sin(dot(p, vec3(12.9898,78.233,37.719))) * 43758.5453); }');
+    let f = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos;\nuniform sampler2D ripple;\nfloat hsh(vec3 p){ return fract(sin(dot(p, vec3(12.9898,78.233,37.719))) * 43758.5453); }');
+    // the normal map code lives in a chunk that is only included later: put our own version in its place
+    f = f.replace('#include <normal_fragment_maps>', THREE.ShaderChunk.normal_fragment_maps);
     f = f.replace('vec3 mapN = texture2D( normalMap, vNormalMapUv ).xyz * 2.0 - 1.0;',
-      `vec3 mapN = texture2D( normalMap, vNormalMapUv ).xyz * 2.0 - 1.0;
+      `float camD = length(vWPos - cameraPosition);
+       float near = 1.0 - smoothstep(25.0, 140.0, camD), close = 1.0 - smoothstep(6.0, 35.0, camD);
+       vec3 mapN = texture2D( normalMap, vNormalMapUv ).xyz * 2.0 - 1.0;
        vec3 mapN2 = texture2D( normalMap, vNormalMapUv * 0.23 + vec2(0.37, 0.11) ).xyz * 2.0 - 1.0;
        vec3 mapN3 = texture2D( normalMap, vNormalMapUv * 4.1 + vec2(0.71, 0.53) ).xyz * 2.0 - 1.0;
-       mapN = normalize(vec3(mapN.xy * 0.55 + mapN2.xy * 0.9 + mapN3.xy * 0.35, mapN.z));`);
+       vec3 rip = texture2D( ripple, vNormalMapUv * 1.7 + vec2(0.13, 0.29) ).xyz * 2.0 - 1.0;
+       vec3 grain = texture2D( normalMap, vNormalMapUv * 13.0 + vec2(0.5, 0.2) ).xyz * 2.0 - 1.0;
+       mapN = normalize(vec3(mapN.xy * 0.55 + mapN2.xy * 0.9 + mapN3.xy * 0.4 + rip.xy * 0.55 * near + grain.xy * 0.45 * close, mapN.z));`);
     if (sparkle) f = f.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-        { float dist = length(vWPos - cameraPosition);
-          vec3 cell = floor(vWPos * 8.0);
+        { vec3 cell = floor(vWPos * 9.0);
           float tw = hsh(cell + floor(cameraPosition * 0.8));
-          float sp = step(0.9972, tw) * (1.0 - smoothstep(8.0, 40.0, dist));
-          totalEmissiveRadiance += vec3(0.95, 0.97, 1.0) * sp * 2.2; }`);
+          float sp = step(0.9955, tw) * (1.0 - smoothstep(8.0, 55.0, camD));
+          totalEmissiveRadiance += vec3(0.95, 0.97, 1.0) * sp * 2.4; }`);
     sh.fragmentShader = f;
   };
 }
@@ -210,7 +236,7 @@ export class World {
     const mat = this.snowMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.82, metalness: 0, normalMap: snowNormalMap(), normalScale: new THREE.Vector2(0.45, 0.45) });
     snowShader(mat, quality !== 'low');
     const lo = quality === 'low';
-    this.lod = new TerrainLOD(scene, mat, { root: 16384, leaf: lo ? 256 : 128, split: quality === 'ultra' ? 2.2 : lo ? 1.45 : 1.75, keep: lo ? 2048 : 1024, budget: lo ? 5 : 7, maxNodes: lo ? 260 : 480 });
+    this.lod = new TerrainLOD(scene, mat, { root: 16384, leaf: lo ? 256 : 128, split: quality === 'ultra' ? 2.2 : lo ? 1.45 : 1.75, keep: lo ? 2048 : 1024, budget: lo ? 5 : 7, maxNodes: lo ? 380 : 750, workers: 2 });
     // trees and rocks are made per 512 m tile, around wherever you are
     this.treeGeo = [treeGeometry(0, lo), treeGeometry(1, lo), treeGeometry(2, lo)];
     this.farTreeGeo = farTreeGeometry();
@@ -225,17 +251,19 @@ export class World {
     this.buildFlakes();
   }
   height(x, z) { return height(x, z); }
+  // the snow as it is drawn (for putting things on it and keeping the camera above it)
+  drawnHeight(x, z) { const h = this.lod.heightAt(x, z); return h == null ? height(x, z) : h; }
   normal(x, z, out) { return normal(x, z, out); }
   rideNormal(x, z, dx, dz, out) { return rideNormal(x, z, dx, dz, out); }
   terrain(x, z) { return terrain(x, z); }
   zoneAt(x, z) { return zoneAt(x, z); }
 
   // detail, shadows and falling snow follow the camera
-  focus(p, cam) {
+  focus(p, cam, ahead) {
     this.sun.position.copy(p).addScaledVector(this.sunDir, 300); this.sun.target.position.copy(p);
     this.sky.position.copy(cam.position);
     if (this.flakes) this.flakes.position.copy(cam.position);
-    this.lod.update(cam);
+    this.lod.update(cam, ahead);
     this.updateTiles(cam.position, p);
     // very high up (or on the map) you can see further
     this.scene.fog.density = this.fogBase * (1 - 0.45 * smooth(800, 4000, cam.position.y - height(cam.position.x, cam.position.z)));
@@ -312,7 +340,7 @@ export class World {
       const i = ci + a, j = cj + b, key = i + ',' + j;
       let t = this.tiles.get(key);
       const d = Math.hypot((i + 0.5) * TILE - cam.x, (j + 0.5) * TILE - cam.z) - TILE * 0.7;
-      if (!t) { if (d > R || (built >= 2 && !all)) continue; t = this.makeTile(i, j); built++; }
+      if (!t) { if (d > R || (built >= 1 && !all)) continue; t = this.makeTile(i, j); built++; }
     }
     for (const t of this.tiles.values()) {
       const d = Math.hypot(t.cx - cam.x, t.cz - cam.z) - TILE * 0.7;

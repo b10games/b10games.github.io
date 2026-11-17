@@ -3,7 +3,7 @@
 // landing, the landing assist, trees, the camera, the map) asks terrain(), so what you see is what you ride.
 // One unit is one meter. y is up.
 import { makeNoise, fbm } from './noise.js';
-import { clamp, smooth, rng } from './engine.js';
+import { clamp, smooth, rng } from './math.js';
 
 const N1 = makeNoise(7), N2 = makeNoise(31), N3 = makeNoise(77), N4 = makeNoise(123), N5 = makeNoise(555);
 
@@ -21,6 +21,7 @@ export const PEAKS = [
   { id: 'sunset', name: 'Sunset Point', x: 200, z: 2900, h: 1650, r: 2600 }
 ];
 // a quiet spot in the valley for the lobby (the big peak right behind it)
+for (const p of PEAKS) p.r2 = p.r * p.r;
 export const LOBBY = { x: 0, z: 2200, r: 70 };   // Titan Peak towers 4 km to the north
 
 function ridged(x, z, oct) {
@@ -34,9 +35,11 @@ function massif(x, z) {
   const wx = x + 380 * N4(x / 2200, z / 2200), wz = z + 380 * N4(z / 2200 + 7.3, x / 2200);
   // smooth maximum of all the peaks: saddles and valleys appear between them
   let acc = 1;
-  for (const p of PEAKS) {
-    const d = Math.hypot(wx - p.x, wz - p.z) / p.r;
-    if (d < 1) acc += Math.exp(p.h * Math.pow(1 - d, 1.22) / 240);
+  for (let i = 0; i < PEAKS.length; i++) {
+    const p = PEAKS[i], dx = wx - p.x, dz = wz - p.z, d2 = dx * dx + dz * dz;
+    if (d2 >= p.r2) continue;
+    const t = 1 - Math.sqrt(d2) / p.r;
+    acc += Math.exp(p.h * t * Math.sqrt(Math.sqrt(t)) / 240);     // (1 - d)^1.25
   }
   let h = 240 * Math.log(acc);
   // far outside the riding area: more giant mountains all around the horizon
@@ -53,7 +56,9 @@ function massif(x, z) {
 
 // natural lips (wind lips, rolls that drop away): placed once, on rideable slopes
 export const LIPS = [];
-const LIPGRID = new Map();
+// a plain grid of 200 m cells (fast to look up: no text keys)
+const LC = 200, LN = 48, LOFF = 24, LIPGRID = new Array(LN * LN).fill(null);
+const lipCell = (cx, cz) => (cx + LOFF < 0 || cz + LOFF < 0 || cx + LOFF >= LN || cz + LOFF >= LN) ? null : LIPGRID[(cx + LOFF) * LN + cz + LOFF];
 (function placeLips() {
   const r = rng(99);
   for (let gx = -3600; gx <= 3600; gx += 140) for (let gz = -3600; gz <= 3600; gz += 140) {
@@ -63,8 +68,8 @@ const LIPGRID = new Map();
     if (s < 0.3 || s > 0.8 || h < 250 || h > 2700) continue;
     const l = { x, z, dx: -dx / s, dz: -dz / s, w: 22 + r() * 40, a: 1.8 + r() * 2.4, d: 4 + r() * 9 };
     LIPS.push(l);
-    const k = Math.floor(x / 200) + ',' + Math.floor(z / 200);
-    (LIPGRID.get(k) || LIPGRID.set(k, []).get(k)).push(l);
+    const cx = Math.floor(x / LC) + LOFF, cz = Math.floor(z / LC) + LOFF, k = cx * LN + cz;
+    (LIPGRID[k] || (LIPGRID[k] = [])).push(l);
   }
 })();
 
@@ -74,9 +79,9 @@ export function terrain(x, z) {
   // rolls and bumps you can feel when riding
   h += N3(x / 60, z / 60) * 1.6 + N5(x / 170, z / 170) * 4;
   // the lips
-  const cx = Math.floor(x / 200), cz = Math.floor(z / 200);
+  const cx = Math.floor(x / LC), cz = Math.floor(z / LC);
   for (let i = -1; i <= 1; i++) for (let k = -1; k <= 1; k++) {
-    const a = LIPGRID.get((cx + i) + ',' + (cz + k)); if (!a) continue;
+    const a = lipCell(cx + i, cz + k); if (!a) continue;
     for (const l of a) {
       const rx = x - l.x, rz = z - l.z, u = rx * l.dx + rz * l.dz, v = rx * -l.dz + rz * l.dx;
       if (u < -32 || u > 80 || Math.abs(v) > l.w * 1.8) continue;

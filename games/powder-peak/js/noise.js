@@ -1,5 +1,5 @@
 // 2D simplex noise (seeded) and a few helpers for shaping the mountain.
-import { rng } from './engine.js';
+import { rng } from './math.js';
 
 const F2 = 0.5 * (Math.sqrt(3) - 1), G2 = (3 - Math.sqrt(3)) / 6;
 const GRAD = [[1, 1], [-1, 1], [1, -1], [-1, -1], [1, 0], [-1, 0], [0, 1], [0, -1]];

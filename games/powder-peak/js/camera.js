@@ -28,7 +28,8 @@ export class ChaseCam {
     return Math.atan2(W.height(p.x - s * 6, p.z - c * 6) - W.height(p.x + s * 10, p.z + c * 10), 16);
   }
   drag(dx, dy) { this.oYaw -= dx * 0.005 * this.sens; this.oPitch = clamp(this.oPitch + dy * 0.004 * this.sens, -0.5, 0.9); this.dragT = 0; }
-  update(dt, r, instant = false) {
+  // vis: how far the drawn snow is above (or below) the exact snow where the rider is
+  update(dt, r, instant = false, vis = 0) {
     const air = !r.grounded && r.state !== 'bail', sp = r.speed, kmh = sp * 3.6, W = this.world;
     instant = instant || !this.has; this.has = true;
     // direction: where you slide, trailing a little in turns
@@ -45,7 +46,7 @@ export class ChaseCam {
     const lift = 1.25 + clamp(sp * 0.006, 0, 0.3) + (air ? 0.5 : 0);
     this.dist = instant ? dist : damp(this.dist, dist, 2.4, dt);
     this.lift = instant ? lift : damp(this.lift, lift, 2.4, dt);
-    _t.set(r.p.x, r.p.y + 1.0, r.p.z);
+    _t.set(r.p.x, r.p.y + 1.0 + vis, r.p.z);
     if (instant) this.target.copy(_t); else this.target.lerp(_t, 1 - Math.exp(-(air ? 14 : 24) * dt));
     this.dragT += dt;
     if (this.dragT > 1.2) { this.oYaw = damp(this.oYaw, 0, 2.5, dt); this.oPitch = damp(this.oPitch, 0, 2.5, dt); }
@@ -56,10 +57,10 @@ export class ChaseCam {
     _n.set(Math.sin(yaw) * spt, cp, Math.cos(yaw) * spt);
     _c.copy(this.target).addScaledVector(_f, -this.dist).addScaledVector(_n, this.lift + Math.max(0, this.oPitch) * 2.5);
     // never in the snow
-    const g = W.height(_c.x, _c.z) + 0.7;
+    const g = Math.max(W.height(_c.x, _c.z), W.drawnHeight(_c.x, _c.z)) + 0.7;
     if (_c.y < g) _c.y = g;
     if (instant) this.pos.copy(_c); else this.pos.lerp(_c, 1 - Math.exp(-(air ? 8 : 14) * dt));
-    const g2 = W.height(this.pos.x, this.pos.z) + 0.6; if (this.pos.y < g2) this.pos.y = g2;
+    const g2 = Math.max(W.height(this.pos.x, this.pos.z), W.drawnHeight(this.pos.x, this.pos.z)) + 0.6; if (this.pos.y < g2) this.pos.y = g2;
     this.cam.position.copy(this.pos);
     // aim: the rider sits a little below the middle of the picture
     const dx = this.target.x - this.pos.x, dz = this.target.z - this.pos.z, dy = this.target.y - this.pos.y;
