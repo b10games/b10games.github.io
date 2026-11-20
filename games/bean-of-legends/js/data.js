@@ -253,7 +253,51 @@ export const HERO = Object.fromEntries(HEROES.map(h => [h.id, h]));
 export const RANK_GROW = 0.07;
 for (const h of HEROES) h.abilities.forEach((ab, i) => { if (i < 4) ab.cd = ab.cd.map((_, k) => Math.max(Math.min(2, ab.cd[0]), ab.cd[0] - k)); });
 const SCALED = ['range', 'radius', 'splash', 'bounceR'];
-// the ability as it is at a given rank (range/area grown); rank 1 or unlearned is the base data
+// ---------- evolved abilities ----------
+// Q, W and R turn into a brand new ability at their last upgrade (rank 5), as strong as the ultimate:
+// 2.4x damage (and healing / shields), 1.5x the AD/AP ratios, 35% more range and area, extra projectiles
+// or bites, and every enemy hero they hit is knocked up. They take longer to come back (cooldown x2.2).
+export const EVO_RANK = 5;
+export const EVOLVE = {
+  knight: ["King's Judgement", 'Castle Crusher', 'Aegis Comet'],
+  ninja: ['Shuriken Tempest', 'Blade Cyclone', 'Thousand Shadows'],
+  dino: ['Boulder Meteor', 'Extinction Quake', 'Tectonic Rift'],
+  shark: ['Megalodon Bite', 'Tsunami Splash', 'Abyss Ambush'],
+  astro: ['Supernova Bolt', 'Meteor Storm', 'Space Station'],
+  hotdog: ['Ketchup Bazooka', 'Mustard Nuke', 'BBQ Fortress'],
+  pigeon: ['Phoenix Feather', 'Hurricane Wings', 'Pigeon Army'],
+  banana: ['Banana Barrage', 'Banana Volcano', 'Smoothie Waterfall'],
+  wizard: ['Arcane Barrage', 'Grand Rune Circle', 'Chain Storm'],
+  robot: ['Mega Laser', 'EMP Blast', 'Mega Magnet']
+};
+export const EVO_BADGE = ['#ffe680', '#b86b00'];
+for (const h of HEROES) h.abilities.forEach((ab, i) => {
+  const k = { 0: 0, 1: 1, 3: 2 }[i]; if (k === undefined) return;
+  ab.evo = { name: (EVOLVE[h.id] || [])[k] || 'Mega ' + ab.name };
+});
+function evolve(ab, o, r) {
+  const i = r - 1, at = (arr, k) => arr.map((v, j) => j === i ? Math.round(v * k) : v), extra = [];
+  o.evolved = true; o.baseName = ab.name; o.name = ab.evo.name;
+  for (const f of SCALED) if (o[f]) o[f] = Math.round(o[f] * 1.35 * 10) / 10;
+  if (ab.width) o.width = Math.round(ab.width * 1.4 * 10) / 10;
+  if (ab.dmg) o.dmg = at(ab.dmg, 2.4);
+  if (ab.heal) o.heal = at(ab.heal, 2.4);
+  if (ab.shield) o.shield = at(ab.shield, 2.4);
+  if (ab.ad) o.ad = ab.ad * 1.5;
+  if (ab.ap) o.ap = ab.ap * 1.5;
+  o.cd = ab.cd.map((v, j) => j === i ? Math.max(8, Math.round(v * 2.2)) : v);
+  o.cost = at(ab.cost, 1.5);
+  if (ab.count) { o.count = ab.count + 2; extra.push((ab.count + 2) + ' at once'); }
+  if (ab.hits) { o.hits = ab.hits + 1; extra.push((ab.hits + 1) + ' hits'); }
+  if (ab.bounces) { o.bounces = ab.bounces * 2; extra.push('twice as many bounces'); }
+  if (ab.stun) o.stun = Math.round(ab.stun * 1.6 * 10) / 10;
+  if (ab.knock) o.knock = ab.knock * 1.4;
+  if (ab.slow) o.slow = Math.min(0.6, ab.slow + 0.15);
+  if (typeof ab.dur === 'number') o.dur = ab.dur * 1.4;
+  o.knockup = 0.7;
+  o.text = `<b style="color:#ffd23f">EVOLVED from ${ab.name}:</b> ` + ab.text + ` <b style="color:#ffd23f">Now ultimate strength: 2.4x power, 35% bigger${extra.length ? ', ' + extra.join(', ') : ''}, and enemy heroes hit are knocked up.</b>`;
+}
+// the ability as it is at a given rank (range/area grown, evolved at the last rank); rank 1 or unlearned is the base data
 export function abilityAt(ab, rank) {
   const r = Math.max(1, rank || 1);
   if (r === 1) return ab;
@@ -261,6 +305,7 @@ export function abilityAt(ab, rank) {
   if (!cache[r]) {
     const o = Object.create(ab), k = 1 + RANK_GROW * (r - 1);
     for (const f of SCALED) if (ab[f]) o[f] = Math.round(ab[f] * k * 10) / 10;
+    if (ab.evo && r >= EVO_RANK) evolve(ab, o, r);
     cache[r] = o;
   }
   return cache[r];

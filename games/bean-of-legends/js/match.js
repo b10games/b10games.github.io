@@ -1,7 +1,7 @@
 // The match: spawns everything, runs the simulation (movement, combat, AI for minions, towers and
 // monsters, vision, gold, XP, items, objectives) and keeps the 3D models in sync.
 import { THREE, clamp } from './engine.js';
-import { RULES, QUICK, DIFFICULTY, HEROES, HERO, abilityAt, ITEM, MONSTERS, MINIONS, TOWER, CORE, BUFFS, DRAGON_KINDS, BLUE, RED, NEUTRAL, TEAM_COLOR } from './data.js';
+import { RULES, QUICK, DIFFICULTY, HEROES, HERO, abilityAt, ITEM, MONSTERS, MINIONS, TOWER, CORE, BUFFS, DRAGON_KINDS, BLUE, RED, NEUTRAL, TEAM_COLOR, EVO_RANK } from './data.js';
 import { Unit } from './units.js';
 import { LANES, TOWERS, CORES, FOUNTAIN, CAMPS, mirror } from './map.js';
 import { Bean, makeMinion, Monster, TowerModel, CoreModel } from './models.js';
@@ -140,6 +140,11 @@ export class Match {
     if (tgt.flag('invuln') || tgt.state === 'reset') return 0;
     if (tgt.protectedNow) { if (src && src.hero && src.isPlayer && Math.random() < 0.2) this.emit('float', { x: tgt.x, y: 6, z: tgt.z, text: 'PROTECTED', color: '#bcd7ff', size: 15 }); return 0; }
     const owner = src && (src.owner || src);
+    // evolved abilities knock enemy heroes up (once per cast)
+    if (owner && owner.evoT > this.time && !opt.basic && tgt.hero && tgt.team !== owner.team) {
+      const key = owner.id + ':' + owner.evoCast;
+      if (tgt._evoHit !== key) { tgt._evoHit = key; this.stun(tgt, owner.evoUp || 0.7, 'knockup'); }
+    }
     let dmg = amount * (src ? src.st.dmgMul : 1);
     if (src && src.bot && src.hero) dmg *= this.diff.dmg;
     if (type === 'phys') { const a = tgt.st.armor; dmg *= a >= 0 ? 100 / (100 + a) : 2 - 100 / (100 - a); }
@@ -260,9 +265,16 @@ export class Match {
     if (!u.canLevel(slot)) return false;
     u.abil[slot].rank++; u.points--;
     if (u === this.player) this.sound('select');
+    // the last upgrade: the ability evolves into a new one
+    const ab = abilityAt(u.def.abilities[slot], u.abil[slot].rank);
+    if (ab.evolved && u.abil[slot].rank === EVO_RANK) {
+      const g = this.groundY(u.x, u.z), feet = new THREE.Vector3(u.x, g, u.z), top = new THREE.Vector3(u.x, g + 2, u.z);
+      if (u === this.player || u.vis[this.pteam] || u.team === this.pteam) { this.fx.column(feet, '#ffd23f', 2.2, 10, 1.1); this.fx.confetti(top, 50, 4); this.fx.ring(feet, '#ffd23f', 0.5, 6, 0.8, 0.9); }
+      this.emit('evolve', { u, slot, name: ab.name, from: ab.baseName });
+    }
     return true;
   }
-  abilityCost(u, slot) { const ab = u.def.abilities[slot], r = u.abil[slot].rank; return r ? ab.cost[r - 1] : 0; }
+  abilityCost(u, slot) { const r = u.abil[slot].rank; return r ? abilityAt(u.def.abilities[slot], r).cost[r - 1] : 0; }
   canCastNow(u, slot) { const a = u.abil[slot]; return u.alive && a.rank > 0 && a.cd <= 0 && u.mana >= this.abilityCost(u, slot) && u.canCast; }
   // x,z = cursor point on the ground, target = unit under the cursor
   cast(u, slot, x, z, target) {
@@ -294,6 +306,8 @@ export class Match {
       else if (ab.type === 'ground' && l > ab.range) { x = u.x + dx / l * ab.range; z = u.z + dz / l * ab.range; }
     }
     if (u.recallT >= 0) this.cancelRecall(u);
+    // an evolved ability knocks up every enemy hero it hits (for as long as it is flying or happening)
+    if (ab.evolved) { u.evoT = this.time + (ab.type === 'skillshot' ? 2.4 : 1.8) + (typeof ab.dur === 'number' ? ab.dur : 0); u.evoCast = (u.evoCast || 0) + 1; u.evoUp = ab.knockup; }
     u.mana -= cost; a.cd = ab.cd[a.rank - 1] * (1 - u.st.cdr);
     u.castAnim = 0; u.windup = -1; u.revealT = Math.max(u.revealT, 1.5);
     if (target) u.facing = Math.atan2(target.x - u.x, target.z - u.z);
@@ -301,11 +315,19 @@ export class Match {
     const fn = CAST[u.heroId + ':' + slot] || KINDS[ab.kind];
     if (fn) fn(this, u, ab, a.rank, x, z, target);
     this.castFx(u, slot);
+    if (ab.evolved) this.evoFx(u);
     u.stats.casts = (u.stats.casts || 0) + 1;
     return true;
   }
 
   // every ability gets a little flourish; ultimates get a big one
+  // a golden burst for evolved abilities (as big as an ultimate's)
+  evoFx(u) {
+    const gy = this.groundY(u.x, u.z), sz = u.st.size || 1, feet = new THREE.Vector3(u.x, gy, u.z), chest = new THREE.Vector3(u.x, gy + 1.4 * sz, u.z);
+    this.fx.rays(feet, '#ffd23f', 12, 8, 0.75); this.fx.light(feet, '#ffd23f', 45, 0.7, 20); this.fx.flash(chest, '#fff3b0', 2.6, 0.3);
+    this.fx.ring(feet, '#ffd23f', 0.5, 6.5, 0.6, 0.8); this.fx.burst(chest, '#ffd23f', 30, 8, 0.25, 6, 0.8);
+    this.shake(u.x, u.z, 0.4); this.sound('magic', u.x, u.z, 1.2);
+  }
   castFx(u, slot) {
     const col = u.def.hitColor, gy = this.groundY(u.x, u.z), sz = u.st.size || 1;
     const feet = new THREE.Vector3(u.x, gy, u.z), chest = new THREE.Vector3(u.x, gy + 1.4 * sz, u.z);
