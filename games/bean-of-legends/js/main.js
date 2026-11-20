@@ -8,6 +8,7 @@ import { Audio, MUSIC } from './audio.js';
 import { Match } from './match.js';
 import { HUD, $ } from './hud.js';
 import { Showroom, loadSave, writeSave, heroColors, renderHeroGrid, renderHeroInfo, renderCosmeticShop, renderEnd } from './menus.js';
+import { Touch } from './touch.js';
 
 const canvas = $('gl');
 const app = window.BOL_APP = {
@@ -237,6 +238,7 @@ class Input {
   }
   down(e) {
     if (app.state !== 'game' || app.paused) return;
+    if (!e.fromTouch && app.touch && app.touch.recent()) return;      // the mouse events a tap makes up
     app.audio.unlock();
     const m = this.m, p = this.p; if (!m || !p) return;
     if (app.hud.shopOpen) return;
@@ -296,7 +298,7 @@ class Input {
     if (c.startsWith('Digit')) { const i = +c.slice(5) - 1; if (i >= 0 && i < 6) m.useItem(p, i); return; }
   }
   update(dt) {
-    this.pick();
+    if (!this.touchAim) this.pick();
     const m = this.m, p = this.p; if (!m || !p) return;
     if (this.held && !app.paused && !app.hud.shopOpen) { this.repeatT -= dt; if (this.repeatT <= 0) { this.repeatT = 0.15; const o = p.order; if (!o || o.type === 'move') m.orderMove(p, this.ground.x, this.ground.z); } }
     // indicators
@@ -315,8 +317,8 @@ class Input {
       } else if (ab.type === 'ground') { const k = Math.min(1, ab.range / l), x = p.x + dx * k, z = p.z + dz * k; I.aoeRing.visible = true; I.aoeRing.position.set(x, gy(x, z), z); I.aoeRing.scale.setScalar(1); }
     }
     if (this.aArmed) { I.attack.visible = true; I.attack.position.set(p.x, gy(p.x, p.z), p.z); I.attack.scale.setScalar(p.st.range + p.radius); }
-    const h = this.hover;
-    if (h && h.team !== m.pteam) { I.hover.visible = true; I.hover.position.set(h.x, gy(h.x, h.z), h.z); I.hover.scale.setScalar(h.radius + 0.4); }
+    const h = this.hover, idleTouch = app.touch && app.touch.on && !this.held;
+    if (h && h.team !== m.pteam && !idleTouch) { I.hover.visible = true; I.hover.position.set(h.x, gy(h.x, h.z), h.z); I.hover.scale.setScalar(h.radius + 0.4); }
     const t = p.order && p.order.type === 'attack' && !p.order.auto ? p.order.target : null;
     if (t && t.alive && t !== h) { I.target.visible = true; I.target.position.set(t.x, gy(t.x, t.z), t.z); I.target.scale.setScalar((t.radius + 0.5) * (1 + Math.sin(performance.now() / 120) * 0.06)); }
   }
@@ -342,7 +344,7 @@ function startMatch() {
     screen(null); app.state = 'game';
     app.audio.play(MUSIC.match); app.lateMusic = false;
     $('gl').style.filter = '';
-    m.emit('announce', { text: 'WELCOME TO ' + MAP_THEMES[app.mapTheme].name.toUpperCase(), sub: 'Minions spawn in ' + Math.round(m.nextWave) + ' seconds · buy items with P', color: '#ffd23f' });
+    m.emit('announce', { text: 'WELCOME TO ' + MAP_THEMES[app.mapTheme].name.toUpperCase(), sub: 'Minions spawn in ' + Math.round(m.nextWave) + ' seconds · ' + (app.touch.on ? 'tap SHOP to buy items' : 'buy items with P'), color: '#ffd23f' });
   }, 40);
 }
 function onEnd() {
@@ -366,6 +368,7 @@ function quitToMenu() {
   if (app.match) { app.match.dispose(); app.match = null; }
   app.hud.stop(); setPause(false, true); goMenu();
 }
+app.setPause = (on) => setPause(on);
 function setPause(on, silent) {
   app.paused = on; modal('pause', on);
   if (!silent) app.audio.sfx('click');
@@ -438,6 +441,7 @@ function step(dt) {
     m.updateVisuals(app.paused ? 0 : dt);
     animT += dt;
     for (const f of app.mapObjs.anim) f(animT);
+    app.touch.update(dt);
     app.input.update(dt);
     app.cam.update(dt);
     m.listener.x = app.cam.x; m.listener.z = app.cam.z;
@@ -463,6 +467,7 @@ async function boot() {
   $('bootBar').style.width = '15%';
   await document.fonts.ready.catch(() => {});
   document.querySelectorAll('i[data-ic]').forEach(el => { el.innerHTML = icon(el.dataset.ic); });
+  app.touch = new Touch(app);
   app.hud = new HUD(app); app.input = new Input();
   resize();
   app.show = new Showroom(renderer);

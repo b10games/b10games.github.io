@@ -41,12 +41,14 @@ export class HUD {
     p.def.abilities.forEach((a, i) => {
       const el = document.createElement('div'); el.className = 'ab pe' + (i === 4 ? ' ult' : '') + (a.innate ? ' innate' : ''); el.dataset.slot = i;
       el.innerHTML = `<div class="up">+</div><span class="ico">${icon(a.icon, { badge: p.def.badge })}</span><span class="key">${a.key}</span><span class="cost"></span><div class="cd"></div><div class="pips">${(i === 4 ? [0, 1, 2] : [0, 1, 2, 3, 4]).map(() => '<i></i>').join('')}</div>`;
-      el.querySelector('.up').addEventListener('mousedown', e => { e.stopPropagation(); this.m.levelAbility(p, i); });
+      el.querySelector('.up').addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); this.m.levelAbility(p, i); });
+      if (this.app.touch) this.app.touch.bindAbility(el, i);
       el.addEventListener('mouseenter', () => this.showTip(el, () => this.abilityTip(i)));
       el.addEventListener('mouseleave', () => this.hideTip());
       ab.appendChild(el);
     });
     this.abEls = [...ab.children];
+    this.placeAbilities();
     // items
     const it = $('items'); it.innerHTML = '';
     for (let i = 0; i < 6; i++) {
@@ -62,6 +64,12 @@ export class HUD {
     this.refreshItems(); this.buildShop();
     $('hud').classList.add('on');
   }
+  // on a touch screen the ability buttons sit round the attack button, on a computer in the bottom bar
+  placeAbilities() {
+    if (!this.abEls) return;
+    const host = document.body.classList.contains('touch') ? $('tAbils') : $('abilities');
+    for (const el of this.abEls) if (el.parentNode !== host) host.appendChild(el);
+  }
   stop() { $('hud').classList.remove('on'); this.closeShop(); $('scoreModal').classList.remove('on'); this.g.clearRect(0, 0, this.ov.width, this.ov.height); this.hideTip(); $('gl').style.filter = ''; }
   bindStatic() {
     $('shopBtn').addEventListener('click', () => this.toggleShop());
@@ -74,8 +82,9 @@ export class HUD {
       if (e.button === 2 && !drag) { this.app.input.moveOrder(x, z, true); this.app.input.held = false; }
       else if (e.buttons & 1) { this.app.cam.lookAt(x, z, true); this.mmHeld = true; }
     };
-    this.mm.addEventListener('mousedown', e => { e.stopPropagation(); mmAct(e, false); });
-    this.mm.addEventListener('mousemove', e => { if (e.buttons & 1) mmAct(e, true); });
+    const fake = () => this.app.touch && this.app.touch.recent();      // the mouse events a tap makes up (the tap was handled already)
+    this.mm.addEventListener('mousedown', e => { e.stopPropagation(); if (!fake()) mmAct(e, false); });
+    this.mm.addEventListener('mousemove', e => { if ((e.buttons & 1) && !fake()) mmAct(e, true); });
     addEventListener('mouseup', e => { if (e.button === 0 && this.mmHeld) { this.mmHeld = false; if (this.app.settings.cam !== 'free') this.app.cam.locked = true; } });
   }
   // ---------- events from the match ----------
@@ -85,7 +94,7 @@ export class HUD {
     else if (type === 'announce') this.announce(d.text, d.sub, d.color);
     else if (type === 'kill') this.killFeed(d);
     else if (type === 'inventory') { if (d === this.p) { this.refreshItems(); if ($('shopModal').classList.contains('on')) this.renderShop(); } }
-    else if (type === 'levelup') this.toast('Level ' + d.level + '! You have an ability point (Shift+Q/W/E/R or click +)', 'good');
+    else if (type === 'levelup') this.toast('Level ' + d.level + '! You have an ability point (' + (document.body.classList.contains('touch') ? 'tap the yellow + on an ability' : 'Shift+Q/W/E/R or click +') + ')', 'good');
     else if (type === 'playerDied') { $('gl').style.filter = 'grayscale(.85) brightness(.8)'; }
     else if (type === 'respawn') { $('gl').style.filter = ''; }
   }
@@ -106,7 +115,7 @@ export class HUD {
     if (v === this.p) this.toast('You were slain' + (k && k.hero ? ' by ' + k.def.title : ''), 'bad');
   }
   // ---------- tooltips ----------
-  showTip(el, fn) { const html = fn(); if (!html) return; this.tip.innerHTML = html; this.tip.style.display = 'block'; const r = el.getBoundingClientRect(); const tw = this.tip.offsetWidth, th = this.tip.offsetHeight; this.tip.style.left = clamp(r.left + r.width / 2 - tw / 2, 6, innerWidth - tw - 6) + 'px'; this.tip.style.top = Math.max(6, r.top - th - 10) + 'px'; }
+  showTip(el, fn, force) { if (!force && document.body.classList.contains('touch')) return; const html = fn(); if (!html) return; this.tip.innerHTML = html; this.tip.style.display = 'block'; const r = el.getBoundingClientRect(); const tw = this.tip.offsetWidth, th = this.tip.offsetHeight; this.tip.style.left = clamp(r.left + r.width / 2 - tw / 2, 6, innerWidth - tw - 6) + 'px'; this.tip.style.top = Math.max(6, r.top - th - 10) + 'px'; }
   hideTip() { this.tip.style.display = 'none'; }
   abilityTip(i) {
     const p = this.p, ab = abilityAt(p.def.abilities[i], p.abil[i].rank), r = p.abil[i].rank;

@@ -119,10 +119,17 @@ export class Showroom {
     rt.dispose();
     return out;
   }
+  // drag (mouse or finger) to spin the bean, wheel or two fingers to zoom
   bindDrag(el) {
-    el.addEventListener('mousedown', e => { this.drag = { x: e.clientX, yaw: this.yaw }; el.style.cursor = 'grabbing'; });
-    addEventListener('mousemove', e => { if (this.drag) this.yaw = this.drag.yaw - (e.clientX - this.drag.x) * 0.012; });
-    addEventListener('mouseup', () => { this.drag = null; el.style.cursor = 'grab'; });
+    const pts = new Map();
+    el.addEventListener('pointerdown', e => { el.setPointerCapture(e.pointerId); pts.set(e.pointerId, e.clientX + ',' + e.clientY); if (pts.size === 1) { this.drag = { x: e.clientX, yaw: this.yaw }; el.style.cursor = 'grabbing'; } else { this.drag = null; const [a, b] = [...pts.values()].map(v => v.split(',').map(Number)); this.pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), zoom: this.zoom }; } });
+    el.addEventListener('pointermove', e => {
+      if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, e.clientX + ',' + e.clientY);
+      if (this.pinch && pts.size >= 2) { const [a, b] = [...pts.values()].map(v => v.split(',').map(Number)); this.zoom = clamp(this.pinch.zoom * this.pinch.d / Math.max(30, Math.hypot(a[0] - b[0], a[1] - b[1])), 6, 18); return; }
+      if (this.drag) this.yaw = this.drag.yaw - (e.clientX - this.drag.x) * 0.012;
+    });
+    const end = e => { pts.delete(e.pointerId); if (pts.size < 2) this.pinch = null; if (!pts.size) { this.drag = null; el.style.cursor = 'grab'; } };
+    el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
     el.addEventListener('wheel', e => { this.zoom = clamp(this.zoom + Math.sign(e.deltaY) * 0.8, 6, 18); e.preventDefault(); }, { passive: false });
   }
 }

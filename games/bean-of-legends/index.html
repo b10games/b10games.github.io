@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Bean of Legends</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,8 +14,9 @@
 <style>
   :root { --gold: #ffd23f; --gold2: #f4a900; --blue: #3a86ff; --red: #ff4d6d; --ink: #170f2e; --glass: rgba(18, 12, 40, .82); --line: rgba(255, 210, 63, .45); --text: #fff8e7; }
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #0d0820; color: var(--text); font-family: Nunito, sans-serif; user-select: none; -webkit-user-select: none; }
-  canvas#gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0d0820; color: var(--text); font-family: Nunito, sans-serif; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+  canvas#gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  button { touch-action: manipulation; }
   canvas#overlay { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
   .hidden { display: none !important; }
   h1, h2, h3, .lilita { font-family: "Lilita One", sans-serif; font-weight: 400; letter-spacing: .02em; margin: 0; }
@@ -184,6 +188,54 @@
   #tooltip { position: fixed; z-index: 80; max-width: 320px; padding: 10px 12px; pointer-events: none; display: none; font-size: 13px; line-height: 1.4; }
   #tooltip h4 { margin: 0 0 4px; font-family: "Lilita One"; font-weight: 400; font-size: 17px; color: var(--gold); }
   .stat { color: #9fe39a; font-weight: 900; }
+  /* ---------- touch controls (iPad): joystick left, attack and abilities right ---------- */
+  .touchonly, #tJoyBase, #tCancel, #rotate, #tTop { display: none; }
+  body.touch .touchonly, body.touch #tJoyBase { display: block; }
+  #tJoy { position: absolute; left: 0; bottom: 0; width: 30vw; height: 56vh; touch-action: none; }
+  #tJoyBase { position: fixed; left: calc(env(safe-area-inset-left, 0px) + 128px); top: calc(100% - 132px - env(safe-area-inset-bottom, 0px)); width: 132px; height: 132px; margin: -66px 0 0 -66px; border-radius: 50%; background: rgba(18, 12, 40, .35); border: 3px solid rgba(255, 255, 255, .3); pointer-events: none; opacity: .55; transition: opacity .15s; z-index: 6; }
+  #tJoyBase.on { opacity: 1; }
+  #tJoyKnob { position: absolute; left: 50%; top: 50%; width: 62px; height: 62px; margin: -31px 0 0 -31px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffffff, #c9b8ff); box-shadow: 0 4px 10px rgba(0, 0, 0, .4); }
+  #tAct { position: absolute; right: calc(14px + env(safe-area-inset-right, 0px)); bottom: calc(10px + env(safe-area-inset-bottom, 0px)); width: 310px; height: 280px; pointer-events: none; }
+  #tAtk { position: absolute; left: 205px; top: 195px; width: 112px; height: 112px; margin: -56px 0 0 -56px; border-radius: 50%; background: radial-gradient(circle at 40% 30%, #ff8fa3, #d62848 70%); border: 4px solid var(--gold); color: #fff; font-size: 56px; display: grid; place-items: center; box-shadow: 0 6px 0 #7a1024, 0 10px 24px rgba(0, 0, 0, .45); pointer-events: auto; touch-action: none; transition: transform .06s; }
+  #tAtk.on { transform: translateY(4px) scale(.95); box-shadow: 0 2px 0 #7a1024, 0 6px 14px rgba(0, 0, 0, .4); }
+  #tAtk i { display: grid; place-items: center; }
+  #tAbils .ab { position: absolute; width: 70px; height: 70px; margin: -35px 0 0 -35px; touch-action: none; pointer-events: auto; font-size: 62px; }
+  #tAbils .ab .ico { width: 64px; height: 64px; }
+  #tAbils .ab .key { font-size: 12px; opacity: .8; }
+  #tAbils .ab[data-slot="0"] { left: 80px; top: 200px; }
+  #tAbils .ab[data-slot="1"] { left: 104px; top: 112px; }
+  #tAbils .ab[data-slot="2"] { left: 24px; top: 122px; width: 56px; height: 56px; margin: -28px 0 0 -28px; font-size: 46px; border-radius: 50%; }
+  #tAbils .ab[data-slot="2"] .ico { width: 50px; height: 50px; }
+  #tAbils .ab[data-slot="3"] { left: 186px; top: 68px; }
+  #tAbils .ab[data-slot="4"] { left: 276px; top: 84px; }
+  #tAbils .ab .up { width: 34px; height: 30px; line-height: 30px; font-size: 24px; top: -16px; left: -16px; transform: none; z-index: 5; animation: bobC .8s ease-in-out infinite; }
+  @keyframes bobC { 50% { transform: translateY(-3px); } }
+  #tAbils .ab.hit { animation: abHit .22s; }
+  @keyframes abHit { 50% { transform: scale(.86); } }
+  #tTop { position: absolute; right: calc(12px + env(safe-area-inset-right, 0px)); top: calc(8px + env(safe-area-inset-top, 0px)); gap: 8px; }
+  body.touch #tTop { display: flex; }
+  #tTop button { min-width: 54px; height: 46px; padding: 0 12px; border-radius: 12px; background: var(--glass); border: 2px solid var(--line); color: var(--text); font-size: 17px; pointer-events: auto; }
+  #tCancel { position: fixed; right: calc(22px + env(safe-area-inset-right, 0px)); top: calc(70px + env(safe-area-inset-top, 0px)); width: 92px; height: 92px; border-radius: 50%; background: rgba(18, 12, 40, .78); border: 3px solid rgba(255, 255, 255, .45); z-index: 7; place-items: center; align-content: center; font-family: "Lilita One"; font-size: 30px; line-height: 1; text-align: center; transition: transform .1s, background .1s; }
+  #tCancel small { display: block; font-size: 13px; margin-top: 2px; }
+  #tCancel.on { display: grid; }
+  #tCancel.hot { background: var(--red); transform: scale(1.12); }
+  body.touch #help, body.touch #abilities { display: none; }
+  body.touch #minimap { left: calc(10px + env(safe-area-inset-left, 0px)); top: calc(10px + env(safe-area-inset-top, 0px)); right: auto; bottom: auto; width: 158px; height: 158px; touch-action: none; }
+  body.touch #killfeed { top: 66px; }
+  body.touch #statsBox { display: none; }
+  body.touch #rightPanel { grid-template-columns: auto; }
+  body.touch #goldRow { grid-column: 1; }
+  body.touch #center { width: 230px; }
+  body.touch #bottom { left: 47%; transform: translateX(-50%) scale(.8); transform-origin: 50% 100%; bottom: calc(4px + env(safe-area-inset-bottom, 0px)); }
+  @media (min-width: 1150px) { body.touch #bottom { left: 50%; transform: translateX(-50%) scale(.86); } }
+  @media (max-width: 1060px) { body.touch #bottom { left: 45%; transform: translateX(-50%) scale(.74); } }
+  body.touch #buffs { bottom: 128px; } body.touch #toasts { bottom: 150px; } body.touch #recallBar { bottom: 140px; }
+  body.touch #goldRow .btn { min-height: 40px; }
+  body.touch .slot { width: 44px; height: 44px; }
+  body.touch #items { grid-template-columns: repeat(3, 44px); }
+  #rotate { position: fixed; inset: 0; z-index: 90; background: #0d0820; align-items: center; justify-content: center; text-align: center; flex-direction: column; gap: 14px; padding: 24px; }
+  #rotate h2 { font-size: 34px; color: var(--gold); }
+  @media (orientation: portrait) { body.touch #rotate { display: flex; } }
   /* ---------- shop ---------- */
   #shopBox { width: min(980px, 96vw); height: min(640px, 92vh); display: grid; grid-template-columns: 170px 1fr 290px; grid-template-rows: auto 1fr auto; gap: 12px; padding: 16px; }
   #shopBox .top { grid-column: 1 / span 3; display: flex; justify-content: space-between; align-items: center; }
@@ -307,6 +359,10 @@
     </div>
   </div>
   <canvas id="minimap" class="pe" width="240" height="240"></canvas>
+  <div id="tJoy" class="pe touchonly"></div>
+  <div id="tAct" class="touchonly"><div id="tAbils"></div><button id="tAtk" aria-label="Attack"><i data-ic="swords"></i></button></div>
+  <div id="tTop"><button id="tScore">SCORES</button><button id="tPause" aria-label="Pause">II</button></div>
+  <div id="tCancel">✕<small>CANCEL</small></div>
   <div id="help">Left-click: move / attack · Right-click: cancel aim · Q W: attacks · E: sprint · R: special · T: ultimate · Shift+Q/W/R/T: level up · A: attack-move · S: stop · B: recall · P: shop · Tab: scores · Space: camera · Y: lock camera · Esc: menu</div>
 </div>
 
@@ -346,6 +402,7 @@
 <div id="howtoModal" class="modal"><div class="panel howto" style="position:relative">
   <button class="x" id="howClose">✕</button>
   <h2 style="font-size:30px;color:var(--gold)">HOW TO PLAY</h2>
+  <p class="touchonly" style="color:#9fe39a"><b>On iPad:</b> push the <b>joystick</b> on the left to walk (or tap the ground). Tap the big <b>sword button</b> to attack the best enemy near you. <b>Tap an ability</b> to fire it at the nearest enemy, or <b>drag from it</b> to aim yourself and let go to fire; drag onto <b>CANCEL</b> to stop. Hold an ability still to read what it does. Tap the yellow <b>+</b> to level an ability up. Pinch with two fingers to zoom. On the minimap: tap to walk there, drag to look around.</p>
   <p><b>Goal:</b> destroy the enemy <b>BEAN CORE</b> in their base. Towers protect each lane: you must destroy the outer tower before the inner one, then the base tower. When a base tower falls, the two guard towers next to the core can be attacked, and when both guards are gone the core is open.</p>
   <p><b>Moving and attacking:</b> <kbd>Left-click</kbd> the ground to walk (hold to keep walking), <kbd>left-click</kbd> an enemy to attack it. <kbd>A</kbd> + click = attack-move, <kbd>S</kbd> = stop. While aiming an ability, left-click casts it and right-click cancels.</p>
   <p><b>Abilities:</b> every bean has the same layout. <kbd>Q</kbd> is a strong attack on ONE enemy (it only splashes onto enemies standing right next to the target). <kbd>W</kbd> is an area attack. <kbd>E</kbd> is a sprint that always makes you run faster (free, and it ranks up by itself). <kbd>R</kbd> is the bean's very own special move. <kbd>T</kbd> is the ultimate. Some beans have an extra strong Q (3 shurikens, double bite, bouncing feather...), others an extra big W area. Abilities aim at your mouse. Every level gives a point: press <kbd>Shift</kbd>+<kbd>Q/W/R/T</kbd> or click the yellow <b>+</b>. Every upgrade gives the ability 7% more range and area and a 1 second shorter cooldown. Your bean also grows a little bigger every time it levels up. In Quick matches you level up much faster. The ultimate (T) unlocks at level 6, 11 and 16.</p>
@@ -357,6 +414,8 @@
 </div></div>
 
 <div id="tooltip" class="panel"></div>
+<div id="tJoyBase"><div id="tJoyKnob"></div></div>
+<div id="rotate"><h2>TURN YOUR iPAD SIDEWAYS</h2><div style="font-weight:800;opacity:.85">Bean of Legends is played in landscape.</div></div>
 
 <script type="module" src="js/main.js"></script>
 <script src="/stats.js" data-game="bean-of-legends" defer></script>
