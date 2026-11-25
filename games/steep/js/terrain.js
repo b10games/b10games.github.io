@@ -79,7 +79,7 @@ export const PIPE = { a: 650, b: 860, half: 7.2, R: 5.2, H: 5.4, deck: 3.5 };
 export const PARK_RAILS = [
   { u: 120, v: -21, L: 12, kind: 'box' }, { u: 150, v: 21, L: 14, kind: 'rail' }, { u: 255, v: -21, L: 16, kind: 'rail' },
   { u: 280, v: 21, L: 14, kind: 'box' }, { u: 395, v: -21, L: 18, kind: 'rail' }, { u: 420, v: 21, L: 16, kind: 'box' },
-  { u: 548, v: -6, L: 14, kind: 'box' }, { u: 575, v: 6, L: 16, kind: 'rail' }, { u: 602, v: 0, L: 12, kind: 'rail', kink: true }
+  { u: 548, v: -6, L: 14, kind: 'box' }, { u: 575, v: 6, L: 16, kind: 'rail' }, { u: 600, v: -13, L: 12, kind: 'rail', kink: true }
 ];
 
 // ---------- the base village, the start platform and the mid station ----------

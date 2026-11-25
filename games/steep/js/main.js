@@ -11,7 +11,7 @@ import { Sound } from './audio.js';
 import { Input } from './input.js';
 import { Post } from './post.js';
 import { Score, LANDING } from './score.js';
-import { PARK, PARK_KICKERS, zoneAt, RUNS, terrain } from './terrain.js';
+import { PARK, PARK_KICKERS, zoneAt, RUNS, terrain, parkUV } from './terrain.js';
 import { ASSIST } from './assist.js';
 
 const $ = id => document.getElementById(id);
@@ -213,7 +213,8 @@ async function boot() {
     // build the detail around the kicker before showing it
     const p = new THREE.Vector3(); demo.pose(-0.5, p); demo.camera(0, p, true); world.focus(p, camera); world.warm(camera);
     buildMenus();
-    window.__S = { demo, skier, ski, world, cam, camera, score, fx, sound, input, renderer, post, startRide, dropAt, DROPS, ride: (dt) => ride(dt), get mode() { return mode; }, set mode(v) { mode = v; } };
+    window.__PUV = parkUV;
+    window.__S = { demo, skier, ski, world, cam, camera, score, fx, sound, input, renderer, post, startRide, dropAt, DROPS, parkAt, ride: (dt) => ride(dt), get mode() { return mode; }, set mode(v) { mode = v; } };
     $('qChip').textContent = QNAME[Q]; $('hQ').textContent = QNAME[Q]; $('hCam').textContent = CAM_MODES[cam.mode];
     $('boot').classList.add('off');
     if (COVER) return coverShot();

@@ -80,6 +80,8 @@ export class Ski {
     if (this.state === 'frozen') return;
     const steps = Math.min(4, Math.ceil(dt / (1 / 90))), h = dt / steps;
     for (let i = 0; i < steps; i++) this.step(h, inp, i === steps - 1);
+    // never lose the skier (a bad number somewhere): back to the last safe spot
+    if (!Number.isFinite(this.p.x + this.p.y + this.p.z + this.v.x + this.v.y + this.v.z)) { const s = this.safe, y = this.safeYaw; this.spawn(Number.isFinite(s.x) ? s.x : 0, Number.isFinite(s.z) ? s.z : 0, Number.isFinite(y) ? y : 0); }
     this.speed = this.v.length();
     this.grindCool = Math.max(0, this.grindCool - dt);
     this.updateGrab(dt);
@@ -96,6 +98,12 @@ export class Ski {
   }
 
   // ---------- on the snow ----------
+  // the yaw whose heading (on this slope) points along the velocity: on a steep wall the skis point
+  // up or down the wall with you, not along the horizontal part of the speed
+  slideYaw(n = this.n) {
+    const k = this.v.y / Math.max(0.15, n.y), hx = this.v.x - k * n.x, hz = this.v.z - k * n.z;
+    return Math.atan2(hx, hz);
+  }
   heading(out) {
     out.set(Math.sin(this.yaw), 0, Math.cos(this.yaw));
     out.addScaledVector(this.n, -out.dot(this.n)).normalize();
@@ -124,7 +132,7 @@ export class Ski {
     if (Math.abs(inp.steer) > 0.5) this.lastSteer = inp.steer;
     this.steerT += dt;
     // with no keys the skis slowly follow the slide (after a bump or a landing)
-    if (speed > 2.5 && Math.abs(inp.steer) < 0.3) { const ty = Math.atan2(this.v.x, this.v.z) + (this.sw ? Math.PI : 0); if (Math.abs(wrapAngle(ty - this.yaw)) < 1.2) this.yaw = dampAngle(this.yaw, ty, 0.7, dt); }
+    if (speed > 2.5 && Math.abs(inp.steer) < 0.3) { const ty = this.slideYaw(n) + (this.sw ? Math.PI : 0); if (Math.abs(wrapAngle(ty - this.yaw)) < 1.2) this.yaw = dampAngle(this.yaw, ty, n.y < 0.8 ? 4 : 0.7, dt); }
     this.heading(_f);
     // gravity along the slope
     _a.set(0, -G, 0); _a.addScaledVector(n, -_a.dot(n));
@@ -227,10 +235,10 @@ export class Ski {
     // off a halfpipe wall: straight up, and the air frame stays the one you left the wall with
     const h = parkUV(this.p.x, this.p.z);
     if (h && h.u > PIPE.a - 5 && h.u < PIPE.b + 5 && Math.abs(h.v) > PIPE.half + 1.5 && Math.abs(h.v) < PIPE_W + 1.2) {
-      const side = Math.sign(h.v), cx = -h.dz * side, cz = h.dx * side;    // across the pipe, out towards this wall
+      const side = Math.sign(h.v), cx = h.dz * side, cz = -h.dx * side;    // across the pipe, out towards this wall (v > 0 is the (dz, -dx) side)
       const out = this.v.x * cx + this.v.z * cz;
       this.v.x -= cx * (out + 0.9); this.v.z -= cz * (out + 0.9);
-      this.pipeAir = { up: this.n.clone() };
+      this.pipeAir = { up: this.n.clone(), side, tv: Math.max(PIPE.half + 2.5, Math.abs(h.v) - 0.7) };
       if (this.v.y < 2.5) this.pipeAir = null;
     }
     this.groundQuat(_q);
@@ -263,6 +271,15 @@ export class Ski {
     this.v.y -= G_AIR * dt;
     const sp = this.v.length(); this.v.multiplyScalar(1 - 0.0014 * sp * dt);
     if (!this.pipeAir) this.assist.update(dt, this.assistLevel, this.p, this.v);
+    else {
+      // a pipe air goes straight up and comes back down just under the lip it left from
+      const h = parkUV(this.p.x, this.p.z), A = this.pipeAir;
+      if (h) {
+        const cx = h.dz * A.side, cz = -h.dx * A.side, err = Math.abs(h.v) - A.tv, k = Math.min(1, 5 * dt);
+        this.p.x -= cx * err * k; this.p.z -= cz * err * k;
+        const out = this.v.x * cx + this.v.z * cz; this.v.x -= cx * out; this.v.z -= cz * out;
+      }
+    }
     this.p.addScaledVector(this.v, dt);
     const h = W.height(this.p.x, this.p.z);
     if (this.p.y <= h) { this.p.y = h; this.land(); }
@@ -271,7 +288,12 @@ export class Ski {
   // halfpipe the frame you left the wall with
   airNeutral(out, k = 1, ground = null) {
     if (this.pipeAir) {
-      if (ground) out.copy(ground); else out.copy(this.neutral);
+      if (ground) {
+        // facing straight up the wall (or down it, whichever is closer to how you came up)
+        const n = this.n; _f.set(n.x * n.y, n.y * n.y - 1, n.z * n.y).normalize().negate();
+        this.heading(_r); if (_r.dot(_f) < 0) _f.negate();
+        _u.crossVectors(n, _f).normalize(); _m.makeBasis(_u, n, _f); out.setFromRotationMatrix(_m);
+      } else out.copy(this.neutral);
       return out;
     }
     const hz = Math.hypot(this.v.x, this.v.z);
@@ -296,17 +318,19 @@ export class Ski {
     return out;
   }
   land() {
-    const W = this.world, n = W.normal(this.p.x, this.p.z, this.n);
+    const W = this.world, n = W.normal(this.p.x, this.p.z, this.n), pipe = !!this.pipeAir;
     const into = -this.v.dot(n);
     _a.copy(this.v).addScaledVector(n, -this.v.dot(n));
-    const travel = _a.lengthSq() > 0.04 ? _b.copy(_a).normalize() : this.heading(_b);
+    let travel = _a.lengthSq() > 0.04 ? _b.copy(_a).normalize() : this.heading(_b);
+    // in the halfpipe the skis have to point down (or up) the wall
+    if (pipe && n.y < 0.95) travel = _b.set(n.x * n.y, n.y * n.y - 1, n.z * n.y).normalize();
     const tr = this.tricks.current();
     // how the body meets the snow: up against the normal, forward against the direction of travel
     _u.set(0, 1, 0).applyQuaternion(this.quat); const up = _u.angleTo(n);
     _f.set(0, 0, 1).applyQuaternion(this.quat); _f.addScaledVector(n, -_f.dot(n));
     const fl = _f.length(); if (fl > 1e-3) _f.multiplyScalar(1 / fl);
     // nearly standing still: which way you face does not matter
-    const slowLand = _a.length() < 3;
+    const slowLand = _a.length() < 3 && !pipe;
     const fa = slowLand ? 0 : fl > 1e-3 ? _f.angleTo(travel) : Math.PI / 2, face = Math.min(fa, Math.PI - fa), sw = fa > Math.PI / 2;
     // nose up (in the back seat) or nose down?
     _u.set(0, 1, 0).applyQuaternion(this.quat);
@@ -329,11 +353,11 @@ export class Ski {
     this.grounded = true; this.coyote = 0; this.pipeAir = null; this.landT = 0; this.prevVy = null;
     this.tricks.grabbing = false;
     this.sw = sw && q !== 'crash';
-    this.yaw = Math.atan2(this.v.x, this.v.z) + (this.sw ? Math.PI : 0);
+    this.yaw = this.slideYaw(n) + (this.sw ? Math.PI : 0);
     // slow: keep facing the way the body faces (it does not snap round)
     if (slowLand && fl > 1e-3) { this.yaw = Math.atan2(_f.x, _f.z); this.sw = this.v.x * _f.x + this.v.z * _f.z < 0 && this.v.lengthSq() > 0.6; }
     this.travelYaw = Math.atan2(this.v.x, this.v.z);
-    const res = { quality: q, big: hard === 'big', backseat, into, air: this.airT, trick: tr, switch: this.sw, fast: this.v.length() > 17, pipe: tr && this.tricks.pipe };
+    const res = { quality: q, up, face, big: hard === 'big', backseat, into, air: this.airT, trick: tr, switch: this.sw, fast: this.v.length() > 17, pipe: tr && this.tricks.pipe };
     this.lastLand = res;
     this.emit('land', res);
     if (q === 'crash') this.fall(into, travel);
@@ -349,7 +373,8 @@ export class Ski {
       if (t < 0.02 || t > 0.92) continue;
       const cx = r.a.x + _a.x * t, cy = r.a.y + _a.y * t, cz = r.a.z + _a.z * t;
       const dh = Math.hypot(this.p.x - cx, this.p.z - cz), dy = this.p.y - cy;
-      if (dh > r.w + 0.35 || dy > 0.8 || dy < (this.grounded ? -r.h - 0.15 : -0.4)) continue;
+      // (generous: within about 0.8 m sideways you lock on and snap to it)
+      if (dh > Math.max(0.8, r.w + 0.5) || dy > 0.85 || dy < (this.grounded ? -r.h - 0.2 : -0.45)) continue;
       if (!this.grounded && this.v.y > 3) continue;
       const len = Math.sqrt(L2), dx = _a.x / len, dy2 = _a.y / len, dz = _a.z / len, along = this.v.x * dx + this.v.y * dy2 + this.v.z * dz;
       if (Math.abs(along) < sp * 0.55) continue;

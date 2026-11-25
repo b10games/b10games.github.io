@@ -59,7 +59,8 @@ export const DROPS = [];
   add('meadow', 'Green Meadow', along(meadow, 70), 'Gentle beginner run');
   add('park', 'Steep Park', along(park, 0, 25), 'Kickers S, M, L and XL, rails and boxes');
   add('xl', 'XL Kicker', along(park, PARK_KICKERS[3].u - PARK_KICKERS[3].len - 70), 'The biggest jump on the mountain');
-  add('pipe', 'Halfpipe', along(park, PIPE.a - 26), 'A 200 m superpipe');
+  { const p = along(park, PIPE.a - 75), s = 0, d = along(park, PIPE.a - 67); const dx = d.x - p.x, dz = d.z - p.z, l = Math.hypot(dx, dz);
+    add('pipe', 'Halfpipe', { x: p.x - dz / l * s, z: p.z + dx / l * s, yaw: p.yaw }, 'A 200 m superpipe'); }
   const cliff = LIPS.filter(l => l.cliff).sort((a, b) => Math.hypot(a.x - CLIFF_ZONE.x, a.z - CLIFF_ZONE.z) - Math.hypot(b.x - CLIFF_ZONE.x, b.z - CLIFF_ZONE.z))[0];
   if (cliff) add('cliffs', 'The Cliffs', { x: cliff.x - cliff.dx * 120, z: cliff.z - cliff.dz * 120, yaw: Math.atan2(cliff.dx, cliff.dz) }, 'Natural cliff drops');
   add('powder', 'Powder Bowl', { x: POWDER[0].x, z: POWDER[0].z - POWDER[0].rz * 0.75 }, 'Deep untouched snow');
