@@ -4,229 +4,504 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
-<meta name="theme-color" content="#000000">
+<meta name="theme-color" content="#07060f">
 <title>B10GAMES</title>
 <meta name="description" content="B10GAMES – gratis spil direkte i browseren.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23fff'/%3E%3Ctext x='16' y='22' font-family='Arial,sans-serif' font-weight='900' font-size='14' fill='%23000' text-anchor='middle'%3EB10%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%238b5cf6'/%3E%3Cstop offset='1' stop-color='%23ff4fd8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='9' fill='url(%23g)'/%3E%3Ctext x='16' y='21' font-family='Arial,sans-serif' font-weight='900' font-size='12.5' fill='%23fff' text-anchor='middle'%3EB10%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;700&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;700;800;900&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #000000;
-    --ink: #ffffff;
-    --muted: #a8a8a8;
-    --line: #333333;
-    --live: #16a34a;
+    --bg: #07060f;
+    --bg2: #0d0b1c;
+    --ink: #f6f4ff;
+    --muted: #a7a3c4;
+    --dim: #6f6a8f;
+    --line: rgba(255, 255, 255, .09);
+    --line2: rgba(255, 255, 255, .16);
+    --glass: rgba(20, 17, 40, .55);
+    --violet: #8b5cf6;
+    --pink: #ff4fd8;
+    --cyan: #2de2ff;
+    --lime: #b6ff3b;
+    --amber: #ffc53d;
+    --live: #34d399;
+    --grad: linear-gradient(120deg, #8b5cf6 0%, #ff4fd8 55%, #ffc53d 100%);
+    --r: 24px;
+    --display: "Unbounded", system-ui, sans-serif;
+    --text: "Manrope", system-ui, sans-serif;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background: var(--bg);
-    color: var(--ink);
-    font-family: "Space Grotesk", system-ui, sans-serif;
-    line-height: 1.5;
-    -webkit-font-smoothing: antialiased;
-  }
-  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--text); line-height: 1.5; -webkit-font-smoothing: antialiased; overflow-x: hidden; min-height: 100vh; }
+  a { color: inherit; }
+  .wrap { width: min(1240px, 100%); margin: 0 auto; padding: 0 24px; }
 
-  /* ---------- top ---------- */
-  .hero { padding: 48px 0 40px; border-bottom: 2px solid var(--ink); }
-  /* Logo with the stats under it. */
-  .top { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "logo" "stats"; row-gap: 28px; }
-  .hero h1 {
-    grid-area: logo;
-    font-family: "Archivo Black", sans-serif;
-    font-size: clamp(52px, 7.5vw, 96px);
-    line-height: .9; letter-spacing: -.03em;
-  }
-  .hero h1 span { -webkit-text-stroke: 3px var(--ink); color: transparent; }
+  /* ---------- the living background: drifting aurora light, a faint grid, film grain ---------- */
+  .bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; background: radial-gradient(120% 80% at 50% -10%, #1a1240 0%, var(--bg) 55%); }
+  .bg i { position: absolute; border-radius: 50%; opacity: .55; will-change: transform; }
+  .bg .b1 { width: 60vmax; height: 60vmax; left: -18vmax; top: -22vmax; background: radial-gradient(circle, rgba(139, 92, 246, .55), transparent 62%); animation: drift1 26s ease-in-out infinite alternate; }
+  .bg .b2 { width: 52vmax; height: 52vmax; right: -16vmax; top: -10vmax; background: radial-gradient(circle, rgba(255, 79, 216, .38), transparent 62%); animation: drift2 31s ease-in-out infinite alternate; }
+  .bg .b3 { width: 50vmax; height: 50vmax; left: 20vw; top: 45vh; background: radial-gradient(circle, rgba(45, 226, 255, .22), transparent 62%); animation: drift3 36s ease-in-out infinite alternate; }
+  .bg .b4 { width: 34vmax; height: 34vmax; right: 6vw; bottom: -14vmax; background: radial-gradient(circle, rgba(182, 255, 59, .14), transparent 62%); animation: drift1 40s ease-in-out infinite alternate-reverse; }
+  @keyframes drift1 { to { transform: translate(8vw, 6vh) scale(1.12); } }
+  @keyframes drift2 { to { transform: translate(-10vw, 10vh) scale(.92); } }
+  @keyframes drift3 { to { transform: translate(-6vw, -8vh) scale(1.15); } }
+  .bg .gridlines { position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px); background-size: 56px 56px; mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 75%); -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 75%); }
+  .bg .grain { position: absolute; inset: -50%; opacity: .07; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E"); }
 
-  .stats { grid-area: stats; align-self: start; display: flex; border: 2px solid var(--ink); width: fit-content; }
-  .stat { padding: 12px 22px; }
-  .stat + .stat { border-left: 2px solid var(--ink); }
-  .stat b { font-family: "Archivo Black", sans-serif; font-size: 26px; display: flex; align-items: center; gap: 8px; line-height: 1.1; }
-  .stat small { font: 700 11px "Space Mono", monospace; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
-  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--live); display: inline-block; flex: none; animation: pulse 1.6s infinite; }
-  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(22,163,74,.6); } 100% { box-shadow: 0 0 0 8px rgba(22,163,74,0); } }
+  /* ---------- top bar ---------- */
+  .nav { position: sticky; top: 0; z-index: 30; backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4); background: linear-gradient(180deg, rgba(7, 6, 15, .82), rgba(7, 6, 15, .55)); border-bottom: 1px solid var(--line); }
+  .nav-in { display: flex; align-items: center; gap: 22px; height: 72px; }
+  .logo { display: flex; align-items: center; gap: 12px; text-decoration: none; flex: none; }
+  .logo-mark { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: var(--grad); font: 900 15px var(--display); letter-spacing: -.02em; box-shadow: 0 8px 26px rgba(255, 79, 216, .35), inset 0 1px 0 rgba(255,255,255,.35); }
+  .logo-word { font: 800 20px var(--display); letter-spacing: .02em; }
+  .logo-word b { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .nav-links { display: flex; gap: 6px; }
+  .nav-links a { text-decoration: none; font: 700 14px var(--text); color: var(--muted); padding: 9px 14px; border-radius: 999px; transition: color .15s, background .15s; }
+  .nav-links a:hover { color: var(--ink); background: rgba(255,255,255,.07); }
+  .search { margin-left: auto; display: flex; align-items: center; gap: 10px; height: 46px; width: min(320px, 34vw); padding: 0 16px; border-radius: 999px; background: rgba(255,255,255,.06); border: 1px solid var(--line); cursor: text; transition: border-color .15s, box-shadow .15s, background .15s; }
+  .search:focus-within { border-color: rgba(139, 92, 246, .7); box-shadow: 0 0 0 4px rgba(139, 92, 246, .22); background: rgba(255,255,255,.09); }
+  .search svg { flex: none; color: var(--muted); }
+  .search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font: 600 15px var(--text); }
+  .search input::placeholder { color: var(--dim); }
+  .search kbd { font: 700 11px var(--text); color: var(--dim); border: 1px solid var(--line2); border-radius: 6px; padding: 1px 6px; }
+  .pill { display: inline-flex; align-items: center; gap: 8px; height: 46px; padding: 0 16px; border-radius: 999px; background: rgba(52, 211, 153, .1); border: 1px solid rgba(52, 211, 153, .25); font: 700 14px var(--text); color: #c9f7e4; white-space: nowrap; flex: none; }
+  .pill b { font-family: var(--display); font-weight: 700; color: #fff; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--live); display: inline-block; flex: none; box-shadow: 0 0 0 0 rgba(52,211,153,.6); animation: pulse 1.8s infinite; }
+  .dot.off { background: #4b4766; animation: none; box-shadow: none; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(52,211,153,.55); } 100% { box-shadow: 0 0 0 9px rgba(52,211,153,0); } }
 
-  /* ---------- games ---------- */
-  .games { padding: 48px 0 72px; }
-  .games-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 28px; }
-  .games h2 { font-family: "Archivo Black", sans-serif; font-size: clamp(30px, 4vw, 44px); line-height: 1; }
-  .search {
-    display: flex; align-items: center; gap: 10px; height: 48px; width: min(340px, 100%);
-    border: 2px solid var(--ink); background: var(--bg); padding: 0 14px; cursor: text;
-    transition: box-shadow .15s ease, transform .15s ease;
-  }
-  .search:focus-within { transform: translate(-2px,-2px); box-shadow: 4px 4px 0 var(--ink); }
-  .search svg { flex: none; }
-  .search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font: 500 16px "Space Grotesk", sans-serif; }
-  .search input::placeholder { color: #777; }
+  /* ---------- hero: the featured game + a side panel of tiles ---------- */
+  .hero { padding: 30px 0 10px; }
+  .bento { display: grid; grid-template-columns: minmax(0, 1.85fr) minmax(0, 1fr); gap: 18px; }
+  .tile { position: relative; border-radius: var(--r); background: var(--glass); border: 1px solid var(--line); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); overflow: hidden; }
+  .feature { position: relative; border-radius: calc(var(--r) + 6px); overflow: hidden; min-height: 520px; border: 1px solid var(--line2); background: #0d0b1c; isolation: isolate; box-shadow: 0 40px 90px -30px rgba(139, 92, 246, .45); }
+  .slide { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; padding: 34px 36px 108px; text-decoration: none; color: inherit; opacity: 0; visibility: hidden; transition: opacity .7s ease, visibility .7s; }
+  .slide.on { opacity: 1; visibility: visible; }
+  .slide img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; transform: scale(1.08); transition: transform 7s ease-out; }
+  .slide.on img { transform: scale(1); }
+  .slide::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(7,6,15,.92) 0%, rgba(7,6,15,.55) 46%, rgba(7,6,15,.05) 80%), linear-gradient(0deg, rgba(7,6,15,.9) 0%, rgba(7,6,15,0) 55%); }
+  .badges { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border-radius: 999px; font: 800 11.5px var(--text); letter-spacing: .08em; text-transform: uppercase; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  .badge.hot { background: var(--grad); border-color: transparent; color: #fff; }
+  .badge.new { background: var(--lime); color: #10140a; border-color: transparent; }
+  .slide h1 { font: 900 clamp(40px, 6.2vw, 88px)/.92 var(--display); letter-spacing: -.035em; max-width: 12ch; text-wrap: balance; text-shadow: 0 6px 40px rgba(0,0,0,.5); }
+  .slide p { margin-top: 14px; max-width: 52ch; color: #d7d3ee; font-size: 16px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .cta { display: flex; align-items: center; gap: 14px; margin-top: 22px; flex-wrap: wrap; }
+  .btn { display: inline-flex; align-items: center; gap: 10px; height: 54px; padding: 0 26px; border-radius: 999px; font: 800 15px var(--display); letter-spacing: .02em; text-decoration: none; border: 0; cursor: pointer; color: #fff; background: var(--grad); background-size: 160% 100%; box-shadow: 0 14px 34px -8px rgba(255, 79, 216, .6), inset 0 1px 0 rgba(255,255,255,.35); transition: transform .15s ease, box-shadow .2s ease, background-position .4s ease; }
+  .slide:hover .btn, .btn:hover { transform: translateY(-2px); background-position: 100% 0; box-shadow: 0 18px 40px -8px rgba(255, 79, 216, .75), inset 0 1px 0 rgba(255,255,255,.35); }
+  .btn svg { width: 18px; height: 18px; }
+  .live-mini { display: inline-flex; align-items: center; gap: 8px; font: 700 14px var(--text); color: #d7d3ee; }
+  .rail { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: flex; align-items: center; gap: 10px; padding: 16px 22px 18px; }
+  .thumbs { display: flex; gap: 10px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .thumbs::-webkit-scrollbar { display: none; }
+  .thumb { position: relative; flex: none; width: 112px; height: 64px; border-radius: 14px; overflow: hidden; border: 2px solid rgba(255,255,255,.14); cursor: pointer; padding: 0; background: #000; opacity: .62; transition: opacity .2s, border-color .2s, transform .2s; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb:hover { opacity: .9; transform: translateY(-2px); }
+  .thumb.on { opacity: 1; border-color: #fff; }
+  .thumb .bar { position: absolute; left: 0; bottom: 0; height: 3px; width: 0; background: var(--grad); }
+  .thumb.on .bar { animation: fill var(--dur, 7s) linear forwards; }
+  .feature.paused .thumb.on .bar { animation-play-state: paused; }
+  @keyframes fill { to { width: 100%; } }
+  .arrows { display: flex; gap: 8px; flex: none; }
+  .arrow { width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(255,255,255,.2); background: rgba(7,6,15,.5); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: #fff; cursor: pointer; display: grid; place-items: center; transition: background .15s, transform .15s; }
+  .arrow:hover { background: rgba(255,255,255,.16); transform: scale(1.06); }
+
+  .side { display: grid; grid-template-rows: auto 1fr; gap: 18px; min-width: 0; }
+  #acctSlot { min-height: 168px; display: flex; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .stat { padding: 20px 22px; display: flex; flex-direction: column; justify-content: space-between; gap: 18px; min-height: 140px; }
+  .stat.wide { grid-column: 1 / -1; min-height: 0; flex-direction: row; align-items: center; }
+  .stat .ico { width: 42px; height: 42px; border-radius: 13px; display: grid; place-items: center; background: rgba(255,255,255,.08); border: 1px solid var(--line); }
+  .stat .ico svg { width: 22px; height: 22px; }
+  .stat b { font: 800 clamp(28px, 3vw, 40px)/1 var(--display); letter-spacing: -.02em; display: flex; align-items: center; gap: 10px; }
+  .stat small { display: block; margin-top: 6px; font: 700 12px var(--text); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .stat.c1 .ico { color: var(--violet); background: rgba(139, 92, 246, .14); }
+  .stat.c2 .ico { color: var(--live); background: rgba(52, 211, 153, .14); }
+  .stat.c3 { background: linear-gradient(135deg, rgba(139, 92, 246, .28), rgba(255, 79, 216, .18)); border-color: rgba(255, 79, 216, .28); }
+  .stat.c3 .ico { color: #fff; background: rgba(255,255,255,.16); }
+  .stat.c3 .txt { flex: 1; }
+
+  /* ---------- sections ---------- */
+  section.block { padding: 64px 0 0; }
+  .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; flex-wrap: wrap; margin-bottom: 24px; }
+  .kicker { font: 800 12px var(--text); letter-spacing: .22em; text-transform: uppercase; color: var(--pink); margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+  .kicker::before { content: ""; width: 22px; height: 2px; background: var(--grad); border-radius: 2px; }
+  h2 { font: 800 clamp(28px, 3.6vw, 46px)/1.02 var(--display); letter-spacing: -.03em; }
+  h2 em { font-style: normal; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+  /* the three most played */
+  .podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+  .pod { position: relative; display: flex; align-items: center; gap: 18px; padding: 16px; border-radius: var(--r); text-decoration: none; background: var(--glass); border: 1px solid var(--line); overflow: hidden; transition: transform .2s ease, border-color .2s, box-shadow .2s; }
+  .pod:hover { transform: translateY(-4px); border-color: var(--c, var(--violet)); box-shadow: 0 22px 50px -20px var(--c, var(--violet)); }
+  .pod .rank { position: absolute; right: 14px; bottom: -22px; font: 900 110px/1 var(--display); color: transparent; -webkit-text-stroke: 1.5px rgba(255,255,255,.14); pointer-events: none; }
+  .pod img { width: 108px; height: 108px; border-radius: 18px; object-fit: cover; flex: none; }
+  .pod .medal { position: absolute; top: 10px; left: 10px; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font: 900 15px var(--display); color: #1b1404; box-shadow: 0 6px 16px rgba(0,0,0,.4); }
+  .pod:nth-child(1) .medal { background: linear-gradient(135deg, #fff1a8, #ffc53d 60%, #d48806); }
+  .pod:nth-child(2) .medal { background: linear-gradient(135deg, #ffffff, #c9cdd8 60%, #8a90a0); }
+  .pod:nth-child(3) .medal { background: linear-gradient(135deg, #ffd9b0, #e38b4a 60%, #9c4f1c); }
+  .pod h3 { font: 800 19px/1.1 var(--display); letter-spacing: -.01em; }
+  .pod p { margin-top: 6px; font: 700 13px var(--text); color: var(--muted); display: flex; align-items: center; gap: 8px; }
+
+  /* filters */
+  .tools { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--line2); background: rgba(255,255,255,.04); color: var(--muted); font: 700 14px var(--text); cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: color .15s, background .15s, border-color .15s, transform .15s; }
+  .chip:hover { color: var(--ink); border-color: rgba(255,255,255,.3); transform: translateY(-1px); }
+  .chip.on { color: #fff; background: var(--grad); border-color: transparent; box-shadow: 0 10px 24px -10px rgba(255, 79, 216, .7); }
+  .chip i { font-style: normal; font-size: 12px; opacity: .7; }
+
+  /* ---------- game cards ---------- */
+  .grid { display: grid; gap: 22px; grid-template-columns: repeat(auto-fill, minmax(272px, 1fr)); }
+  .card { --c: #8b5cf6; position: relative; display: flex; flex-direction: column; text-decoration: none; color: inherit; border-radius: var(--r); background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.02)); border: 1px solid var(--line); overflow: hidden; transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(var(--ty, 0px)); transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease, opacity .5s ease; will-change: transform; }
+  .card.in-view { animation: rise .6s cubic-bezier(.2, .8, .2, 1) both; animation-delay: var(--d, 0s); }
+  @keyframes rise { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
+  .card:hover { --ty: -6px; border-color: color-mix(in srgb, var(--c) 70%, transparent); box-shadow: 0 26px 60px -24px var(--c), 0 0 0 1px color-mix(in srgb, var(--c) 40%, transparent); }
+  .card:focus-visible { outline: 3px solid var(--c); outline-offset: 3px; }
   .card[hidden] { display: none; }
-  .empty { display: none; font: 700 15px "Space Mono", monospace; padding: 8px 0 24px; }
+  .art { position: relative; aspect-ratio: 16 / 10; overflow: hidden; background: #110f20; }
+  .art img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .6s cubic-bezier(.2, .8, .2, 1), filter .4s; }
+  .card:hover .art img { transform: scale(1.08); filter: saturate(1.15); }
+  .art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(0deg, rgba(7,6,15,.75), rgba(7,6,15,0) 45%); pointer-events: none; }
+  .art .play { position: absolute; left: 50%; top: 50%; z-index: 2; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.18); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,.4); transform: translate(-50%, -50%) scale(.6); opacity: 0; transition: transform .3s cubic-bezier(.2, .9, .3, 1.3), opacity .2s; }
+  .art .play svg { width: 24px; height: 24px; margin-left: 3px; }
+  .card:hover .art .play, .card:focus-visible .art .play { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  .art .tl { position: absolute; top: 12px; left: 12px; z-index: 2; display: flex; gap: 6px; }
+  .art .tr { position: absolute; top: 12px; right: 12px; z-index: 2; }
+  .art .online { display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 11px; border-radius: 999px; background: rgba(7,6,15,.65); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); font: 800 12px var(--text); border: 1px solid rgba(52,211,153,.35); }
+  .art .online[hidden] { display: none; }
+  .body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+  .body h3 { font: 800 20px/1.12 var(--display); letter-spacing: -.02em; }
+  .body p { color: var(--muted); font-size: 14.5px; line-height: 1.5; max-height: 4.5em; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tag { font: 800 11px var(--text); letter-spacing: .06em; text-transform: uppercase; padding: 4px 9px; border-radius: 8px; background: rgba(255,255,255,.06); color: #cfcbe6; border: 1px solid var(--line); }
+  .foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 12px; margin-top: auto; border-top: 1px solid var(--line); font: 700 13px var(--text); color: var(--muted); }
+  .foot .plays { display: inline-flex; align-items: center; gap: 7px; }
+  .foot .plays b { color: var(--ink); font-family: var(--display); font-weight: 700; }
+  .foot .go { display: inline-flex; align-items: center; gap: 6px; color: #fff; font: 800 13px var(--display); padding: 8px 14px; border-radius: 999px; background: color-mix(in srgb, var(--c) 30%, rgba(255,255,255,.06)); border: 1px solid color-mix(in srgb, var(--c) 55%, transparent); transition: background .2s; }
+  .card:hover .foot .go { background: var(--c); }
+  .empty { display: none; text-align: center; padding: 40px 0 10px; color: var(--muted); font-weight: 700; }
   .empty.on { display: block; }
-  .grid { display: grid; gap: 28px 24px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
-  .card {
-    border: 2px solid var(--ink); background: var(--bg); position: relative;
-    color: inherit; text-decoration: none;
-    display: flex; flex-direction: column;
-    transition: transform .15s ease, box-shadow .15s ease;
-  }
-  .card:hover { transform: translate(-4px,-4px); box-shadow: 8px 8px 0 var(--ink); }
-  .card:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
-  .card img {
-    display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover;
-    border-bottom: 2px solid var(--ink); background: #111;
-  }
-  .body { padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
-  .body h3 { font-family: "Archivo Black", sans-serif; font-size: 24px; line-height: 1.1; }
-  .body p { color: var(--muted); font-size: 15px; flex: 1; }
-  .cstats {
-    display: flex; gap: 14px; flex-wrap: wrap; align-items: center;
-    font: 700 12px "Space Mono", monospace; border-top: 2px solid var(--ink); padding-top: 10px; margin-top: 4px;
-  }
-  .cstats span { display: inline-flex; align-items: center; gap: 6px; }
-  .cstats .dot { width: 8px; height: 8px; }
-  .cstats .off { background: #555; animation: none; }
-  .play {
-    align-self: flex-start;
-    font-family: "Space Mono", monospace; font-weight: 700; font-size: 13px; letter-spacing: .06em;
-    background: var(--ink); color: var(--bg); padding: 7px 14px;
-  }
+  .empty b { display: block; font: 800 22px var(--display); color: var(--ink); margin-bottom: 6px; }
 
-  @media (prefers-reduced-motion: reduce) { .card { transition: none; } .dot { animation: none; } }
-  @media (max-width: 760px) {
-    .hero h1 { margin-top: 0; }
+  /* ---------- footer ---------- */
+  footer { margin-top: 90px; border-top: 1px solid var(--line); background: linear-gradient(180deg, rgba(13, 11, 28, .4), rgba(13, 11, 28, .9)); }
+  .foot-in { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; padding: 34px 24px 40px; color: var(--muted); font-weight: 600; font-size: 14px; }
+  .foot-in .big { font: 900 clamp(40px, 8vw, 110px)/.85 var(--display); letter-spacing: -.04em; background: linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.02)); -webkit-background-clip: text; background-clip: text; color: transparent; width: 100%; }
+
+  @media (max-width: 1020px) {
+    .bento { grid-template-columns: 1fr; }
+    .side { grid-template-rows: auto; grid-template-columns: 1fr; }
+    .feature { min-height: 480px; }
+    .nav-links { display: none; }
   }
+  @media (max-width: 820px) { .podium { grid-template-columns: 1fr; } }
   @media (max-width: 640px) {
     .wrap { padding: 0 16px; }
-    .hero { padding: 32px 0 28px; }
-    .hero h1 span { -webkit-text-stroke-width: 2px; }
-    .grid { grid-template-columns: 1fr; gap: 24px; }
+    .nav-in { height: 64px; gap: 12px; }
+    .logo-word { display: none; }
+    .search { width: auto; flex: 1; }
+    .search kbd { display: none; }
+    .pill { padding: 0 12px; height: 42px; }
+    .pill .lbl { display: none; }
+    .feature { min-height: 460px; }
+    .slide { padding: 24px 22px 100px; }
+    .thumb { width: 84px; height: 50px; }
+    .arrows { display: none; }
+    .grid { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: 1fr 1fr; gap: 12px; }
+    .stat { min-height: 120px; padding: 16px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    html { scroll-behavior: auto; }
   }
 </style>
 </head>
 <body>
+<div class="bg" aria-hidden="true"><i class="b1"></i><i class="b2"></i><i class="b3"></i><i class="b4"></i><div class="gridlines"></div><div class="grain"></div></div>
+
+<nav class="nav">
+  <div class="wrap nav-in">
+    <a class="logo" href="./" aria-label="B10GAMES forside"><span class="logo-mark">B10</span><span class="logo-word">B10<b>GAMES</b></span></a>
+    <div class="nav-links"><a href="#spil">Alle spil</a><a href="#top">Mest spillet</a></div>
+    <label class="search">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21" stroke-linecap="round"/></svg>
+      <input id="search" type="search" placeholder="Søg efter spil" autocomplete="off" aria-label="Søg efter spil">
+      <kbd>/</kbd>
+    </label>
+    <div class="pill" title="Spillere på siden lige nu"><i class="dot"></i><b id="onlineSite">–</b><span class="lbl">online</span></div>
+  </div>
+</nav>
 
 <header class="hero">
-  <div class="wrap">
-    <div class="top">
-      <h1>B10<span>GAMES</span></h1>
+  <div class="wrap bento">
+    <section class="feature" id="feature" aria-roledescription="karrusel" aria-label="Udvalgte spil">
+      <div id="slides"></div>
+      <div class="rail">
+        <div class="thumbs" id="thumbs" role="tablist" aria-label="Vælg spil"></div>
+        <div class="arrows">
+          <button class="arrow" id="prev" type="button" aria-label="Forrige spil"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <button class="arrow" id="next" type="button" aria-label="Næste spil"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
+        </div>
+      </div>
+    </section>
+    <div class="side">
+      <div id="acctSlot" class="tile"></div>
       <div class="stats">
-        <div class="stat"><b id="count">0</b><small>Spil</small></div>
-        <div class="stat"><b><i class="dot"></i><span id="onlineSite">–</span></b><small>Online nu</small></div>
+        <div class="tile stat c1"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="7" width="19" height="11" rx="5.5"/><path d="M7.5 11v3M6 12.5h3"/><circle cx="15.5" cy="11.5" r="1" fill="currentColor"/><circle cx="17.5" cy="13.5" r="1" fill="currentColor"/></svg></span><div><b id="count">0</b><small>Gratis spil</small></div></div>
+        <div class="tile stat c2"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.3-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 010 6.8M18.5 14.8c1.7.8 2.8 2.6 3 5.2"/></svg></span><div><b><i class="dot"></i><span id="onlineSite2">–</span></b><small>Spiller lige nu</small></div></div>
+        <div class="tile stat c3 wide"><span class="ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 001.5.9l10.4-6.5a1 1 0 000-1.8L9.5 4.6A1 1 0 008 5.5z"/></svg></span><div class="txt"><b id="totalPlays">–</b><small>Spil startet i alt</small></div></div>
       </div>
     </div>
   </div>
 </header>
 
-<main class="games">
+<section class="block" id="top">
   <div class="wrap">
-    <div class="games-head">
-      <h2>Alle spil</h2>
-      <label class="search">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21" stroke-linecap="square"/></svg>
-        <input id="search" type="search" placeholder="Søg efter spil" autocomplete="off" aria-label="Søg efter spil">
-      </label>
+    <div class="head"><div><div class="kicker">Lige nu</div><h2>Mest <em>spillet</em></h2></div></div>
+    <div class="podium" id="podium"></div>
+  </div>
+</section>
+
+<section class="block" id="spil">
+  <div class="wrap">
+    <div class="head">
+      <div><div class="kicker">Gratis · direkte i browseren</div><h2>Alle <em>spil</em></h2></div>
+      <div class="tools"><div class="chips" id="chips" role="tablist" aria-label="Kategorier"></div></div>
     </div>
     <div class="grid" id="grid"></div>
-    <p class="empty" id="empty">Ingen spil fundet – prøv et andet ord.</p>
+    <p class="empty" id="empty"><b>Ingen spil fundet</b>Prøv et andet ord eller en anden kategori.</p>
   </div>
-</main>
+</section>
+
+<footer>
+  <div class="wrap foot-in">
+    <div class="big">B10GAMES</div>
+    <span>Alle spil er gratis og kører direkte i browseren – ingen download.</span>
+    <a href="#" onclick="scrollTo({ top: 0, behavior: 'smooth' }); return false;" style="font-weight:800;text-decoration:none">Til toppen ↑</a>
+  </div>
+</footer>
 
 <script src="stats.js"></script>
 <script src="account.js"></script>
 <script src="account-ui.js"></script>
 <script>
-  // Add a new game here.
+  // Add a new game here (tags are the categories it shows up under).
   var GAMES = [
-    { id: 'steep', title: 'STEEP',
+    { id: 'steep', tags: ['3D', 'Sport'], title: 'STEEP',
       desc: 'Freestyle ski i 3D på et kæmpe bjerg med en sort pist med pukler, en blå og en grøn pist, en snowpark med små og kæmpe hop, rails og bokse, en 200 m superpipe, klipper, puddersne og skiløb mellem træerne. Hold SPACE for at lade hoppet op og slip for at hoppe: hold W for frontflip, S for backflip, Q/E for sideflip og A/D for spins op til 1080. Grab i luften, byg combos og land perfekt for flest point. En drone filmer dig hele vejen ned.' },
-    { id: 'bean-disaster', title: 'Bean Disaster',
+    { id: 'bean-disaster', tags: ['3D', 'Multiplayer', 'Overlevelse'], title: 'Bean Disaster',
       desc: 'Overlev MEGA vilde katastrofer som en lille bønne på 10 forskellige øer: Bean Town, Palm Beach, Frosty Village, Cactus Canyon, Bean City, Happy Farm, Spooky Hollow, Jungle Ruins, Candy Island og Pirate Cove. Mega-oversvømmelser, tsunamier med en kæmpebølge, tornado-udbrud, en kæmpe meteor, jordskælv med rullende kampesten, lava-gejsere, lyn, hagl og syreregn. Tjen mønter, køb hatte og outfits, og spil med venner i et party.' },
-    { id: 'powder-peak', title: 'STEEP Classic',
+    { id: 'powder-peak', tags: ['3D', 'Sport', 'Multiplayer'], title: 'STEEP Classic',
       desc: 'Snowboard og ski i en KÆMPE bjergkæde i 3D med 16 MEGA høje bjerge op til 3 km, sorte klipper og hvid puddersne. Hold SPACE for at lade hoppet op, lav flips og spins, hold SPACE i luften for at grabbe dit board eller dine ski, drop ind hvor du vil fra 3D-kortet og lav et party med en kode.' },
-    { id: 'crown-clash', title: 'Crown Clash',
+    { id: 'crown-clash', tags: ['Strategi'], title: 'Crown Clash',
       desc: 'Kortkamp med bønner. Byg et deck med 8 kort, brug eliksir, send tropper over broerne og vælt tårnene. 15 kort, 4 arenaer og en modstander på easy, medium eller hard.' },
-    { id: 'beans-tower-defense', title: 'Beans Tower Defense',
+    { id: 'beans-tower-defense', tags: ['Strategi'], title: 'Beans Tower Defense',
       desc: 'Sæt bønner langs vejen og pop ballonerne, før de slipper igennem. 27 bønner, blandt andet Sun Bean, Spike Bean, Ghost Bean, Meteor Bean og Clock Bean, der stopper tiden. Farme, 6 baner, bosser, en uendelig Infinity mode og Impossible mode med kun 1 liv.' },
-    { id: 'bean-of-legends', title: 'Bean of Legends',
+    { id: 'bean-of-legends', tags: ['Strategi', 'Action'], title: 'Bean of Legends',
       desc: '5 mod 5 bønne-kamp med tre baner, jungle, tårne og minions. Vælg mellem 10 bønner med hver deres fem evner, spil på fem forskellige kort og ødelæg fjendens Bean Core.' },
-    { id: 'wobble-dash', title: 'Wobble Dash',
+    { id: 'wobble-dash', tags: ['3D', 'Multiplayer', 'Action'], title: 'Wobble Dash',
       desc: 'Vaklende 3D-figurer i et forhindringsshow med 10 baner, survival og holdkampe. Lav et party med en kode og spil mod dine venner.' },
-    { id: 'apex-horizon', title: 'Apex Horizon',
+    { id: 'apex-horizon', tags: ['3D', 'Racing', 'Multiplayer'], title: 'Apex Horizon',
       desc: 'Superhurtig 3D-racer med 10 racerbaner og en kæmpe åben by. Lav et party med en kode, så dine venner kan køre med.' },
-    { id: 'block-storm', title: 'Block Storm',
+    { id: 'block-storm', tags: ['Puslespil'], title: 'Block Storm',
       desc: 'Træk brikker ind på brættet og ryd rækker. Combos, bomber, drej-brikker og en Blitz-mode på 2 minutter.' },
-    { id: 'super-snake', title: 'Super Snake',
+    { id: 'super-snake', tags: ['Arkade'], title: 'Super Snake',
       desc: 'Slangen med power-ups, combos, levels, labyrinter og skins du kan låse op.' },
-    { id: 'b10-words', title: 'B10 Words',
+    { id: 'b10-words', tags: ['Puslespil'], title: 'B10 Words',
       desc: 'Gæt det engelske ord på fem bogstaver på seks forsøg. Ét nyt ord hver dag, eller spil frit.' },
-    { id: 'matas-surfers', title: 'Matas Surfers',
+    { id: 'matas-surfers', tags: ['Arkade', 'Action'], title: 'Matas Surfers',
       desc: 'Løb gennem butikken, hop over soft mud wax, smut under bordet og undvig den kæmpe håndcreme.' },
-    { id: 'buttcraft', title: 'Buttcraft',
+    { id: 'buttcraft', tags: ['3D', 'Sandkasse', 'Multiplayer'], title: 'Buttcraft',
       desc: 'Voxel-sandkasse i gyldent aftenlys med skygger og vand, der spejler solen. Spil singleplayer eller multiplayer.' },
-    { id: 'buttcraft-low-quality', title: 'Buttcraft Low Quality Version',
+    { id: 'buttcraft-low-quality', tags: ['3D', 'Sandkasse'], title: 'Buttcraft Low Quality Version',
       desc: 'Den første, simple udgave af Buttcraft. Byg og grav i din egen blokverden og flyv rundt i Creative.' },
-    { id: 'turbo-royale', title: 'Turbo Royale',
+    { id: 'turbo-royale', tags: ['Racing'], title: 'Turbo Royale',
       desc: 'Ræs med drift og boost, eller kør frit rundt i Free Drive. Vælg sværhedsgrad: easy, medium eller hard.' },
-    { id: 'yellow-circle-clicker', title: 'Yellow Circle Clicker',
+    { id: 'yellow-circle-clicker', tags: ['Arkade'], title: 'Yellow Circle Clicker',
       desc: 'Klik på cirklen, køb opgraderinger og lav rebirths for en større multiplier.' }
   ];
 
   (function () {
     function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
-    function esc(s) { return s.replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+    function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+    function fmt(n) { return n == null ? '–' : n.toLocaleString('da-DK'); }
+    var PLAY = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 001.5.9l10.4-6.5a1 1 0 000-1.8L9.5 4.6A1 1 0 008 5.5z"/></svg>';
+    var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var NEW = GAMES.slice(0, 3).map(function (g) { return g.id; });   // the newest games are at the top of the list
 
-    var grid = document.getElementById('grid');
     document.getElementById('count').textContent = GAMES.length;
 
-    var slots = {};
-    GAMES.forEach(function (g) {
+    // ---------- the colour of each game (from its picture), for its glow ----------
+    var colors = {};
+    function colorOf(img, done) {
+      try {
+        var c = document.createElement('canvas'); c.width = c.height = 24;
+        var g = c.getContext('2d'); g.drawImage(img, 0, 0, 24, 24);
+        var d = g.getImageData(0, 0, 24, 24).data, best = null;
+        // the most colourful bright pixels, averaged
+        var r = 0, gg = 0, b = 0, w = 0;
+        for (var i = 0; i < d.length; i += 4) {
+          var R = d[i], G = d[i + 1], B = d[i + 2], mx = Math.max(R, G, B), mn = Math.min(R, G, B), sat = mx ? (mx - mn) / mx : 0, k = sat * sat * (mx / 255);
+          r += R * k; gg += G * k; b += B * k; w += k;
+        }
+        if (w < 0.5) return done(null);
+        r /= w; gg /= w; b /= w;
+        // brighten it so it glows
+        var m = Math.max(r, gg, b) || 1, s = 235 / m;
+        done('rgb(' + Math.round(r * s) + ',' + Math.round(gg * s) + ',' + Math.round(b * s) + ')');
+      } catch (e) { done(null); }
+    }
+    var FALLBACK = ['#8b5cf6', '#ff4fd8', '#2de2ff', '#b6ff3b', '#ffc53d', '#ff7a45'];
+
+    // ---------- the cards ----------
+    var grid = document.getElementById('grid'), slots = {};
+    GAMES.forEach(function (g, idx) {
       var a = el('a', 'card');
       a.href = 'games/' + g.id + '/';
+      a.style.setProperty('--c', FALLBACK[idx % FALLBACK.length]);
+      var tags = (g.tags || []).map(function (t) { return '<span class="tag">' + esc(t) + '</span>'; }).join('');
       a.innerHTML =
-        '<img src="img/' + g.id + '.jpg" alt="Forsiden af ' + esc(g.title) + '" loading="lazy">' +
+        '<div class="art"><img src="img/' + g.id + '.jpg" alt="Forsiden af ' + esc(g.title) + '" loading="lazy" decoding="async">' +
+        '<div class="tl" data-badges>' + (NEW.indexOf(g.id) !== -1 ? '<span class="badge new">Ny</span>' : '') + '</div>' +
+        '<div class="tr"><span class="online" data-onwrap hidden><i class="dot"></i><b data-online>0</b> spiller</span></div>' +
+        '<span class="play" aria-hidden="true">' + PLAY + '</span></div>' +
         '<div class="body"><h3>' + esc(g.title) + '</h3><p>' + esc(g.desc) + '</p>' +
-        '<div class="cstats"><span>▶ <b data-plays>–</b> har spillet</span>' +
-        '<span><i class="dot off" data-dot></i><b data-online>–</b> online</span></div>' +
-        '<span class="play">SPIL ▶</span></div>';
+        (tags ? '<div class="tags">' + tags + '</div>' : '') +
+        '<div class="foot"><span class="plays">' + PLAY.replace('<svg', '<svg width="13" height="13"') + '<b data-plays>–</b> spil</span><span class="go">Spil ' + PLAY.replace('<svg', '<svg width="12" height="12"') + '</span></div></div>';
       grid.appendChild(a);
-      slots[g.id] = { card: a, plays: a.querySelector('[data-plays]'), online: a.querySelector('[data-online]'), dot: a.querySelector('[data-dot]') };
+      var img = a.querySelector('img');
+      var paint = function () { colorOf(img, function (c) { if (c) { colors[g.id] = c; a.style.setProperty('--c', c); var p = document.querySelector('.pod[data-id="' + g.id + '"]'); if (p) p.style.setProperty('--c', c); } }); };
+      if (img.complete && img.naturalWidth) paint(); else img.addEventListener('load', paint);
+      slots[g.id] = { card: a, plays: a.querySelector('[data-plays]'), online: a.querySelector('[data-online]'), onwrap: a.querySelector('[data-onwrap]'), badges: a.querySelector('[data-badges]') };
+      // a gentle tilt towards the mouse
+      if (!reduce && matchMedia('(hover: hover)').matches) {
+        a.addEventListener('pointermove', function (e) {
+          var r = a.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - 0.5, y = (e.clientY - r.top) / r.height - 0.5;
+          a.style.setProperty('--ry', (x * 7).toFixed(2) + 'deg'); a.style.setProperty('--rx', (-y * 6).toFixed(2) + 'deg');
+        });
+        a.addEventListener('pointerleave', function () { a.style.setProperty('--ry', '0deg'); a.style.setProperty('--rx', '0deg'); });
+      }
+    });
+    // cards rise in as they scroll into view
+    if ('IntersectionObserver' in window && !reduce) {
+      var io = new IntersectionObserver(function (es) {
+        es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in-view'); io.unobserve(e.target); } });
+      }, { rootMargin: '0px 0px -40px 0px' });
+      Array.prototype.forEach.call(grid.children, function (c, i) { c.style.setProperty('--d', (i % 4) * 0.06 + 's'); io.observe(c); });
+    }
+
+    // ---------- the featured games (the newest five), changing by themselves ----------
+    var FEAT = GAMES.slice(0, 5), slidesEl = document.getElementById('slides'), thumbsEl = document.getElementById('thumbs'), feature = document.getElementById('feature');
+    var cur = 0, timer = null, DUR = 7000;
+    feature.style.setProperty('--dur', DUR / 1000 + 's');
+    var slideEls = FEAT.map(function (g, i) {
+      var s = el('a', 'slide');
+      s.href = 'games/' + g.id + '/';
+      s.setAttribute('aria-label', 'Spil ' + g.title);
+      var tags = (g.tags || []).slice(0, 2).map(function (t) { return '<span class="badge">' + esc(t) + '</span>'; }).join('');
+      s.innerHTML = '<img src="img/' + g.id + '.jpg" alt="" ' + (i ? 'loading="lazy"' : 'fetchpriority="high"') + '>' +
+        '<div class="badges">' + (i === 0 ? '<span class="badge hot">Nyeste spil</span>' : '<span class="badge new">Ny</span>') + tags + '</div>' +
+        '<h1>' + esc(g.title) + '</h1><p>' + esc(g.desc) + '</p>' +
+        '<div class="cta"><span class="btn">Spil nu ' + PLAY + '</span><span class="live-mini"><i class="dot off" data-fdot></i><span data-fon>–</span> spiller lige nu</span></div>';
+      slidesEl.appendChild(s);
+      var t = el('button', 'thumb');
+      t.type = 'button'; t.setAttribute('role', 'tab'); t.setAttribute('aria-label', g.title);
+      t.innerHTML = '<img src="img/' + g.id + '.jpg" alt="" loading="lazy"><span class="bar"></span>';
+      t.addEventListener('click', function () { go(i, true); });
+      thumbsEl.appendChild(t);
+      return { s: s, t: t, on: s.querySelector('[data-fon]'), dot: s.querySelector('[data-fdot]'), id: g.id };
+    });
+    function go(i, user) {
+      cur = (i + FEAT.length) % FEAT.length;
+      slideEls.forEach(function (x, k) {
+        x.s.classList.toggle('on', k === cur); x.t.classList.toggle('on', k === cur);
+        x.t.setAttribute('aria-selected', k === cur ? 'true' : 'false');
+        // restart the progress bar
+        var bar = x.t.querySelector('.bar'); bar.style.animation = 'none'; void bar.offsetWidth; bar.style.animation = '';
+      });
+      if (user) restart();
+    }
+    function restart() { clearInterval(timer); if (!reduce) timer = setInterval(function () { if (!feature.classList.contains('paused')) go(cur + 1); }, DUR); }
+    document.getElementById('prev').addEventListener('click', function () { go(cur - 1, true); });
+    document.getElementById('next').addEventListener('click', function () { go(cur + 1, true); });
+    feature.addEventListener('pointerenter', function (e) { if (e.pointerType === 'mouse') feature.classList.add('paused'); });
+    feature.addEventListener('pointerleave', function () { feature.classList.remove('paused'); });
+    // swipe on phones and tablets
+    var sx = null;
+    feature.addEventListener('touchstart', function (e) { sx = e.touches[0].clientX; }, { passive: true });
+    feature.addEventListener('touchend', function (e) { if (sx == null) return; var dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 50) go(cur + (dx < 0 ? 1 : -1), true); sx = null; });
+    go(0); restart();
+
+    // ---------- categories ----------
+    var counts = {};
+    GAMES.forEach(function (g) { (g.tags || []).forEach(function (t) { counts[t] = (counts[t] || 0) + 1; }); });
+    var cats = ['Alle'].concat(Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a] || a.localeCompare(b); }));
+    var chipsEl = document.getElementById('chips'), cat = 'Alle';
+    cats.forEach(function (c) {
+      var b = el('button', 'chip' + (c === cat ? ' on' : ''), esc(c) + ' <i>' + (c === 'Alle' ? GAMES.length : counts[c]) + '</i>');
+      b.type = 'button'; b.setAttribute('role', 'tab');
+      b.addEventListener('click', function () { cat = c; Array.prototype.forEach.call(chipsEl.children, function (x) { x.classList.toggle('on', x === b); }); filter(); });
+      chipsEl.appendChild(b);
     });
 
-    // ---------- most played first ----------
-    var plays = {};
-    try { plays = JSON.parse(localStorage.getItem('b10-plays')) || {}; } catch (e) {}  // last known numbers, so the order is right at once
-    function sortGames() {
-      var order = GAMES.slice().sort(function (a, b) {
-        return (plays[b.id] || 0) - (plays[a.id] || 0) || GAMES.indexOf(a) - GAMES.indexOf(b);
-      });
-      var now = Array.prototype.map.call(grid.children, function (c) { return c; });
-      var changed = order.some(function (g, i) { return now[i] !== slots[g.id].card; });
-      if (changed) order.forEach(function (g) { grid.appendChild(slots[g.id].card); });
-    }
-    sortGames();
-
-    // ---------- search ----------
+    // ---------- search + filter ----------
     var search = document.getElementById('search'), empty = document.getElementById('empty');
     function filter() {
       var q = search.value.trim().toLowerCase(), shown = 0;
       GAMES.forEach(function (g) {
-        var hit = !q || (g.title + ' ' + g.desc).toLowerCase().indexOf(q) !== -1;
+        var hit = (!q || (g.title + ' ' + g.desc + ' ' + (g.tags || []).join(' ')).toLowerCase().indexOf(q) !== -1) && (cat === 'Alle' || (g.tags || []).indexOf(cat) !== -1);
         slots[g.id].card.hidden = !hit;
-        if (hit) shown++;
+        if (hit) { shown++; slots[g.id].card.classList.add('in-view'); }
       });
       empty.classList.toggle('on', shown === 0);
     }
-    search.addEventListener('input', filter);
+    search.addEventListener('input', function () { filter(); if (search.value && scrollY < document.getElementById('spil').offsetTop - 200) document.getElementById('spil').scrollIntoView({ behavior: 'smooth' }); });
+    // "/" jumps to the search field
+    addEventListener('keydown', function (e) { if (e.key === '/' && document.activeElement !== search && !/INPUT|TEXTAREA/.test((document.activeElement || {}).tagName)) { e.preventDefault(); search.focus(); } });
+
+    // ---------- most played first, and the top three ----------
+    var plays = {};
+    try { plays = JSON.parse(localStorage.getItem('b10-plays')) || {}; } catch (e) {}  // last known numbers, so the order is right at once
+    function ordered() { return GAMES.slice().sort(function (a, b) { return (plays[b.id] || 0) - (plays[a.id] || 0) || GAMES.indexOf(a) - GAMES.indexOf(b); }); }
+    function sortGames() {
+      var order = ordered(), now = Array.prototype.slice.call(grid.children);
+      if (order.some(function (g, i) { return now[i] !== slots[g.id].card; })) order.forEach(function (g) { grid.appendChild(slots[g.id].card); });
+      // the "hot" badge for the three most played
+      var top = order.slice(0, 3).map(function (g) { return g.id; });
+      GAMES.forEach(function (g) {
+        var b = slots[g.id].badges, hot = b.querySelector('.hot');
+        if (top.indexOf(g.id) !== -1 && (plays[g.id] || 0) > 0) { if (!hot) b.insertAdjacentHTML('afterbegin', '<span class="badge hot">🔥 Top ' + (top.indexOf(g.id) + 1) + '</span>'); else hot.textContent = '🔥 Top ' + (top.indexOf(g.id) + 1); }
+        else if (hot) hot.remove();
+      });
+      podium(order.slice(0, 3));
+      var total = GAMES.reduce(function (s, g) { return s + (plays[g.id] || 0); }, 0);
+      document.getElementById('totalPlays').textContent = total ? fmt(total) : '–';
+    }
+    var podiumEl = document.getElementById('podium'), lastPod = '';
+    function podium(list) {
+      var key = list.map(function (g) { return g.id + ':' + (plays[g.id] || 0); }).join('|');
+      if (key === lastPod) return; lastPod = key;
+      podiumEl.innerHTML = '';
+      list.forEach(function (g, i) {
+        var a = el('a', 'pod');
+        a.href = 'games/' + g.id + '/'; a.dataset.id = g.id;
+        if (colors[g.id]) a.style.setProperty('--c', colors[g.id]);
+        a.innerHTML = '<span class="medal">' + (i + 1) + '</span><img src="img/' + g.id + '.jpg" alt="" loading="lazy"><div><h3>' + esc(g.title) + '</h3><p>' + PLAY.replace('<svg', '<svg width="12" height="12"') + (plays[g.id] != null ? fmt(plays[g.id]) + ' gange spillet' : 'Populært lige nu') + '</p></div><span class="rank">' + (i + 1) + '</span>';
+        podiumEl.appendChild(a);
+      });
+    }
+    sortGames();
 
     // ---------- live numbers ----------
     var S = window.B10Stats;
-    function fmt(n) { return n == null ? '–' : n.toLocaleString('da-DK'); }
     function refresh() {
       S.online('site').then(function (n) {
-        document.getElementById('onlineSite').textContent = n == null ? '–' : fmt(Math.max(1, n)); // you are online too
+        var v = n == null ? '–' : fmt(Math.max(1, n)); // you are online too
+        document.getElementById('onlineSite').textContent = v; document.getElementById('onlineSite2').textContent = v;
       });
       // Play counts first (they decide the order), then who is online.
       Promise.all(GAMES.map(function (g) {
@@ -244,10 +519,12 @@
         S.online(g.id).then(function (n) {
           if (n == null) return;
           s.online.textContent = fmt(n);
-          s.dot.classList.toggle('off', n === 0);
+          s.onwrap.hidden = !n;
+          slideEls.forEach(function (x) { if (x.id === g.id) { x.on.textContent = fmt(n); x.dot.classList.toggle('off', !n); } });
         });
       });
     }
+    GAMES.forEach(function (g) { if (plays[g.id] != null) slots[g.id].plays.textContent = fmt(plays[g.id]); });
     if (S) { S.startPresence(['site']); refresh(); setInterval(refresh, 60000); }
   })();
 </script>
