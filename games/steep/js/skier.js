@@ -291,7 +291,12 @@ export class Skier {
   }
   has(type) { return this.acts.some(a => a.type === type); }
   // the knees take a hit (landing, a bump): k in m/s downwards
-  impact(k) { this.P.hip.v.y -= k; this.P.hipR.v.x += k * 0.6; this.P.chest.v.x += k * 0.5; this.P.hL.v.y -= k * 0.4; this.P.hR.v.y -= k * 0.4; }
+  // a landing: the knees soak it up (a controlled dip held for a moment, then back up), no jolt
+  impact(k) {
+    const n = clamp(k / 5, 0, 1);
+    this.P.hip.v.y -= k * 0.45; this.P.hL.v.y -= k * 0.12; this.P.hR.v.y -= k * 0.12;
+    this.act('land', 0.38 + n * 0.3, { k: 0.35 + n * 0.65 });
+  }
   bump(k) { this.P.hip.v.y -= k; this.P.hL.v.y += k * 0.3; this.P.hR.v.y += k * 0.3; }
   plant(side) { if (!this.has('plant')) this.act('plant', 0.42, { side }); }
   celebrate(big) { this.act(big ? 'celebrateBig' : 'fist', big ? 1.8 : 1.1, { side: Math.random() < 0.5 ? 1 : -1, exclusive: true }); }
@@ -369,8 +374,8 @@ export class Skier {
       fL = [0.12, fy, fz]; fR = [-0.12, fy, fz]; rL = [-pre * 0.05, 0, 0]; rR = [-pre * 0.05, 0, 0];
       // arms: up as you pop, out wide for balance, in tight when spinning, on the knees in a flip
       const out = (1 - spin) * (1 - rot);
-      const ay = hipH + 0.2 + (1 - up) * 0.4;
-      hL = [lerp(0.2, 0.46, out), ay + out * 0.08, lerp(0.22, 0.12, out) + (1 - up) * 0.15]; hR = [-hL[0], hL[1], hL[2]];
+      const ay = hipH + 0.08 + (1 - up) * 0.35;
+      hL = [lerp(0.2, 0.4, out), ay + out * 0.04, lerp(0.24, 0.16, out) + (1 - up) * 0.15]; hR = [-hL[0], hL[1], hL[2]];
       if (rot > 0.05) { const k = rot * up; for (const [h, s] of [[hL, 1], [hR, -1]]) { h[0] = lerp(h[0], s * 0.17, k); h[1] = lerp(h[1], fy + 0.5, k); h[2] = lerp(h[2], 0.32, k); } }
       if (spin > 0.05) { const k = spin * up * (1 - rot); for (const [h, s] of [[hL, 1], [hR, -1]]) { h[0] = lerp(h[0], s * 0.14, k); h[1] = lerp(h[1], hipH + 0.36, k); h[2] = lerp(h[2], 0.2, k); } }
       tL = [0.35 * out + 0.1, hL[1] - 0.6, -0.85]; tR = [-tL[0], tL[1], tL[2]];
@@ -470,10 +475,34 @@ export class Skier {
       for (const [h, tp, sd] of [[hL, tL, 1], [hR, tR, -1]]) { h[0] = lerp(h[0], sd * 0.2 + s, a); h[1] = lerp(h[1], hipH + 1.0, a); h[2] = lerp(h[2], 0.02, a); tp[0] = lerp(tp[0], sd * 0.7 + s, a); tp[1] = lerp(tp[1], hipH + 1.3, a); tp[2] = lerp(tp[2], -0.6, a); }
       chestRoll += s * 0.8 * a; headPitch -= 0.1 * a;
     }
+    if ((a = w('land')) > 0 && !air) {
+      const act = this.acts.find(x => x.type === 'land'), k = act.k * a;
+      hipH -= 0.17 * k; pitch += 0.22 * k; spineP += 0.08 * k;
+      for (const [h, s] of [[hL, 1], [hR, -1]]) { h[0] += s * 0.06 * k; h[1] -= 0.05 * k; h[2] += 0.1 * k; }
+    }
     if ((a = w('shift')) > 0) { const act = this.acts.find(x => x.type === 'shift'); hipX += Math.sin(act.t * 2.4) * 0.07 * a; hipRoll += Math.sin(act.t * 2.4) * 0.08 * a; }
     // breathing
     const br = Math.sin(t * (I.speed < 1 ? 1.9 : 2.6)) * (I.speed < 1 ? 0.01 : 0.004);
     chestP += br;
+
+    // ======== standing on a slope ========
+    // a skier does not stand straight out of a steep slope (that looks like falling down it): the body
+    // leans part of the way back towards straight up, the hips go uphill and the legs follow (IK).
+    // The skis stay flat on the snow.
+    if (I.grounded && !air && I.fall < 0.5 && I.upY !== undefined) {
+      const k = lerp(0.62, 0.5, sp) * (1 - I.rail);
+      _a.set(I.upX * k, 1 - k + I.upY * k, I.upZ * k).normalize();
+      if (_a.y < 0.9999) {
+        _q.setFromUnitVectors(UPV, _a);
+        _b.set(hipX, hipH, hipZ).applyQuaternion(_q); hipX = _b.x; hipH = _b.y; hipZ = _b.z;
+        _eu.set(pitch, hipYaw, hipRoll, 'YXZ'); _q2.setFromEuler(_eu).premultiply(_q); _eu.setFromQuaternion(_q2, 'YXZ');
+        pitch = _eu.x; hipYaw = _eu.y; hipRoll = _eu.z;
+        for (const h of [hL, hR, tL, tR]) { _b.fromArray(h).applyQuaternion(_q); h[0] = _b.x; h[1] = _b.y; h[2] = _b.z; }
+        tL[1] = Math.max(tL[1], -0.03); tR[1] = Math.max(tR[1], -0.03);
+        // the head stays level with the world
+        headPitch -= Math.asin(clamp(_a.z, -1, 1)) * 0.3;
+      }
+    }
 
     // ======== to the springs ========
     P.hip.t.set(hipX, hipH, hipZ); P.hipR.t.set(pitch, hipYaw, hipRoll);

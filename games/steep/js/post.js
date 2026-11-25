@@ -21,10 +21,8 @@ const GRADE = {
         c = s / 8.0;
       }
       float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
-      // cool shadows, a touch of warmth in the light
-      c *= mix(vec3(0.94, 0.98, 1.08), vec3(1.04, 1.01, 0.97), smoothstep(0.05, 0.9, l));
-      // a little more colour
-      c = mix(vec3(l), c, 1.1);
+      // a little more colour in the sky and the clothes (white stays white)
+      c = mix(vec3(l), c, 1.06);
       // vignette
       vec2 d = vUv - 0.5; c *= 1.0 - vig * smoothstep(0.25, 0.95, dot(d, d) * 2.2);
       gl_FragColor = vec4(c, t.a);
@@ -46,7 +44,8 @@ export class Post {
     this.pass = new RenderPass(new THREE.Scene(), new THREE.PerspectiveCamera());
     this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.28, 0.5, 1.08);
     this.grade = new ShaderPass(GRADE);
-    this.c.addPass(this.pass); this.c.addPass(this.bloom); this.c.addPass(this.grade); this.c.addPass(new OutputPass());
+    // no glow: the snow must not shine (the bloom pass is made but left out)
+    this.c.addPass(this.pass); this.c.addPass(this.grade); this.c.addPass(new OutputPass());
     this.size();
   }
   size() { if (!this.c) return; this.c.setPixelRatio(this.r.getPixelRatio()); this.c.setSize(Math.max(1, innerWidth), Math.max(1, innerHeight)); }

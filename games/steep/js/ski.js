@@ -33,18 +33,29 @@ function parkPoint(u) {
   const k = clamp((u - S[i]) / (S[i + 1] - S[i]), 0, 1), x = P[i][0] + (P[i + 1][0] - P[i][0]) * k, z = P[i][1] + (P[i + 1][1] - P[i][1]) * k;
   return { x, z, y: terrain(x, z) };
 }
+// a pop off a park kicker goes straight up (the kicker gives the height and distance, the pop a bit more)
+export const kickerPop = (c) => lerp(1.2, 3.6, Math.pow(c, 0.85));
 for (const k of PARK_KICKERS) {
   const lip = parkPoint(k.u - 0.05), pre = parkPoint(k.u - 0.9), dx = lip.x - pre.x, dz = lip.z - pre.z, l = Math.hypot(dx, dz), fx = dx / l, fz = dz / l;
-  const ang = Math.atan2(lip.y - pre.y, l), want = k.u + k.deck + k.land * 0.42, pop = lerp(2.6, 6.3, Math.pow(0.5, 0.85));
-  let best = null;
-  for (let S = 6; S <= 26; S += 0.25) {
-    let px = lip.x, py = lip.y + 0.02, pz = lip.z, vh = S * Math.cos(ang) - Math.sin(ang) * pop * 0.8, vy = S * Math.sin(ang) + Math.cos(ang) * pop * 0.8 + pop * 0.25;
-    const dt = 1 / 60;
-    for (let t = 0; t < 6; t += dt) { vy -= G_AIR_K * dt; px += fx * vh * dt; pz += fz * vh * dt; py += vy * dt; if (py <= terrain(px, pz)) break; }
-    const u = k.u + ((px - lip.x) * fx + (pz - lip.z) * fz), d = Math.abs(u - want);
-    if (!best || d < best.d) best = { d, S };
-  }
-  k.ideal = best.S;
+  const ang = Math.atan2(lip.y - pre.y, l), want = k.u + k.deck + k.land * 0.4;
+  // the right speed for no pop, a half pop and a full pop
+  k.ideals = [0, 0.5, 1].map(c => {
+    let best = null;
+    for (let S = 5; S <= 26; S += 0.25) {
+      let px = lip.x, py = lip.y + 0.02, pz = lip.z, vh = S * Math.cos(ang), vy = S * Math.sin(ang) + (c ? kickerPop(c) : 0);
+      const dt = 1 / 60;
+      for (let t = 0; t < 6; t += dt) { vy -= G_AIR_K * dt; px += fx * vh * dt; pz += fz * vh * dt; py += vy * dt; if (py <= terrain(px, pz)) break; }
+      const u = k.u + ((px - lip.x) * fx + (pz - lip.z) * fz), d = Math.abs(u - want);
+      if (!best || d < best.d) best = { d, S };
+    }
+    return best.S;
+  });
+  k.ideal = k.ideals[1];
+}
+function kickerAt(p) {
+  const h = parkUV(p.x, p.z); if (!h) return null;
+  for (const k of PARK_KICKERS) if (h.u > k.u - k.len - 1 && h.u < k.u + 2.5 && Math.abs(h.v) < k.wide + 1) return k;
+  return null;
 }
 
 export class Ski {
@@ -168,13 +179,23 @@ export class Ski {
       if (h) for (const k of PARK_KICKERS) {
         const a = k.u - k.len;
         if (h.u > a - 60 && h.u < a + 1 && Math.abs(h.v) < k.wide + 3) {
-          const sp = this.v.length(), tgt = k.ideal;
-          if (sp > tgt + 0.3) { const d = Math.min(sp - tgt, (2.4 + this.assistLevel * 1.1) * dt); this.v.multiplyScalar((sp - d) / sp); check = clamp((sp - tgt) / 4, 0, 1); }
-          else if (sp < tgt - 1.2) this.v.multiplyScalar(Math.min(tgt, sp + 1.3 * dt) / sp);
+          // the speed for the pop you are charging (a half pop when you are not charging yet)
+          const c = this.charging ? this.charge : 0.5, I = k.ideals, tgt = c < 0.5 ? lerp(I[0], I[1], c * 2) : lerp(I[1], I[2], (c - 0.5) * 2);
+          // (that speed is at the lip: going up the ramp costs some, so before it you need a bit more)
+          const rise = Math.max(0, (k.h || 0) - (k.g || 0) * k.len);
+          const want = Math.sqrt(tgt * tgt + 2 * G * rise * 1.08);
+          const sp = this.v.length();
+          if (sp > want + 0.3) { const d = Math.min(sp - want, (2.4 + this.assistLevel * 1.1) * dt); this.v.multiplyScalar((sp - d) / sp); check = clamp((sp - want) / 4, 0, 1); }
+          else if (sp < want - 0.6) this.v.multiplyScalar(Math.min(want, sp + 1.6 * dt) / sp);
         }
       }
     }
     this.check = lerp(this.check || 0, check, 1 - Math.exp(-6 * dt));
+    // pumping the halfpipe: riding the walls (up or down the transition) keeps your speed up
+    {
+      const ph = speed > 2 && speed < 17 ? parkUV(this.p.x, this.p.z) : null;
+      if (ph && ph.u > PIPE.a && ph.u < PIPE.b && Math.abs(ph.v) > PIPE.half - 0.5 && Math.abs(ph.v) < PIPE_W - 0.2) this.v.multiplyScalar((speed + 3.2 * dt) / speed);
+    }
     if (this.check > 0.15 && Math.random() < 0.5) this.emit('spray', { k: this.check * 0.8, side: this.skidSide });
     this.push = lerp(this.push, pushing ? 1 : 0, 1 - Math.exp(-8 * dt));
     this.tuck = lerp(this.tuck, tucking ? 1 : 0, 1 - Math.exp(-6 * dt));
@@ -210,7 +231,8 @@ export class Ski {
     this.prevVy = this.v.y;
     // the inclination into a turn: tan = v * turn rate / g
     const ty = Math.atan2(this.v.x, this.v.z), yr = speed > 1 ? wrapAngle(ty - this.travelYaw) / dt : 0; this.travelYaw = ty;
-    const target = speed > 1.5 ? clamp(Math.atan(speed * clamp(yr, -3, 3) / 9.8) * (this.sw ? 0.6 : 1), -0.85, 0.85) : 0;
+    // (slow turns are pivots, not leans)
+    const target = speed > 1.5 ? clamp(Math.atan(speed * clamp(yr, -3, 3) / 9.8) * (this.sw ? 0.6 : 1), -0.85, 0.85) * smooth(2.5, 11, speed) : 0;
     this.incl = lerp(this.incl, target, 1 - Math.exp(-6 * dt));
     // remember a safe spot to come back to after a bad fall
     this.safeT += dt;
@@ -222,8 +244,8 @@ export class Ski {
 
   jump(inp) {
     const k = this.charge;
-    const pop = lerp(2.6, 6.3, Math.pow(k, 0.85));
-    this.v.addScaledVector(this.n, pop * 0.8); this.v.y += pop * 0.25;
+    if (kickerAt(this.p)) this.v.y += kickerPop(k);
+    else { const pop = lerp(2.6, 6.3, Math.pow(k, 0.85)); this.v.addScaledVector(this.n, pop * 0.8); this.v.y += pop * 0.25; }
     this.charging = false; this.charge = 0;
     this.emit('jump', { k });
     this.takeoff(true, inp, k);
@@ -260,7 +282,7 @@ export class Ski {
       this.coyote -= dt;
       if (inp.jump) { this.charging = true; this.charge = Math.min(1, this.charge + dt / 0.8); }
       else if (this.charging) {
-        const k = this.charge; this.v.y += lerp(2.2, 5.2, k); this.charging = false; this.charge = 0; this.takeoffT = 0;
+        const k = this.charge; this.v.y += kickerAt(this.p) || this.airT < 0.2 ? kickerPop(k) : lerp(2.2, 5.2, k); this.charging = false; this.charge = 0; this.takeoffT = 0;
         this.tricks.start(true, k, { flip: inp.flip, roll: inp.roll, spin: inp.spin }, !!this.pipeAir);
         this.emit('jump', { k, late: true });
       }
@@ -346,7 +368,7 @@ export class Ski {
     if (hard === 'crash' && q !== 'crash') q = 'crash';
     if (this.tricks.grabbing && this.tricks.grabT > 0.25 && q === 'perfect') q = 'clean';
     else if (this.tricks.grabbing && this.tricks.grabT > 0.25 && q === 'clean' && Math.random() < 0.5) q = 'sketchy';
-    const backseat = q !== 'crash' && back > 0.32;
+    const backseat = q !== 'crash' && back > 0.45;
     if (backseat && q === 'perfect') q = 'clean';
     // speed along the snow stays (a little lost in a hard landing)
     this.v.copy(_a).multiplyScalar(q === 'crash' ? 0.6 : hard === 'big' ? 0.86 : q === 'sketchy' ? 0.92 : 0.98);
@@ -361,7 +383,8 @@ export class Ski {
     this.lastLand = res;
     this.emit('land', res);
     if (q === 'crash') this.fall(into, travel);
-    else { if (q === 'sketchy' || hard === 'big') this.wob = q === 'sketchy' ? 1 : 0.6; if (backseat) this.backseat = 1; }
+    // only a sketchy landing wobbles (a little); a big clean one is just absorbed
+    else { if (q === 'sketchy') this.wob = 0.55; if (backseat) this.backseat = 0.6; }
     this.tricks.reset();
   }
 
@@ -531,7 +554,7 @@ export class Ski {
       this.quat.copy(_q);
       this.pivot = Math.min(1, this.pivot + dt * 6);
     }
-    this.wob = Math.max(0, this.wob - dt * 0.9);
+    this.wob = Math.max(0, this.wob - dt * 1.3);
     this.backseat = Math.max(0, this.backseat - dt * 1.2);
   }
   // what the animated skier needs to know
@@ -549,6 +572,8 @@ export class Ski {
     I.still = this.state === 'ride' && this.grounded && this.speed < 0.35; I.idle = this.idleT;
     I.rail = this.state === 'grind' ? 1 : 0; I.railSlide = this.grind ? this.grind.slide : 0;
     I.look = 0;
+    // which way is straight up, seen from the skier on the snow (for leaning with gravity on slopes)
+    _u.set(0, 1, 0).applyQuaternion(_q.copy(this.quat).invert()); I.upX = _u.x; I.upY = _u.y; I.upZ = _u.z;
   }
   // the grab blend (the hand goes down quickly, comes back up a bit slower; let go just before landing)
   updateGrab(dt) {

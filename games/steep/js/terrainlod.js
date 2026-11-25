@@ -18,7 +18,7 @@ function makeTileWorker() {
 }
 const NZ = makeNoise(99);
 // the snow is white; only hollows get a very faint cool shade. Rock faces are black with grey on them.
-const C_SNOW = new THREE.Color('#ffffff'), C_SHADE = new THREE.Color('#f1f4f9'), C_DEEP = new THREE.Color('#dfe7f2'),
+const C_SNOW = new THREE.Color('#ffffff'), C_SHADE = new THREE.Color('#e9ebee'), C_DEEP = new THREE.Color('#dfe7f2'),
   C_ICE = new THREE.Color('#f3f8ff'), C_GROOM = new THREE.Color('#eef3fa'), C_PARK = new THREE.Color('#b9cde6'), C_POW = new THREE.Color('#ffffff'), C_ROCK = new THREE.Color('#1c1d21'), C_ROCK2 = new THREE.Color('#5d6066'), C_LOW = new THREE.Color('#ffffff');
 
 export class TerrainLOD {
@@ -96,7 +96,7 @@ export class TerrainLOD {
     n.pending = false;
     const s = n.size / RES, W = RES + 1, G = RES + 3, x0 = n.cx - n.size / 2, z0 = n.cz - n.size / 2;
     const E = this.edges.length, V = W * W + E;
-    const pos = new Float32Array(V * 3), nor = new Float32Array(V * 3), col = new Uint8Array(V * 3), uv = new Float32Array(V * 2);
+    const pos = new Float32Array(V * 3), nor = new Float32Array(V * 3), col = new Uint8Array(V * 3), rock = new Uint8Array(V), uv = new Float32Array(V * 2);
     const c = new THREE.Color();
     let minY = 1e9, maxY = -1e9;
     for (let j = 0; j < W; j++) for (let i = 0; i < W; i++) {
@@ -106,23 +106,19 @@ export class TerrainLOD {
       let nx = (H[gi - 1] - H[gi + 1]) / (2 * s), nz = (H[gi - G] - H[gi + G]) / (2 * s);
       const l = Math.hypot(nx, 1, nz); nx /= l; nz /= l; const ny = 1 / l;
       nor[v * 3] = nx; nor[v * 3 + 1] = ny; nor[v * 3 + 2] = nz;
-      // colour: snow, a cool shade in hollows, ice up high, rock where it is too steep for snow
+      // colour: plain white snow (only deep hollows get the faintest grey); rock where it is too steep
+      // for snow (the shader draws the rock itself, this only says how much)
       const lap = (H[gi - 1] + H[gi + 1] + H[gi - G] + H[gi + G] - 4 * h) / (s * s * Math.max(1, s / 6));
-      const hollow = clamp(lap * 5, -1, 1), nv = NZ(x / 34, z / 34), steep = smooth(0.74, 0.56, ny);
-      c.copy(h < 700 ? C_LOW : C_SNOW).lerp(C_SHADE, clamp(0.04 + nv * 0.12 + Math.max(0, hollow) * 0.4, 0, 1));
-      if (hollow > 0.5) c.lerp(C_DEEP, (hollow - 0.5) * 0.4);
-      if (h > 2300) c.lerp(C_ICE, smooth(2300, 2900, h) * 0.4);
-      const park = parkUV(x, z), onPark = park && Math.abs(park.v) < park.run.w + 4;
-      if (steep > 0 && !onPark) {
-        // black rock, with grey bands and patches, and snow caught on the ledges
-        const band = NZ(x / 9, z / 9 + h / 6), grey = smooth(0.15, 0.7, band) * 0.7 + smooth(0.3, 0.8, nv) * 0.3;
-        c.lerp(C_ROCK, steep * (0.6 + 0.35 * smooth(-0.4, 0.6, NZ(x / 14, z / 14))));
-        c.lerp(C_ROCK2, steep * grey * 0.75);
+      const hollow = clamp(lap * 5, 0, 1);
+      c.copy(C_SNOW).lerp(C_SHADE, hollow * 0.5);
+      let rk = smooth(0.8, 0.6, ny);
+      if (rk > 0) {
+        const park = parkUV(x, z);
+        if (park && Math.abs(park.v) < park.run.w + 8) rk = 0;
+        else for (const hh of runsAt(x, z)) if (Math.abs(hh.v) < hh.run.w + 3 && hh.u > -5 && hh.u < hh.run.len + 5) { rk = 0; break; }
+        rk *= 0.8 + 0.4 * smooth(-0.5, 0.5, NZ(x / 23, z / 23));
       }
-      // groomed runs are a touch cooler and even, untouched powder a touch brighter
-      // in the park the steep faces (kickers, landings, the pipe walls) are a touch bluer, so you can read them
-      if (onPark) { c.lerp(C_GROOM, 0.6); c.lerp(C_PARK, smooth(0.985, 0.8, ny) * 0.55); }
-      else { for (const hh of runsAt(x, z)) if (Math.abs(hh.v) < hh.run.w && hh.u > 0 && hh.u < hh.run.len) { c.lerp(C_GROOM, 0.55); break; } }
+      rock[v] = clamp(rk, 0, 1) * 255;
       col[v * 3] = c.r * 255; col[v * 3 + 1] = c.g * 255; col[v * 3 + 2] = c.b * 255;
     }
     // skirts hang below the edges
@@ -131,13 +127,14 @@ export class TerrainLOD {
       const v = W * W + i;
       pos[v * 3] = pos[e * 3]; pos[v * 3 + 1] = pos[e * 3 + 1] - drop; pos[v * 3 + 2] = pos[e * 3 + 2];
       nor[v * 3] = nor[e * 3]; nor[v * 3 + 1] = nor[e * 3 + 1]; nor[v * 3 + 2] = nor[e * 3 + 2];
-      col[v * 3] = col[e * 3]; col[v * 3 + 1] = col[e * 3 + 1]; col[v * 3 + 2] = col[e * 3 + 2];
+      col[v * 3] = col[e * 3]; col[v * 3 + 1] = col[e * 3 + 1]; col[v * 3 + 2] = col[e * 3 + 2]; rock[v] = rock[e];
       uv[v * 2] = uv[e * 2]; uv[v * 2 + 1] = uv[e * 2 + 1];
     });
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
     g.setAttribute('color', new THREE.BufferAttribute(col, 3, true));
+    g.setAttribute('rock', new THREE.BufferAttribute(rock, 1, true));
     g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
     g.setIndex(this.index);
     g.boundingBox = new THREE.Box3(new THREE.Vector3(x0, minY - drop, z0), new THREE.Vector3(x0 + n.size, maxY, z0 + n.size));

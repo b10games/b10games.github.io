@@ -14,10 +14,10 @@ import { clamp, smooth, lerp, rng } from './math.js';
 
 const N1 = makeNoise(7), N2 = makeNoise(31), N3 = makeNoise(77), N4 = makeNoise(123), N5 = makeNoise(555);
 
-export const BOUNDS = { x: 2700, z0: -2450, z1: 2600 };
+export const BOUNDS = { x: 2700, z0: -2140, z1: 2600 };
 
 export const PEAKS = [
-  { id: 'steep', name: 'Steep Peak', x: 0, z: -2000, h: 2650, r: 4300 },
+  { id: 'steep', name: 'Steep Peak', x: 0, z: -2000, h: 2380, r: 3900 },
   { id: 'raven', name: 'Raven Shoulder', x: -1750, z: -1300, h: 2050, r: 2600 },
   { id: 'glacier', name: 'Glacier Shoulder', x: 1850, z: -1500, h: 2200, r: 2800 },
   // the giants all round (scenery)
@@ -33,8 +33,62 @@ function ridged(x, z, oct) {
   for (let i = 0; i < oct; i++) { const q = N1(x * f, z * f), v = 1 - Math.sqrt(q * q + 0.012); s += a * v * v; n += a; a *= 0.4; f *= 2.0; }
   return s / n;
 }
+// ---------- the ski mountain ----------
+// The face you ride is designed, not random: from the summit it falls away at a set steepness for each
+// distance (a rounded top for the start, a steep black upper face, long even mid slopes, flattening
+// towards the village), with broad ridges and gullies running down it, a bowl, natural curves and
+// rolling hills. Around it the wild, rugged mountains are scenery (and a wall of rock behind the start).
+const SUM = { x: 0, z: -2000 };
+const PROFILE = [[0, 0.05], [95, 0.07], [175, 0.6], [270, 0.72], [620, 0.7], [950, 0.6], [1700, 0.5], [2300, 0.4], [3000, 0.27], [3450, 0.13], [3800, 0.05], [4800, 0.04]];
+const PSTEP = 4, PCOUNT = 1300, PH = new Float32Array(PCOUNT);
+(function buildProfile() {
+  let h = 0, j = 0;
+  for (let i = 0; i < PCOUNT; i++) {
+    const r = i * PSTEP;
+    while (j < PROFILE.length - 2 && PROFILE[j + 1][0] < r) j++;
+    const [r0, s0] = PROFILE[j], [r1, s1] = PROFILE[j + 1], k = smooth(r0, r1, r);
+    PH[i] = h; h -= (s0 + (s1 - s0) * k) * PSTEP;
+  }
+  // the village (3760 m from the top) sits at about 300 m
+  const off = 300 - PH[Math.round(3760 / PSTEP)];
+  for (let i = 0; i < PCOUNT; i++) PH[i] += off;
+})();
+function profileH(r) { const f = clamp(r / PSTEP, 0, PCOUNT - 1.001), i = Math.floor(f); return PH[i] + (PH[i + 1] - PH[i]) * (f - i); }
+// ridges (+) and gullies (-) running down the face: angle from straight south (radians), width, height
+const FACE = [
+  { a: -1.12, w: 0.17, h: 95 }, { a: 1.16, w: 0.17, h: 115 },     // the ridges that close in the ski area
+  { a: -0.56, w: 0.12, h: -24 },                                    // the gully below the cliffs
+  { a: -0.3, w: 0.09, h: 12 }, { a: 0.43, w: 0.13, h: 18 },         // gentle ribs
+  { a: 0.8, w: 0.19, h: -48 }                                       // the powder bowl
+];
+function skiFace(x, z) {
+  const dx = x - SUM.x, dz = z - SUM.z, r = Math.hypot(dx, dz), th = Math.atan2(dx, dz);
+  let h = profileH(r);
+  const env = smooth(150, 900, r) * (1 - smooth(3300, 3950, r));
+  if (env > 0) {
+    for (const f of FACE) { const d = (th - f.a) / f.w; if (d * d < 9) h += f.h * env * Math.exp(-d * d); }
+    // natural curves: the face is never a perfect cone
+    h += fbm(N4, x / 950 + 3.1, z / 950 - 1.7, 2) * 42 * env;
+  }
+  return h;
+}
+// how much of the designed face there is here (1 = all of it)
+function skiWeight(x, z) {
+  const dx = x - SUM.x, dz = z - SUM.z, r = Math.hypot(dx, dz);
+  if (r < 140) return 1;
+  const th = Math.abs(Math.atan2(dx, dz));
+  const w = (1 - smooth(1.22, 1.68, th)) * (1 - smooth(4000, 4700, r));
+  return Math.max(w, 1 - smooth(140, 360, r));
+}
 // the mountains without the small stuff
 function massif(x, z) {
+  const w = skiWeight(x, z);
+  if (w >= 1) return skiFace(x, z);
+  const wild = rugged(x, z);
+  return w <= 0 ? wild : wild + (skiFace(x, z) - wild) * w * w * (3 - 2 * w);
+}
+// the wild mountains (scenery all round, and the rock behind the start)
+function rugged(x, z) {
   const wx = x + 300 * N4(x / 2200, z / 2200), wz = z + 300 * N4(z / 2200 + 7.3, x / 2200);
   let acc = 1;
   for (let i = 0; i < PEAKS.length; i++) {
@@ -62,17 +116,16 @@ export const RUNS = [
   { id: 'wall', name: 'The Wall', color: '#111827', level: 'black', w: 24, blend: 30, smooth: 90, gmax: 0.84,
     pts: [[-70, -1990], [-40, -1700], [0, -1300], [30, -900], [10, -500], [-20, -100], [0, 300], [30, 700], [10, 1100], [0, 1520]],
     moguls: [1250, 1750] },
-  { id: 'panorama', name: 'Panorama', color: '#2563eb', level: 'blue', w: 30, blend: 34, smooth: 120, gmax: 0.55,
-    pts: [[-150, -1985], [-520, -1750], [-860, -1380], [-1000, -950], [-820, -560], [-420, -300], [150, -120], [640, 160], [860, 520], [930, 900], [860, 1280], [650, 1560], [360, 1680], [150, 1720]] },
+  { id: 'panorama', name: 'Panorama', color: '#2563eb', level: 'blue', w: 30, blend: 40, smooth: 100, gmax: 0.5, pts: null },
   { id: 'meadow', name: 'Green Meadow', color: '#16a34a', level: 'green', w: 36, blend: 36, smooth: 140, gmax: 0.42,
     pts: [[90, 250], [-260, 420], [-560, 660], [-650, 980], [-460, 1260], [-170, 1470], [-40, 1580]] },
   { id: 'park', name: 'Steep Park', color: '#f97316', level: 'park', w: 30, blend: 40, park: true,
-    pts: [[600, 560], [612, 1460]] }
+    pts: [[498, 122], [702, 999]] }
 ];
 // the park: one straight run at a steady slope with everything on it
 export const PARK_KICKERS = [
-  { u: 85, h: 2.3, len: 9, deck: 6, land: 22, wide: 8, name: 'S' }, { u: 200, h: 3.5, len: 12, deck: 9, land: 26, wide: 9, name: 'M' },
-  { u: 330, h: 4.9, len: 14, deck: 13, land: 30, wide: 10, name: 'L' }, { u: 470, h: 6.8, len: 18, deck: 18, land: 36, wide: 11, name: 'XL' }
+  { u: 85, lip: 18, len: 9, deck: 6, land: 22, wide: 8, name: 'S' }, { u: 200, lip: 22, len: 12, deck: 9, land: 26, wide: 9, name: 'M' },
+  { u: 330, lip: 26, len: 14, deck: 13, land: 30, wide: 10, name: 'L' }, { u: 470, lip: 30, len: 18, deck: 18, land: 36, wide: 11, name: 'XL' }
 ];
 export const PIPE = { a: 650, b: 860, half: 7.2, R: 5.2, H: 5.4, deck: 3.5 };
 // rails and boxes: in the side lanes beside the kickers, and a line of them between the XL and the halfpipe
@@ -89,6 +142,31 @@ export const MID = { id: 'mid', name: 'Mid Station', x: 150, z: 240, r: 30 };
 export const FLATS = [VILLAGE, START, MID];
 for (const f of FLATS) f.level = massif(f.x, f.z) - (f === START ? 3 : 0);
 
+// the blue run: wide switchbacks down the west side of the face, always at about the same gentle grade
+// (it is laid out by walking down the mountain and turning back before the edges of its sector)
+function switchbacks(start, grade, sector, end) {
+  const pts = [start.slice()];
+  let x = start[0], z = start[1], dirSign = -1, heading = null, since = 0;
+  for (let n = 0; n < 900; n++) {
+    const e = 6, gx = (massif(x + e, z) - massif(x - e, z)) / (2 * e), gz = (massif(x, z + e) - massif(x, z - e)) / (2 * e), s = Math.hypot(gx, gz) || 1e-6;
+    const fall = Math.atan2(-gx, -gz), r = Math.hypot(x - SUM.x, z - SUM.z), th = Math.atan2(x - SUM.x, z - SUM.z);
+    if (r > end.r) break;
+    const [lo, hi] = sector(r);
+    if (dirSign < 0 && th < lo) dirSign = 1; else if (dirSign > 0 && th > hi) dirSign = -1;
+    const a = Math.acos(clamp(grade / s, 0, 1)), want = fall + dirSign * a;
+    if (heading === null) heading = want;
+    // turn smoothly (about 0.7 degrees per metre)
+    const d = Math.atan2(Math.sin(want - heading), Math.cos(want - heading));
+    heading += clamp(d, -0.05, 0.05);
+    x += Math.sin(heading) * 4; z += Math.cos(heading) * 4; since += 4;
+    if (since >= 60) { pts.push([x, z]); since = 0; }
+  }
+  // the last stretch straight to its end
+  const [ex, ez] = end.to, last = pts[pts.length - 1], L = Math.hypot(ex - last[0], ez - last[1]);
+  for (let k = 1; k <= Math.ceil(L / 120); k++) pts.push([last[0] + (ex - last[0]) * k / Math.ceil(L / 120), last[1] + (ez - last[1]) * k / Math.ceil(L / 120)]);
+  return pts;
+}
+
 const CELL = 64, SEGS = new Map();
 function cellKey(i, j) { return i * 100003 + j; }
 function prep(run) {
@@ -104,9 +182,14 @@ function prep(run) {
   const S = [0]; for (let i = 1; i < P.length; i++) S.push(S[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
   let Y = P.map(([x, z]) => massif(x, z));
   if (run.park) {
-    // a steady slope from the natural top to the natural bottom
-    const a = Y[0] - 2, b = Y[Y.length - 1] + 2, L = S[S.length - 1];
-    Y = S.map(s => a + (b - a) * s / L);
+    // the park follows the mountain, evened out a lot: steeper at the top, gentle at the halfpipe
+    const win = 18;
+    for (let it = 0; it < 3; it++) {
+      const out = Y.slice();
+      for (let i = 0; i < Y.length; i++) { let s = 0, n = 0; for (let k = -win; k <= win; k++) { const j = clamp(i + k, 0, Y.length - 1); s += Y[j]; n++; } out[i] = s / n; }
+      Y = out;
+    }
+    for (let i = 1; i < Y.length; i++) Y[i] = Math.min(Y[i], Y[i - 1] - 0.08 * (S[i] - S[i - 1]));
   } else {
     // even it out: a moving average over "smooth" metres, a few times; never uphill
     const win = Math.max(1, Math.round(run.smooth / 4 / 2));
@@ -128,6 +211,18 @@ function prep(run) {
     for (let i = 1; i < Y.length; i++) Y[i] = Math.min(Y[i], Y[i - 1] - (f0 && S[i] < 140 ? 0.14 : 0.0125) * (S[i] - S[i - 1]));
   }
   run.P = P; run.S = S; run.Y = Y; run.len = S[S.length - 1];
+  // how much the mountain falls away sideways along the run (+v side): the piste leans with it a little
+  // (two thirds), so a run across a slope is not a deep terrace
+  const CS = new Float32Array(P.length);
+  if (!run.park) {
+    for (let i = 0; i < P.length; i++) {
+      const j = Math.min(P.length - 1, i + 1), k = Math.max(0, i - 1), dx = P[j][0] - P[k][0], dz = P[j][1] - P[k][1], l = Math.hypot(dx, dz) || 1, qx = dz / l, qz = -dx / l;
+      CS[i] = (massif(P[i][0] + qx * 25, P[i][1] + qz * 25) - massif(P[i][0] - qx * 25, P[i][1] - qz * 25)) / 50;
+    }
+    for (let it = 0; it < 4; it++) for (let i = 1; i < P.length - 1; i++) CS[i] = (CS[i - 1] + 2 * CS[i] + CS[i + 1]) / 4;
+    for (let i = 0; i < P.length; i++) CS[i] = clamp(CS[i] * 0.66, -0.36, 0.36);
+  }
+  run.CS = CS;
   // index the segments by cell (for quick lookups)
   const reach = run.w + run.blend + 4;
   for (let i = 0; i < P.length - 1; i++) {
@@ -137,6 +232,7 @@ function prep(run) {
     }
   }
 }
+RUNS[1].pts = switchbacks([-150, -1975], 0.3, (r) => r < 2700 ? [-0.98, -0.16] : [-0.7, -0.3], { r: 3350, to: [150, 1725] });
 for (const r of RUNS) prep(r);
 export const PARK = RUNS.find(r => r.park);
 
@@ -168,10 +264,13 @@ function profileAt(run, u) {
 // ---------- park features (heights over the park's steady slope) ----------
 // the kickers are as wide as k.wide (the side lanes stay free for the rails), with sloped sides
 function kickerH(u, v) {
-  const g = (PARK.Y[0] - PARK.Y[PARK.Y.length - 1]) / PARK.len;
   for (const k of PARK_KICKERS) {
+    const g = k.g ?? (k.g = (profileAt(PARK, k.u - 8) - profileAt(PARK, k.u + k.deck + 8)) / (k.deck + 16));
+    // the ramp is as high as it must be for the lip to point up at the same angle whatever the slope
+    if (k.h === undefined) k.h = (Math.tan(k.lip * Math.PI / 180) + g) * k.len / 2;
     const a = k.u - k.len, b = k.u, c = k.u + k.deck, d = c + k.land;
     if (u <= a || u >= d) continue;
+    if (k.h === undefined) k.h = (Math.tan(k.lip * Math.PI / 180) + (k.g ?? (k.g = (profileAt(PARK, k.u - 8) - profileAt(PARK, k.u + k.deck + 8)) / (k.deck + 16)))) * k.len / 2;
     const side = 1 - smooth(k.wide, k.wide + k.h * 1.1, Math.abs(v));
     if (side <= 0) return 0;
     return side * kickerProfile(k, u, a, b, c, d, g);
@@ -268,6 +367,7 @@ export function terrain(x, z) {
     let s = profileAt(run, hit.u);
     if (run.park) s += kickerH(hit.u, hit.v) + pipeWall(hit.u, hit.v) + smooth(run.w * 0.55, run.w, av) * 2.2;
     else {
+      s += hit.v * run.CS[clamp(hit.i, 0, run.CS.length - 1)];
       // a slight bank at the edges, a few soft rolls, and the mogul field
       s += smooth(run.w * 0.5, run.w, av) * 1.2 + N3(x / 45, z / 45) * 0.5;
       if (run.moguls && hit.u > run.moguls[0] - 40 && hit.u < run.moguls[1] + 40) {

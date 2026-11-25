@@ -9,7 +9,7 @@ import { terrain, runsAt } from './terrain.js';
 export const LIFTS = [
   { id: 'gondola', name: 'Summit Gondola', kind: 'gondola', a: [150, 1705], b: [-38, -2022], speed: 10, spacing: 120, clear: 16, off: 3.4, hang: 3.2 },
   { id: 'mid', name: 'Mid Chair', kind: 'chair', a: [-95, 1690], b: [60, 300], speed: 4.8, spacing: 30, clear: 8, off: 2.4, hang: 2.4 },
-  { id: 'park', name: 'Park Chair', kind: 'chair', a: [672, 1470], b: [662, 560], speed: 4.8, spacing: 30, clear: 8, off: 2.4, hang: 2.4 }
+  { id: 'park', name: 'Park Chair', kind: 'chair', a: [648, 1012], b: [444, 134], speed: 4.8, spacing: 30, clear: 8, off: 2.4, hang: 2.4 }
 ];
 const UP = new THREE.Vector3(0, 1, 0);
 const _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4(), _s = new THREE.Vector3(1, 1, 1), _e = new THREE.Euler();

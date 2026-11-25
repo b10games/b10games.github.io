@@ -8,11 +8,13 @@ import { makeNoise } from './noise.js';
 import { TerrainLOD } from './terrainlod.js';
 import { buildPlaces } from './places.js';
 import { buildLifts } from './lifts.js';
+import { rockShader, rockGeometry } from './rock.js';
 
-// a clear, sunny day: the sun behind and to the right of you as you ride down (long soft shadows on the snow)
+// a clear, sunny day: neutral white light (the snow stays white, not blue or yellow), the sun from the
+// side and behind as you ride down
 export const THEME = {
-  skyTop: '#1f5fcf', skyMid: '#9ec8f2', skyBottom: '#e6f1fb', sunDir: [0.74, 0.44, -0.5], sunColor: '#ffeccc',
-  fog: '#cfdff0', sunInt: 3.8, hemiSky: '#e4eefc', hemiGround: '#b4c3d8', hemiInt: 1.65
+  skyTop: '#1f5fcf', skyMid: '#9ec8f2', skyBottom: '#eaf1f8', sunDir: [0.72, 0.6, 0.34], sunColor: '#fff7ee',
+  fog: '#e2e9f1', sunInt: 3.6, hemiSky: '#eef1f6', hemiGround: '#d9dce1', hemiInt: 1.8
 };
 
 export function height(x, z) { return terrain(x, z); }
@@ -90,55 +92,6 @@ function snowNormalMap() {
     g.putImageData(img, 0, 0);
   });
 }
-// wind ripples in the snow (sastrugi): thin wavy ridges, tileable
-function rippleNormalMap() {
-  const S = 256, n = makeNoise(17), hgt = new Float32Array(S * S);
-  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
-    const u = x / S, v = y / S;
-    const w = n(Math.cos(u * 6.283) * 1.3 + Math.cos(v * 6.283) * 0.7, Math.sin(u * 6.283) * 1.3 + Math.sin(v * 6.283) * 0.9);
-    const ph = 6.283 * (5 * u + 2 * v) + w * 2.4, r = 0.5 + 0.5 * Math.sin(ph);
-    hgt[y * S + x] = Math.pow(r, 3) * (0.7 + 0.3 * n(u * 9.1, v * 9.1));
-  }
-  return canvasTex(S, S, (g) => {
-    const img = g.createImageData(S, S);
-    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
-      const l = hgt[y * S + ((x + S - 1) % S)], r = hgt[y * S + ((x + 1) % S)], u = hgt[((y + S - 1) % S) * S + x], d = hgt[((y + 1) % S) * S + x];
-      let nx = (l - r) * 1.6, ny = (u - d) * 1.6, nz = 1; const len = Math.hypot(nx, ny, nz); nx /= len; ny /= len; nz /= len;
-      const i = (y * S + x) * 4; img.data[i] = (nx * 0.5 + 0.5) * 255; img.data[i + 1] = (ny * 0.5 + 0.5) * 255; img.data[i + 2] = (nz * 0.5 + 0.5) * 255; img.data[i + 3] = 255;
-    }
-    g.putImageData(img, 0, 0);
-  });
-}
-// the snow surface: the bump texture at three sizes (so it never looks tiled), wind ripples and fine
-// grains close to you, and on the better settings glitter that twinkles as you move
-function snowShader(mat, sparkle) {
-  const ripple = rippleNormalMap();
-  mat.userData.sparkle = { value: 1 };
-  mat.onBeforeCompile = (sh) => {
-    sh.uniforms.ripple = { value: ripple };
-    sh.uniforms.sparkleK = mat.userData.sparkle;
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos;').replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-    let f = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos;\nuniform sampler2D ripple;\nuniform float sparkleK;\nfloat hsh(vec3 p){ return fract(sin(dot(p, vec3(12.9898,78.233,37.719))) * 43758.5453); }');
-    // the normal map code lives in a chunk that is only included later: put our own version in its place
-    f = f.replace('#include <normal_fragment_maps>', THREE.ShaderChunk.normal_fragment_maps);
-    f = f.replace('vec3 mapN = texture2D( normalMap, vNormalMapUv ).xyz * 2.0 - 1.0;',
-      `float camD = length(vWPos - cameraPosition);
-       float near = 1.0 - smoothstep(25.0, 140.0, camD), close = 1.0 - smoothstep(6.0, 35.0, camD);
-       vec3 mapN = texture2D( normalMap, vNormalMapUv ).xyz * 2.0 - 1.0;
-       vec3 mapN2 = texture2D( normalMap, vNormalMapUv * 0.23 + vec2(0.37, 0.11) ).xyz * 2.0 - 1.0;
-       vec3 mapN3 = texture2D( normalMap, vNormalMapUv * 4.1 + vec2(0.71, 0.53) ).xyz * 2.0 - 1.0;
-       vec3 rip = texture2D( ripple, vNormalMapUv * 1.7 + vec2(0.13, 0.29) ).xyz * 2.0 - 1.0;
-       vec3 grain = texture2D( normalMap, vNormalMapUv * 13.0 + vec2(0.5, 0.2) ).xyz * 2.0 - 1.0;
-       mapN = normalize(vec3(mapN.xy * 0.5 + mapN2.xy * 0.5 + mapN3.xy * 0.35 + rip.xy * 0.45 * near + grain.xy * 0.5 * close, mapN.z));`);
-    if (sparkle) f = f.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-        { vec3 cell = floor(vWPos * 9.0);
-          float tw = hsh(cell + floor(cameraPosition * 0.8));
-          float sp = step(0.9955, tw) * (1.0 - smoothstep(8.0, 55.0, camD));
-          totalEmissiveRadiance += vec3(0.95, 0.97, 1.0) * sp * 2.4 * sparkleK; }`);
-    sh.fragmentShader = f;
-  };
-}
-
 // ---------- building blocks ----------
 function treeGeometry(kind, lo) {
   const parts = [];
@@ -178,31 +131,6 @@ function farTreeGeometry() {
   c.setAttribute('color', new THREE.BufferAttribute(col, 3));
   return c;
 }
-function rockGeometry(seed, detail = 1, shape = 0) {
-  const g = new THREE.DodecahedronGeometry(1, detail), p = g.attributes.position, r = rng(seed), col = new Float32Array(p.count * 3);
-  // black stone with grey on it: lighter grey streaks (layers in the rock), grey patches, a dusting of snow on top
-  const black = new THREE.Color('#17181b'), dark = new THREE.Color('#26282c'), grey = new THREE.Color('#6b6e74'), lite = new THREE.Color('#9a9da3'), snow = new THREE.Color('#f4f7fb');
-  const nz = makeNoise(900 + seed), c = new THREE.Color();
-  const sx = [1.25, 1.6, 0.95][shape], sy = [0.8, 0.62, 1.15][shape], sz = [1, 0.9, 0.85][shape];
-  for (let i = 0; i < p.count; i++) {
-    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-    // lumpy and broken: big bumps, then sharper chips
-    const k = 0.78 + 0.3 * Math.sin(x * 3.1 + seed) * Math.cos(z * 2.7 + y * 1.3) + 0.12 * nz(x * 2.3 + seed, z * 2.3 - y);
-    const fy = y * k * sy;
-    p.setXYZ(i, x * k * sx, fy > 0.55 ? 0.55 + (fy - 0.55) * 0.5 : fy, z * k * sz);
-    const streak = Math.sin(y * 9 + nz(x * 1.5, z * 1.5) * 3) * 0.5 + 0.5, patch = nz(x * 1.7 + 4, z * 1.7 + y * 1.2) * 0.5 + 0.5;
-    c.copy(black).lerp(dark, patch);
-    c.lerp(grey, smooth(0.55, 0.9, patch) * 0.75 + smooth(0.82, 0.98, streak) * 0.45);
-    c.lerp(lite, smooth(0.9, 1, streak) * smooth(0.5, 0.8, patch) * 0.6);
-    c.lerp(snow, smooth(0.45, 0.75, y + (patch - 0.5) * 0.3) * 0.9);
-    col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
-  }
-  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  g.computeVertexNormals(); r();
-  return g;
-}
-
-
 const TILE = 512;
 const FOREST = makeNoise(4242);
 
@@ -229,17 +157,21 @@ export class World {
     this.envMats = [];        // shiny things that reflect the sky (ice, helmets)
     this.updaters = [];       // things that move every frame (lifts, flags)
     // the snow
-    const mat = this.snowMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.82, metalness: 0, normalMap: snowNormalMap(), normalScale: new THREE.Vector2(0.3, 0.3) });
-    snowShader(mat, quality !== 'low');
+    // plain white snow (no shine, no glitter); rock where it is too steep for snow
     const lo = quality === 'low';
+    const mat = this.snowMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0, normalMap: snowNormalMap(), normalScale: new THREE.Vector2(0.1, 0.1) });
+    rockShader(mat, 'terrain', lo);
     this.lod = new TerrainLOD(scene, mat, { root: 16384, leaf: lo ? 256 : 128, split: quality === 'high' ? 1.9 : lo ? 1.45 : 1.7, keep: lo ? 2048 : 1024, budget: lo ? 5 : 8, maxNodes: lo ? 460 : 900, workers: 2,
       detail: DETAIL, detailLeaf: lo ? 64 : 32, detailDist: lo ? 170 : quality === 'high' ? 300 : 240 });
     // trees and rocks are made per 512 m tile, around wherever you are
     this.treeGeo = [treeGeometry(0, lo), treeGeometry(1, lo), treeGeometry(2, lo)];
     this.farTreeGeo = farTreeGeometry();
     this.treeMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92 });
-    this.rockGeo = [rockGeometry(1, lo ? 0 : 1, 0), rockGeometry(7, lo ? 0 : 1, 1), rockGeometry(13, lo ? 0 : 1, 2)];
-    this.rockMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.88, metalness: 0.05, flatShading: true });
+    // boulders: big ones (formations) with more corners than small ones
+    this.rockGeoBig = [rockGeometry(1, lo ? 2 : 3, 0), rockGeometry(7, lo ? 2 : 3, 1), rockGeometry(13, lo ? 2 : 3, 2)];
+    this.rockGeoSmall = [rockGeometry(3, lo ? 1 : 2, 0), rockGeometry(9, lo ? 1 : 2, 1), rockGeometry(17, lo ? 1 : 2, 2)];
+    this.rockMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0 });
+    rockShader(this.rockMat, 'boulder', lo);
     this.treeNear = lo ? 420 : 700; this.treeFar = lo ? 1700 : 2900;
   }
   // the slow part of starting: the coarse tiles of the whole range, the villages, huts and lifts, the snowfall
@@ -247,6 +179,7 @@ export class World {
     await this.lod.prebuild(progress);
     buildLifts(this);
     buildPlaces(this);
+    this.buildRockFeatures();
     this.buildFlakes();
   }
   // the light of the moment (from weather.js)
@@ -311,7 +244,8 @@ export class World {
   }
 
   // ---------- forests and rocks, per tile ----------
-  treeLine(x, z) { return 1350 + 220 * FOREST(x / 1500 + 5, z / 1500); }
+  // trees only on the lower mountain: the upper and middle mountain is wide open
+  treeLine(x, z) { return 1020 + 150 * FOREST(x / 1500 + 5, z / 1500); }
   clearOf(x, z) {
     for (const h of runsAt(x, z)) if (Math.abs(h.v) < h.run.w + 8 && h.u > -30 && h.u < h.run.len + 30) return false;
     for (const f of FLATS) if (Math.hypot(x - f.x, z - f.z) < f.r * 1.6 + 10) return false;
@@ -341,16 +275,32 @@ export class World {
       const glade = powderAt(x, z);
       if (h < this.treeLine(x, z) && n.y > 0.8 && (glade ? r() < (glade.name === 'Pine Glades' ? 0.75 : 0.12) : forest > -0.15) && this.clearOf(x, z)) {
         const kk = r(); trees.push([x, h, z, 0.75 + r() * 0.85, r() * 6.28, kk < 0.4 ? 1 : kk < 0.75 ? 0 : 2, (r() - 0.5) * 0.08, (r() - 0.5) * 0.08, 0.86 + r() * 0.16]);
-      } else if ((n.y < 0.74 && n.y > 0.42 && r() < 0.13) || (h > this.treeLine(x, z) - 150 && r() < 0.022) || r() < 0.004) {
+      } else if ((h > this.treeLine(x, z) - 150 && r() < 0.012) || r() < 0.003) {
         if (!this.clearOf(x, z)) continue;
-        // a boulder, often with a few smaller stones around it
-        const big = 1.4 + r() * r() * 5.5, kind = Math.floor(r() * 3);
-        rocks.push([x, h, z, big, r() * 6.28, kind]);
-        const extra = r() < 0.55 ? 1 + Math.floor(r() * 3) : 0;
-        for (let m = 0; m < extra; m++) {
+        // a lone boulder with a few stones round it
+        const big = 0.9 + r() * r() * 2.8;
+        rocks.push([x, h, z, big, r() * 6.28, false, 1, 0.8, 1]);
+        for (let m = 0; m < (r() < 0.6 ? 1 + Math.floor(r() * 3) : 0); m++) {
           const a = r() * 6.28, d = big * (1.1 + r() * 1.6), xx = x + Math.cos(a) * d, zz = z + Math.sin(a) * d;
-          rocks.push([xx, height(xx, zz), zz, 0.5 + r() * big * 0.45, r() * 6.28, Math.floor(r() * 3)]);
+          rocks.push([xx, height(xx, zz), zz, 0.3 + r() * big * 0.4, r() * 6.28, false, 1, 0.8, 1]);
         }
+      }
+    }
+    // rock formations: where the mountain is steep, big broken blocks with smaller ones round them
+    for (let k = 0; k < 110 * Math.max(0.5, dens); k++) {
+      const x = x0 + r() * TILE, z = z0 + r() * TILE;
+      if (Math.abs(x) > BOUNDS.x + 600 || z < BOUNDS.z0 - 900 || z > BOUNDS.z1 + 600) continue;
+      normal(x, z, n);
+      const steepish = n.y < 0.84 && n.y > 0.3;
+      if (!(steepish ? r() < 0.5 : r() < 0.015) || !this.clearOf(x, z)) continue;
+      const h = height(x, z), big = steepish ? 2.6 + r() * r() * 7.5 : 1.8 + r() * 2.5;
+      rocks.push([x, h, z, big, r() * 6.28, true, 0.9 + r() * 0.7, 0.55 + r() * 0.55, 0.8 + r() * 0.4]);
+      const extra = 2 + Math.floor(r() * 5);
+      for (let m = 0; m < extra; m++) {
+        const a = r() * 6.28, d = big * (0.7 + r() * 1.3), xx = x + Math.cos(a) * d, zz = z + Math.sin(a) * d;
+        if (!this.clearOf(xx, zz)) continue;
+        const sc = big * (0.18 + r() * 0.45);
+        rocks.push([xx, height(xx, zz), zz, sc, r() * 6.28, sc > 1.6, 0.8 + r() * 0.6, 0.6 + r() * 0.5, 0.8 + r() * 0.4]);
       }
     }
     const t = { key, i, j, cx: x0 + TILE / 2, cz: z0 + TILE / 2, near: [], far: null, rocks: null };
@@ -366,20 +316,13 @@ export class World {
       trees.forEach((tr, k) => { p.set(tr[0], tr[1] - 0.3, tr[2]); q.identity(); s.setScalar(tr[3]); mx.compose(p, q, s); far.setMatrixAt(k, mx); tint.setRGB(tr[8], tr[8] + 0.03, tr[8]); far.setColorAt(k, tint); });
       far.visible = false; far.computeBoundingSphere(); this.scene.add(far); t.far = far;
     }
-    if (rocks.length) {
-      // one rock shape per tile (one draw call); every stone is turned, tilted and stretched differently
-      const kind = (Math.abs(i * 3 + j * 5)) % 3;
-      const inst = new THREE.InstancedMesh(this.rockGeo[kind], this.rockMat, rocks.length);
-      rocks.forEach((rk, k) => {
-        // sunk a little into the snow and tilted with the slope
-        normal(rk[0], rk[2], n);
-        const st = rk[5] === 1 ? 1.3 : rk[5] === 2 ? 0.8 : 1;
-        p.set(rk[0], rk[1] - rk[3] * 0.28, rk[2]); e.set(n.z * 0.6 + (rk[5] - 1) * 0.2, rk[4], -n.x * 0.6); q.setFromEuler(e);
-        s.set(rk[3] * st, rk[3] * (0.75 + (k % 5) * 0.06), rk[3] * (0.95 + (k % 3) * 0.1) / st); mx.compose(p, q, s); inst.setMatrixAt(k, mx);
-        tint.setScalar(0.85 + (k % 7) * 0.04); inst.setColorAt(k, tint);
-        this.addSolid(rk[0], rk[2], rk[3] * Math.max(st, 1 / st), 'rock');
-      });
-      inst.castShadow = !!this.Q.shadows; inst.receiveShadow = true; inst.visible = false; inst.computeBoundingSphere(); this.scene.add(inst); t.rocks = inst;
+    t.rocks = [];
+    for (const bigOnes of [true, false]) {
+      const sel = rocks.filter(rk => rk[5] === bigOnes); if (!sel.length) continue;
+      // one shape per tile and size (few draw calls); every stone is turned, tilted and stretched differently
+      const kind = (Math.abs(i * 3 + j * 5) + (bigOnes ? 0 : 1)) % 3;
+      const inst = this.rockInstances(bigOnes ? this.rockGeoBig[kind] : this.rockGeoSmall[kind], sel);
+      inst.visible = false; t.rocks.push(inst);
     }
     for (const tr of trees) this.addSolid(tr[0], tr[2], 0.55 * tr[3] + 0.2, 'tree');
     this.treeCount += trees.length;
@@ -403,7 +346,62 @@ export class World {
       const near = d < this.treeNear, far = !near && d < R;
       for (const m of t.near) m.visible = near;
       if (t.far) t.far.visible = far;
-      if (t.rocks) t.rocks.visible = d < 1800;
+      for (const m of t.rocks) m.visible = d < (m.userData.big ? 2600 : 1500);
+    }
+  }
+
+  // rocks as one instanced mesh: [x, y, z, size, turn, big, stretch x, y, z]; sunk into the snow, tilted with the slope
+  rockInstances(geo, list) {
+    const inst = new THREE.InstancedMesh(geo, this.rockMat, list.length), n = new THREE.Vector3();
+    const mx = new THREE.Matrix4(), q = new THREE.Quaternion(), q2 = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+    list.forEach((rk, k) => {
+      normal(rk[0], rk[2], n);
+      q.setFromUnitVectors(up, n.lerp(up, 0.35).normalize()); q2.setFromAxisAngle(up, rk[4]); q.multiply(q2);
+      p.set(rk[0], rk[1] - rk[3] * rk[7] * 0.3, rk[2]);
+      s.set(rk[3] * rk[6], rk[3] * rk[7], rk[3] * rk[8]); mx.compose(p, q, s); inst.setMatrixAt(k, mx);
+      this.addSolid(rk[0], rk[2], rk[3] * Math.max(rk[6], rk[8]) * 0.85, 'rock');
+    });
+    inst.castShadow = !!this.Q.shadows; inst.receiveShadow = true; inst.computeBoundingSphere(); inst.userData.big = list[0][5];
+    this.scene.add(inst);
+    return inst;
+  }
+  // the big rock features: bands of rock on the cliff drops, and narrow rock chutes you can ski through
+  buildRockFeatures() {
+    const r = rng(4711), list = [], n = new THREE.Vector3();
+    for (const l of LIPS) {
+      if (!l.cliff) continue;
+      // along the drop face, the whole width of the cliff
+      for (let s = -l.w; s <= l.w; s += 4 + r() * 4) {
+        const u = 2 + r() * 7, x = l.x + l.dx * u - l.dz * s, z = l.z + l.dz * u + l.dx * s;
+        const sc = 2.4 + r() * 3.5;
+        list.push([x, height(x, z), z, sc, r() * 6.28, true, 1 + r() * 0.5, 0.7 + r() * 0.6, 0.8 + r() * 0.4]);
+      }
+    }
+    this.chutes = [];
+    for (const [ax, az] of [[-860, -760], [430, -1250], [-420, 380], [1080, -380]]) {
+      // a spot near there that is steep enough and not on a run
+      let best = null;
+      for (let k = 0; k < 200 && !best; k++) {
+        const x = ax + (r() - 0.5) * 300, z = az + (r() - 0.5) * 300;
+        normal(x, z, n);
+        if (n.y < 0.9 && n.y > 0.75 && this.clearOf(x, z) && this.clearOf(x + n.x * 60, z + n.z * 60) && this.clearOf(x - n.x * 60, z - n.z * 60)) best = { x, z, dx: n.x / Math.hypot(n.x, n.z), dz: n.z / Math.hypot(n.x, n.z) };
+      }
+      if (!best) continue;
+      this.chutes.push(best);
+      // two walls of rock, about 9 m apart, 55 m long down the fall line
+      for (let u = -28; u <= 28; u += 5.5) for (const side of [-1, 1]) {
+        const sc = 2.6 + r() * 1.8, off = 4.5 + sc * 0.75;
+        const x = best.x + best.dx * u - best.dz * off * side, z = best.z + best.dz * u + best.dx * off * side;
+        list.push([x, height(x, z), z, sc, r() * 6.28, true, 0.9 + r() * 0.3, 1.0 + r() * 0.5, 0.9 + r() * 0.3]);
+      }
+      this.block(best.x, best.z, 45);
+    }
+    if (list.length) this.rockInstances(this.rockGeoBig[0], list);
+    // a drop-in spot above the first chute
+    const c = this.chutes[0];
+    if (c && !DROPS.some(d => d.id === 'chutes')) {
+      const x = c.x - c.dx * 70, z = c.z - c.dz * 70;
+      DROPS.splice(DROPS.length - 1, 0, { id: 'chutes', name: 'Rock Chutes', desc: 'Narrow passages between big rocks', x, z, yaw: Math.atan2(c.dx, c.dz), alt: Math.round(height(x, z)) });
     }
   }
 

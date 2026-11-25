@@ -213,7 +213,7 @@ async function boot() {
     // build the detail around the kicker before showing it
     const p = new THREE.Vector3(); demo.pose(-0.5, p); demo.camera(0, p, true); world.focus(p, camera); world.warm(camera);
     buildMenus();
-    window.__PUV = parkUV;
+    window.__PUV = parkUV; window.__RUNS = RUNS;
     window.__S = { demo, skier, ski, world, cam, camera, score, fx, sound, input, renderer, post, startRide, dropAt, DROPS, parkAt, ride: (dt) => ride(dt), get mode() { return mode; }, set mode(v) { mode = v; } };
     $('qChip').textContent = QNAME[Q]; $('hQ').textContent = QNAME[Q]; $('hCam').textContent = CAM_MODES[cam.mode];
     $('boot').classList.add('off');
@@ -409,7 +409,7 @@ function events() {
       case 'grab': sound.sfx('grab'); break;
       case 'land': {
         const r = e, k = clamp((r.into - 3) / 10, 0, 1.4), deep = ski.inPowder;
-        skier.impact(Math.min(5.5, 1 + r.into * 0.32));
+        skier.impact(Math.min(5, 1.2 + r.into * 0.3));
         fx.burst(ski.p, 0.5 + k * 0.8, deep);
         sound.sfx(deep > 0.5 ? 'powderLand' : 'land', k);
         if (r.into > 9) cam.land(clamp((r.into - 8) / 8, 0.2, 1.2)); else cam.land(k * 0.3);
