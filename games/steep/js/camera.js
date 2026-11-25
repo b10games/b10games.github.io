@@ -45,6 +45,12 @@ export class DroneCam {
     if (air) { height += m === 1 ? 0.8 : 1.4; dist += 1.0; }
     if (fall) { height += 1.5; dist += 2; }
     height += this.pipeK * 4; dist += this.pipeK * 3;
+    // on a steep slope the snow behind you is high: come in closer and lower (or you look at a dot far below)
+    {
+      const yb = this.yaw + this.oYaw, bx = s.p.x - Math.sin(yb) * dist, bz = s.p.z - Math.cos(yb) * dist;
+      const rise = clamp((W.height(bx, bz) - s.p.y) / dist, 0, 1.2), k = smooth(0.15, 0.8, rise);
+      dist *= 1 - 0.38 * k; height *= 1 - 0.3 * k;
+    }
     this.dist = instant ? dist : damp(this.dist, dist, air ? 1.2 : 1.8, dt);
     this.height = instant ? height : damp(this.height, height, air ? 1.0 : 1.6, dt);
     // landing: a soft dip that springs back

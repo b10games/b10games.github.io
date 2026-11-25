@@ -64,7 +64,7 @@ export const DROPS = [];
   const cliff = LIPS.filter(l => l.cliff).sort((a, b) => Math.hypot(a.x - CLIFF_ZONE.x, a.z - CLIFF_ZONE.z) - Math.hypot(b.x - CLIFF_ZONE.x, b.z - CLIFF_ZONE.z))[0];
   if (cliff) add('cliffs', 'The Cliffs', { x: cliff.x - cliff.dx * 120, z: cliff.z - cliff.dz * 120, yaw: Math.atan2(cliff.dx, cliff.dz) }, 'Natural cliff drops');
   add('powder', 'Powder Bowl', { x: POWDER[0].x, z: POWDER[0].z - POWDER[0].rz * 0.75 }, 'Deep untouched snow');
-  add('glades', 'Pine Glades', { x: POWDER[1].x, z: POWDER[1].z - POWDER[1].rz * 0.8 }, 'Ski between the trees');
+  add('glades', 'Pine Glades', { x: POWDER[1].x, z: POWDER[1].z - POWDER[1].rz * 0.39 }, 'Ski between the trees');
   add('base', 'Steep Base', { x: VILLAGE.x - 30, z: VILLAGE.z - 40 }, 'The village at the bottom');
 }
 
@@ -330,14 +330,16 @@ export class World {
   makeTile(i, j) {
     const key = i + ',' + j, r = rng(i * 7919 + j * 104729 + 17), x0 = i * TILE, z0 = j * TILE, trees = [], rocks = [];
     const n = new THREE.Vector3(), dens = this.Q.trees;
-    for (let k = 0; k < 520 * dens; k++) {
+    // the glades get extra trees (spaced so you can ski between them)
+    const glades = POWDER.some(p => Math.abs(p.x - (x0 + TILE / 2)) < p.rx + TILE && Math.abs(p.z - (z0 + TILE / 2)) < p.rz + TILE && p.name === 'Pine Glades');
+    for (let k = 0; k < (520 + (glades ? 420 : 0)) * dens; k++) {
       const x = x0 + r() * TILE, z = z0 + r() * TILE;
       if (Math.abs(x) > BOUNDS.x - 10 || z < BOUNDS.z0 + 10 || z > BOUNDS.z1 - 10) continue;
       const h = height(x, z), forest = FOREST(x / 650, z / 650) + FOREST(x / 170 + 3, z / 170) * 0.35;
       normal(x, z, n);
       // in the glades the trees stand apart, so you can ski between them
       const glade = powderAt(x, z);
-      if (h < this.treeLine(x, z) && n.y > 0.8 && (glade ? r() < 0.3 : forest > -0.15) && this.clearOf(x, z)) {
+      if (h < this.treeLine(x, z) && n.y > 0.8 && (glade ? r() < (glade.name === 'Pine Glades' ? 0.75 : 0.12) : forest > -0.15) && this.clearOf(x, z)) {
         const kk = r(); trees.push([x, h, z, 0.75 + r() * 0.85, r() * 6.28, kk < 0.4 ? 1 : kk < 0.75 ? 0 : 2, (r() - 0.5) * 0.08, (r() - 0.5) * 0.08, 0.86 + r() * 0.16]);
       } else if ((n.y < 0.74 && n.y > 0.42 && r() < 0.13) || (h > this.treeLine(x, z) - 150 && r() < 0.022) || r() < 0.004) {
         if (!this.clearOf(x, z)) continue;

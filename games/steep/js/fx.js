@@ -19,8 +19,10 @@ export class SnowFX {
       vertexShader: `attribute float size; attribute float alpha; varying float vA; uniform float scale;
         void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); vA = alpha * smoothstep(0.6, 2.2, -mv.z); gl_PointSize = clamp(size * scale / -mv.z, 1.0, 90.0); gl_Position = projectionMatrix * mv; }`,
       // a soft puff: brighter in the middle, a little blue at the edge (snow in the shade)
-      fragmentShader: `varying float vA; void main(){ vec2 c = gl_PointCoord - 0.5; float d = length(c); float a = smoothstep(0.5, 0.05, d);
-        vec3 col = mix(vec3(0.82, 0.88, 0.97), vec3(1.0), smoothstep(0.45, 0.0, d + c.y * 0.3)); gl_FragColor = vec4(col, a * a * vA); }`
+      fragmentShader: `varying float vA; void main(){ vec2 c = gl_PointCoord - 0.5; float d = length(c); float a = smoothstep(0.5, 0.0, d);
+        // a soft cloud, not a ball: the edge fades out slowly, a little uneven
+        a = a * a * (0.75 + 0.25 * sin(c.x * 17.0 + c.y * 11.0));
+        vec3 col = mix(vec3(0.84, 0.89, 0.97), vec3(1.0), smoothstep(0.45, 0.0, d + c.y * 0.3)); gl_FragColor = vec4(col, a * vA * 0.8); }`
     });
     this.points = new THREE.Points(g, m); this.points.frustumCulled = false; this.points.renderOrder = 2; scene.add(this.points);
     this.trails = [];
