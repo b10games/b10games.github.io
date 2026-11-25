@@ -1,0 +1,243 @@
+// Drawing a mountain range many kilometres wide: the ground is split into square tiles in a quadtree.
+// Close to the camera the tiles are small and detailed (4 m between points), far away they are big
+// and coarse. New detail is built a little every frame (never all at once), and a tile is only swapped
+// for its four detailed children when all four are ready, so there are no holes. Tiles have short
+// "skirts" hanging down at their edges, which hide the cracks between a detailed and a coarse tile.
+import { THREE, clamp, smooth } from './engine.js';
+import { terrain, runsAt, parkUV, powderAt } from './terrain.js';
+import { makeNoise } from './noise.js';
+
+const RES = 32;
+// the bundled game makes the worker from its own code (a blob); the plain files load tileworker.js
+function makeTileWorker() {
+  if (typeof globalThis.__TILE_WORKER_SRC === 'string') {
+    const url = globalThis.__tileWorkerURL || (globalThis.__tileWorkerURL = URL.createObjectURL(new Blob([globalThis.__TILE_WORKER_SRC], { type: 'text/javascript' })));
+    return new Worker(url);
+  }
+  return new Worker(new URL('./tileworker.js', import.meta.url), { type: 'module' });
+}
+const NZ = makeNoise(99);
+// the snow is white; only hollows get a very faint cool shade. Rock faces are black with grey on them.
+const C_SNOW = new THREE.Color('#ffffff'), C_SHADE = new THREE.Color('#f1f4f9'), C_DEEP = new THREE.Color('#dfe7f2'),
+  C_ICE = new THREE.Color('#f3f8ff'), C_GROOM = new THREE.Color('#eef3fa'), C_PARK = new THREE.Color('#b9cde6'), C_POW = new THREE.Color('#ffffff'), C_ROCK = new THREE.Color('#1c1d21'), C_ROCK2 = new THREE.Color('#5d6066'), C_LOW = new THREE.Color('#ffffff');
+
+export class TerrainLOD {
+  constructor(scene, material, o = {}) {
+    this.scene = scene; this.mat = material;
+    this.root = o.root || 16384; this.leaf = o.leaf || 128; this.split = o.split || 1.7; this.keep = o.keep || 1024;
+    this.budget = o.budget || 6; this.maxNodes = o.maxNodes || 450;
+    // extra fine snow (1 m) where the shape matters: the park, the halfpipe and the moguls
+    this.detail = o.detail || []; this.detailLeaf = o.detailLeaf || 32; this.detailDist = o.detailDist || 260;
+    this.nodes = new Map(); this.visible = new Set(); this.queue = new Set(); this.frame = 0;
+    this.index = this.makeIndex();
+    this.group = new THREE.Group(); scene.add(this.group);
+    // the heights are worked out in background workers (no stutter); without workers it is done here
+    this.workers = []; this.jobs = new Map(); this.done = []; this.nextId = 1;
+    try {
+      const n = Math.max(1, Math.min(o.workers || 2, (navigator.hardwareConcurrency || 2) - 1));
+      for (let i = 0; i < n; i++) {
+        const w = makeTileWorker();
+        w.busy = 0;
+        w.onmessage = (e) => { w.busy--; const n = this.jobs.get(e.data.id); this.jobs.delete(e.data.id); if (n && n.resolve) n.resolve(e.data.H); else if (n) this.done.push([n, e.data.H]); };
+        w.onerror = () => { this.workers = []; };
+        this.workers.push(w);
+      }
+    } catch (e) { this.workers = []; }
+  }
+  // ask a worker for a tile's heights
+  request(n) {
+    if (n.pending || n.mesh) return;
+    const w = this.workers.reduce((a, b) => (b.busy < a.busy ? b : a));
+    if (w.busy >= 3) return;
+    const id = this.nextId++, s = n.size / RES;
+    n.pending = true; this.jobs.set(id, n); w.busy++;
+    w.postMessage({ id, x0: n.cx - n.size / 2, z0: n.cz - n.size / 2, s, G: RES + 3 });
+  }
+  // a big grid of heights for the map, worked out in a worker (resolves to null without workers)
+  grid(x0, z0, s, G) {
+    if (!this.workers.length) return Promise.resolve(null);
+    return new Promise(resolve => {
+      const w = this.workers.reduce((a, b) => (b.busy < a.busy ? b : a)), id = this.nextId++;
+      this.jobs.set(id, { resolve }); w.busy++;
+      w.postMessage({ id, x0: x0 + s, z0: z0 + s, s, G });
+    });
+  }
+  heights(n) {
+    const s = n.size / RES, G = RES + 3, x0 = n.cx - n.size / 2, z0 = n.cz - n.size / 2, H = new Float32Array(G * G);
+    for (let j = 0; j < G; j++) for (let i = 0; i < G; i++) H[j * G + i] = terrain(x0 + (i - 1) * s, z0 + (j - 1) * s);
+    return H;
+  }
+  makeIndex() {
+    const W = RES + 1, idx = [];
+    for (let z = 0; z < RES; z++) for (let x = 0; x < RES; x++) { const a = z * W + x, b = a + W; idx.push(a, b, a + 1, b, b + 1, a + 1); }
+    // skirts: each edge vertex has a copy hanging below it
+    const base = W * W, edges = this.edges = [];
+    for (let i = 0; i < W; i++) edges.push(i);                      // top row, left to right
+    for (let i = 1; i < W; i++) edges.push(i * W + RES);            // right column, down
+    for (let i = RES - 1; i >= 0; i--) edges.push(RES * W + i);     // bottom row, right to left
+    for (let i = RES - 1; i >= 1; i--) edges.push(i * W);           // left column, up
+    const E = edges.length;
+    for (let i = 0; i < E; i++) {
+      const a = edges[i], b = edges[(i + 1) % E], sa = base + i, sb = base + (i + 1) % E;
+      idx.push(a, sa, b, b, sa, sb, a, b, sa, b, sb, sa);      // both sides, so it hides cracks from any angle
+    }
+    return new THREE.Uint32BufferAttribute(idx, 1);
+  }
+  key(size, x, z) { return size + ':' + x + ':' + z; }
+  inDetail(n) { const h = n.size / 2; for (const [x0, z0, x1, z1] of this.detail) if (n.cx + h > x0 && n.cx - h < x1 && n.cz + h > z0 && n.cz - h < z1) return true; return false; }
+  node(size, cx, cz) {
+    const k = this.key(size, cx, cz);
+    let n = this.nodes.get(k);
+    if (!n) { n = { k, size, cx, cz, mesh: null, used: 0 }; this.nodes.set(k, n); }
+    return n;
+  }
+  // ---------- building one tile ----------
+  build(n, H = this.heights(n)) {
+    n.pending = false;
+    const s = n.size / RES, W = RES + 1, G = RES + 3, x0 = n.cx - n.size / 2, z0 = n.cz - n.size / 2;
+    const E = this.edges.length, V = W * W + E;
+    const pos = new Float32Array(V * 3), nor = new Float32Array(V * 3), col = new Uint8Array(V * 3), uv = new Float32Array(V * 2);
+    const c = new THREE.Color();
+    let minY = 1e9, maxY = -1e9;
+    for (let j = 0; j < W; j++) for (let i = 0; i < W; i++) {
+      const v = j * W + i, gi = (j + 1) * G + (i + 1), h = H[gi], x = x0 + i * s, z = z0 + j * s;
+      pos[v * 3] = x; pos[v * 3 + 1] = h; pos[v * 3 + 2] = z; uv[v * 2] = x / 13; uv[v * 2 + 1] = z / 13;
+      if (h < minY) minY = h; if (h > maxY) maxY = h;
+      let nx = (H[gi - 1] - H[gi + 1]) / (2 * s), nz = (H[gi - G] - H[gi + G]) / (2 * s);
+      const l = Math.hypot(nx, 1, nz); nx /= l; nz /= l; const ny = 1 / l;
+      nor[v * 3] = nx; nor[v * 3 + 1] = ny; nor[v * 3 + 2] = nz;
+      // colour: snow, a cool shade in hollows, ice up high, rock where it is too steep for snow
+      const lap = (H[gi - 1] + H[gi + 1] + H[gi - G] + H[gi + G] - 4 * h) / (s * s * Math.max(1, s / 6));
+      const hollow = clamp(lap * 5, -1, 1), nv = NZ(x / 34, z / 34), steep = smooth(0.74, 0.56, ny);
+      c.copy(h < 700 ? C_LOW : C_SNOW).lerp(C_SHADE, clamp(0.04 + nv * 0.12 + Math.max(0, hollow) * 0.4, 0, 1));
+      if (hollow > 0.5) c.lerp(C_DEEP, (hollow - 0.5) * 0.4);
+      if (h > 2300) c.lerp(C_ICE, smooth(2300, 2900, h) * 0.4);
+      const park = parkUV(x, z), onPark = park && Math.abs(park.v) < park.run.w + 4;
+      if (steep > 0 && !onPark) {
+        // black rock, with grey bands and patches, and snow caught on the ledges
+        const band = NZ(x / 9, z / 9 + h / 6), grey = smooth(0.15, 0.7, band) * 0.7 + smooth(0.3, 0.8, nv) * 0.3;
+        c.lerp(C_ROCK, steep * (0.6 + 0.35 * smooth(-0.4, 0.6, NZ(x / 14, z / 14))));
+        c.lerp(C_ROCK2, steep * grey * 0.75);
+      }
+      // groomed runs are a touch cooler and even, untouched powder a touch brighter
+      // in the park the steep faces (kickers, landings, the pipe walls) are a touch bluer, so you can read them
+      if (onPark) { c.lerp(C_GROOM, 0.6); c.lerp(C_PARK, smooth(0.985, 0.8, ny) * 0.55); }
+      else { for (const hh of runsAt(x, z)) if (Math.abs(hh.v) < hh.run.w && hh.u > 0 && hh.u < hh.run.len) { c.lerp(C_GROOM, 0.55); break; } }
+      col[v * 3] = c.r * 255; col[v * 3 + 1] = c.g * 255; col[v * 3 + 2] = c.b * 255;
+    }
+    // skirts hang below the edges
+    const drop = 2 + n.size * 0.012;
+    this.edges.forEach((e, i) => {
+      const v = W * W + i;
+      pos[v * 3] = pos[e * 3]; pos[v * 3 + 1] = pos[e * 3 + 1] - drop; pos[v * 3 + 2] = pos[e * 3 + 2];
+      nor[v * 3] = nor[e * 3]; nor[v * 3 + 1] = nor[e * 3 + 1]; nor[v * 3 + 2] = nor[e * 3 + 2];
+      col[v * 3] = col[e * 3]; col[v * 3 + 1] = col[e * 3 + 1]; col[v * 3 + 2] = col[e * 3 + 2];
+      uv[v * 2] = uv[e * 2]; uv[v * 2 + 1] = uv[e * 2 + 1];
+    });
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3, true));
+    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    g.setIndex(this.index);
+    g.boundingBox = new THREE.Box3(new THREE.Vector3(x0, minY - drop, z0), new THREE.Vector3(x0 + n.size, maxY, z0 + n.size));
+    g.boundingSphere = g.boundingBox.getBoundingSphere(new THREE.Sphere());
+    const m = new THREE.Mesh(g, this.mat);
+    m.receiveShadow = true; m.matrixAutoUpdate = false; m.visible = false;
+    this.group.add(m);
+    n.mesh = m; n.minY = minY; n.maxY = maxY;
+  }
+  // build every tile of this size and bigger (at the start, with a progress callback)
+  async prebuild(onProgress) {
+    const list = [];
+    for (let size = this.root; size >= this.keep; size /= 2) {
+      const cnt = this.root / size;
+      for (let j = 0; j < cnt; j++) for (let i = 0; i < cnt; i++) list.push([size, -this.root / 2 + (i + 0.5) * size, -this.root / 2 + (j + 0.5) * size]);
+    }
+    if (this.workers.length) {
+      const nodes = list.map(([size, cx, cz]) => this.node(size, cx, cz));
+      let left = nodes.length;
+      while (left > 0) {
+        for (const n of nodes) if (!n.mesh && !n.pending) this.request(n);
+        await new Promise(r => setTimeout(r, 15));
+        while (this.done.length) { const [n, H] = this.done.shift(); this.build(n, H); left--; }
+        onProgress && onProgress(1 - left / nodes.length);
+      }
+      return;
+    }
+    let t = performance.now();
+    for (let i = 0; i < list.length; i++) {
+      const [size, cx, cz] = list[i]; this.build(this.node(size, cx, cz));
+      if (performance.now() - t > 40) { onProgress && onProgress(i / list.length); await new Promise(r => setTimeout(r, 0)); t = performance.now(); }
+    }
+  }
+  // ---------- every frame ----------
+  // ahead: a point where the rider will be in a moment; detail is built there before you arrive
+  update(cam, ahead) {
+    this.frame++;
+    const want = [], cp = cam.position, self = this;
+    function d1(p, n) { const dx = Math.max(Math.abs(p.x - n.cx) - n.size / 2, 0), dz = Math.max(Math.abs(p.z - n.cz) - n.size / 2, 0); const y = p.y - clamp(p.y, n.minY ?? 0, n.maxY ?? 3000); return Math.hypot(dx, dz, y); }
+    function dist(n) { return ahead ? Math.min(d1(cp, n), d1(ahead, n)) : d1(cp, n); }
+    function visit(n) {
+      n.used = self.frame;
+      const half = n.size / 2;
+      const fine = n.size > self.detailLeaf && n.size <= self.leaf * 2 && self.inDetail(n) && dist(n) < self.detailDist;
+      if ((n.size > self.leaf && dist(n) < n.size * self.split) || fine) {
+        const q = half / 2, kids = [self.node(half, n.cx - q, n.cz - q), self.node(half, n.cx + q, n.cz - q), self.node(half, n.cx - q, n.cz + q), self.node(half, n.cx + q, n.cz + q)];
+        // keep the ready ones (they must not be thrown away while their brothers are still being made)
+        for (const k of kids) k.used = self.frame;
+        if (kids.every(k => k.mesh)) { kids.forEach(visit); return; }
+        for (const k of kids) if (!k.mesh && !k.pending) { k.prio = dist(k) / k.size; self.queue.add(k); }
+      }
+      want.push(n);
+    }
+    visit(this.node(this.root, 0, 0));
+    const now = new Set(want);
+    for (const n of this.visible) if (!now.has(n) && n.mesh) n.mesh.visible = false;
+    for (const n of now) if (n.mesh) n.mesh.visible = true;
+    this.visible = now;
+    const t0 = performance.now();
+    // tiles the workers have finished: turn them into meshes (quick)
+    while (this.done.length && performance.now() - t0 < this.budget) { const [n, H] = this.done.shift(); if (this.nodes.get(n.k) === n && !n.mesh) this.build(n, H); else n.pending = false; }
+    // the most wanted tiles next
+    if (this.queue.size) {
+      const q = [...this.queue].sort((a, b) => a.prio - b.prio);
+      for (const n of q) {
+        if (n.mesh || n.used < this.frame - 1) { this.queue.delete(n); continue; }
+        if (this.workers.length) { this.request(n); if (n.pending) this.queue.delete(n); }
+        else { if (performance.now() - t0 > this.budget) break; this.queue.delete(n); this.build(n); }
+      }
+      for (const n of this.queue) if (n.used < this.frame - 2) this.queue.delete(n);
+    }
+    // forget detailed tiles nobody looked at for a while
+    if (this.nodes.size > this.maxNodes && this.frame % 30 === 0) {
+      const old = [...this.nodes.values()].filter(n => n.mesh && !n.pending && n.size < this.keep && !now.has(n)).sort((a, b) => a.used - b.used);
+      // the index is shared by all tiles: take it off before freeing the rest
+      for (const n of old.slice(0, this.nodes.size - this.maxNodes)) { this.group.remove(n.mesh); n.mesh.geometry.setIndex(null); n.mesh.geometry.dispose(); n.mesh = null; this.nodes.delete(n.k); }
+    }
+  }
+  // make sure everything around a point is detailed right now (after jumping somewhere on the map)
+  // with workers the detail arrives over the next few frames; without them it is built right now
+  warm(cam, frames = 40) {
+    if (this.workers.length) { this.update(cam); return; }
+    const b = this.budget; this.budget = 1000; for (let i = 0; i < frames; i++) { this.update(cam); if (!this.queue.size) break; } this.budget = b;
+  }
+  // the height of the snow as it is drawn right now (the tiles are a little coarser than the real shape)
+  heightAt(x, z) {
+    let best = null;
+    for (const n of this.visible) {
+      if (!n.mesh) continue;
+      const h = n.size / 2;
+      if (x < n.cx - h || x > n.cx + h || z < n.cz - h || z > n.cz + h) continue;
+      if (!best || n.size < best.size) best = n;
+    }
+    if (!best) return null;
+    const W = RES + 1, s = best.size / RES, P = best.mesh.geometry.attributes.position.array;
+    let fx = (x - (best.cx - best.size / 2)) / s, fz = (z - (best.cz - best.size / 2)) / s;
+    const i = Math.min(RES - 1, Math.max(0, Math.floor(fx))), j = Math.min(RES - 1, Math.max(0, Math.floor(fz))), u = fx - i, v = fz - j;
+    const a = j * W + i, b = a + W, ha = P[a * 3 + 1], ha1 = P[(a + 1) * 3 + 1], hb = P[b * 3 + 1], hb1 = P[(b + 1) * 3 + 1];
+    // the same two triangles the tile is drawn with
+    return u + v <= 1 ? ha + u * (ha1 - ha) + v * (hb - ha) : hb1 + (1 - u) * (hb - hb1) + (1 - v) * (ha1 - hb1);
+  }
+  get count() { let n = 0; for (const v of this.nodes.values()) if (v.mesh) n++; return n; }
+}

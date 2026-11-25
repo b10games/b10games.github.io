@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>STEEP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;0,900;1,700;1,800;1,900&display=swap" rel="stylesheet">
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }</script>
+<style>
+  :root { --ink: #f4f8ff; --muted: #b6c6dc; --orange: #ff5a1f; --orange2: #ff8a3d; --gold: #ffd34a; --red: #ff3b4e; --blue: #5ec8ff; --green: #4ade80; --panel: rgba(8, 16, 32, .62); --line: rgba(255, 255, 255, .16); }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1426; color: var(--ink); font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-weight: 700; user-select: none; -webkit-user-select: none; touch-action: none; overscroll-behavior: none; }
+  canvas#gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+  .screen { position: fixed; inset: 0; display: none; z-index: 10; } .screen.on { display: block; }
+  .it { font-style: italic; font-weight: 900; text-transform: uppercase; letter-spacing: .02em; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  .btn { display: flex; align-items: center; gap: 14px; padding: 12px 22px; border-radius: 10px; font-style: italic; font-weight: 900; font-size: 26px; letter-spacing: .04em; text-transform: uppercase; background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .14); text-align: left; transition: background .12s, transform .12s; }
+  .btn:hover, .btn:focus-visible { background: rgba(255, 255, 255, .18); transform: translateX(4px); outline: none; }
+  .btn.main { background: linear-gradient(100deg, var(--orange), var(--orange2)); border-color: rgba(255, 210, 180, .6); color: #fff; box-shadow: 0 10px 30px rgba(255, 90, 31, .35); }
+  .btn.main:hover { filter: brightness(1.08); }
+  .btn small { font-size: 15px; font-weight: 700; font-style: normal; color: var(--muted); letter-spacing: .02em; margin-left: auto; text-transform: none; }
+  .chip { display: inline-block; padding: 4px 10px; border-radius: 6px; background: rgba(255, 255, 255, .12); font-size: 15px; font-weight: 800; letter-spacing: .08em; }
+  .chip.q { background: var(--orange); color: #fff; }
+
+  /* ---------- loading ---------- */
+  #boot { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(circle at 50% 35%, #1c3b6e, #070e1c 72%); z-index: 50; transition: opacity .6s; }
+  #boot.off { opacity: 0; pointer-events: none; }
+  .logo { width: max-content; padding-right: .08em; font-style: italic; font-weight: 900; font-size: clamp(84px, 12vw, 168px); line-height: .82; letter-spacing: -.01em; background: linear-gradient(180deg, #fff 30%, #c9dcf5); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 10px 30px rgba(0, 0, 0, .45)); }
+  .logo i { font-style: italic; color: var(--orange); -webkit-text-fill-color: var(--orange); }
+  #bootBar { width: min(440px, 72vw); height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .12); margin: 30px auto 12px; overflow: hidden; } #bootBar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--orange), #fff); transition: width .2s; }
+  #bootTxt { text-align: center; color: var(--muted); font-size: 18px; letter-spacing: .1em; text-transform: uppercase; }
+  #bootErr { display: none; max-width: 560px; margin: 18px auto 0; color: #ffb4b4; text-align: center; font-size: 18px; }
+
+  /* ---------- title ---------- */
+  #title { background: linear-gradient(90deg, rgba(5, 10, 22, .78) 0%, rgba(5, 10, 22, .35) 38%, rgba(5, 10, 22, 0) 60%); }
+  #title .wrap { position: absolute; left: max(48px, 5vw); top: 50%; transform: translateY(-50%); width: min(430px, 88vw); }
+  #title .tag { font-size: 22px; letter-spacing: .32em; color: var(--muted); margin: 14px 0 34px 6px; text-transform: uppercase; }
+  #title .menu { display: grid; gap: 10px; }
+  #title .foot { margin-top: 26px; display: flex; gap: 10px; align-items: center; color: var(--muted); font-size: 16px; flex-wrap: wrap; }
+  #title .foot a { color: var(--muted); text-decoration: none; } #title .foot a:hover { color: #fff; }
+  #demoTag { position: absolute; right: 26px; bottom: 22px; text-align: right; text-shadow: 0 2px 10px rgba(0, 0, 0, .6); }
+  #demoTag b { display: block; font-size: 34px; font-style: italic; font-weight: 900; text-transform: uppercase; }
+  #demoTag span { font-size: 17px; color: #e6eefa; letter-spacing: .12em; text-transform: uppercase; }
+
+  /* ---------- the game HUD ---------- */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; display: none; }
+  #hud.on { display: block; }
+  #hud.hide > *:not(#pop):not(#fade) { opacity: 0; }
+  .tl { position: absolute; left: 22px; top: 18px; text-shadow: 0 2px 8px rgba(0, 0, 0, .45); }
+  .tl .lab { font-size: 15px; letter-spacing: .2em; color: #e6eefa; text-transform: uppercase; }
+  .tl .score { font-size: 46px; font-weight: 900; font-style: italic; line-height: .95; }
+  .tl .best { font-size: 16px; color: #e6eefa; letter-spacing: .06em; margin-top: 2px; }
+  .tr { position: absolute; right: 22px; top: 16px; text-align: right; text-shadow: 0 2px 8px rgba(0, 0, 0, .45); }
+  .tr .spd { font-size: 56px; font-weight: 900; font-style: italic; line-height: .9; }
+  .tr .spd small { font-size: 20px; font-style: normal; margin-left: 4px; letter-spacing: .06em; }
+  .tr .chips { margin-top: 6px; display: flex; gap: 6px; justify-content: flex-end; }
+  #combo { position: absolute; left: 50%; top: 16px; transform: translateX(-50%); text-align: center; min-width: 280px; text-shadow: 0 2px 10px rgba(0, 0, 0, .55); transition: opacity .25s; }
+  #combo .names { font-size: 22px; font-weight: 800; font-style: italic; text-transform: uppercase; letter-spacing: .03em; line-height: 1.15; }
+  #combo .names .live { color: var(--gold); }
+  #combo .names .old { opacity: .7; font-size: 18px; }
+  #combo .pts { font-size: 40px; font-weight: 900; font-style: italic; margin-top: 2px; }
+  #combo .pts b { color: var(--orange2); }
+  #combo .bar { width: 220px; height: 5px; border-radius: 3px; margin: 6px auto 0; background: rgba(255, 255, 255, .2); overflow: hidden; } #combo .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--orange), var(--gold)); }
+  #pop { position: absolute; left: 50%; top: 34%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; text-shadow: 0 4px 18px rgba(0, 0, 0, .55); }
+  #pop .q { font-size: 26px; font-weight: 900; font-style: italic; letter-spacing: .14em; }
+  #pop .n { font-size: 52px; font-weight: 900; font-style: italic; text-transform: uppercase; line-height: 1; }
+  #pop .p { font-size: 40px; font-weight: 900; font-style: italic; color: var(--gold); }
+  #pop.show { animation: pop 1.9s ease-out forwards; }
+  @keyframes pop { 0% { opacity: 0; transform: translate(-50%, -40%) scale(.7); } 10% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); } 18% { transform: translate(-50%, -50%) scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -62%) scale(.98); } }
+  #charge { position: absolute; left: 50%; bottom: 13%; transform: translateX(-50%); width: min(360px, 60vw); opacity: 0; transition: opacity .15s; text-align: center; }
+  #charge.on { opacity: 1; }
+  #charge .track { height: 12px; border-radius: 6px; background: rgba(0, 0, 0, .35); border: 1px solid rgba(255, 255, 255, .35); overflow: hidden; }
+  #charge .fill { height: 100%; width: 0; background: linear-gradient(90deg, #fff, var(--gold) 60%, var(--orange)); }
+  #charge.max .fill { animation: glow .25s infinite alternate; }
+  @keyframes glow { from { filter: brightness(1); } to { filter: brightness(1.5); } }
+  #charge .lab { font-size: 18px; letter-spacing: .25em; margin-bottom: 6px; text-shadow: 0 2px 8px rgba(0, 0, 0, .6); }
+  #charge .trick { font-size: 22px; color: var(--gold); font-style: italic; font-weight: 900; text-transform: uppercase; min-height: 26px; margin-top: 6px; text-shadow: 0 2px 8px rgba(0, 0, 0, .6); }
+  #zone { position: absolute; left: 22px; bottom: 20px; text-shadow: 0 2px 8px rgba(0, 0, 0, .5); }
+  #zone b { display: block; font-size: 30px; font-style: italic; font-weight: 900; text-transform: uppercase; }
+  #zone span { font-size: 15px; letter-spacing: .16em; text-transform: uppercase; color: #e6eefa; }
+  #zone .dot { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 8px; vertical-align: 1px; }
+  #keys { position: absolute; right: 22px; bottom: 20px; text-align: right; font-size: 15px; line-height: 1.55; color: #eef4fc; text-shadow: 0 1px 6px rgba(0, 0, 0, .7); letter-spacing: .04em; }
+  #keys kbd { display: inline-block; min-width: 22px; padding: 0 5px; border-radius: 4px; background: rgba(0, 0, 0, .35); border: 1px solid rgba(255, 255, 255, .3); font: inherit; font-weight: 800; text-align: center; }
+  #fade { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity .35s; z-index: 30; }
+  #fade.on { opacity: 1; }
+  #fade.dark { background: #0b1426; }
+  #toast { position: absolute; left: 50%; bottom: 26%; transform: translateX(-50%); font-size: 22px; font-style: italic; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; text-shadow: 0 2px 10px rgba(0, 0, 0, .6); opacity: 0; transition: opacity .3s; }
+  #toast.on { opacity: 1; }
+
+  /* ---------- menus ---------- */
+  .menuScr { background: rgba(4, 10, 22, .55); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+  .menuScr .box { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(560px, 92vw); max-height: 90vh; overflow: auto; padding: 26px 26px 22px; }
+  .menuScr h2 { margin: 0 0 18px; font-size: 44px; font-style: italic; font-weight: 900; text-transform: uppercase; letter-spacing: .02em; }
+  .menuScr .list { display: grid; gap: 9px; }
+  #drop .box { width: min(760px, 94vw); }
+  #drop .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+  .spot { text-align: left; padding: 12px 14px; border-radius: 10px; background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .13); }
+  .spot:hover, .spot:focus-visible { background: rgba(255, 90, 31, .3); border-color: var(--orange); outline: none; }
+  .spot b { display: block; font-size: 24px; font-style: italic; font-weight: 900; text-transform: uppercase; }
+  .spot span { display: block; color: var(--muted); font-size: 16px; font-weight: 600; }
+  .spot i { display: block; color: #fff; font-style: normal; font-size: 14px; margin-top: 4px; opacity: .8; letter-spacing: .08em; }
+  .row { display: flex; align-items: center; gap: 12px; margin: 12px 0; flex-wrap: wrap; }
+  .row > label { width: 150px; font-size: 19px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; }
+  .seg button { padding: 8px 14px; border-radius: 8px; background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .14); font-size: 19px; font-weight: 800; font-style: italic; text-transform: uppercase; letter-spacing: .04em; }
+  .seg button.on { background: var(--orange); border-color: #ffc4a8; color: #fff; }
+  .seg button .sw { display: inline-block; width: 14px; height: 14px; border-radius: 4px; margin-right: 6px; vertical-align: -1px; border: 1px solid rgba(255, 255, 255, .5); }
+  .note { color: var(--muted); font-size: 16px; font-weight: 600; margin: 4px 0 0; }
+  input[type=range] { width: 200px; accent-color: var(--orange); }
+  .help { display: grid; grid-template-columns: auto 1fr; gap: 8px 18px; font-size: 19px; align-items: center; }
+  .help kbd { display: inline-block; min-width: 30px; padding: 2px 8px; border-radius: 6px; background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 255, 255, .25); font: inherit; font-weight: 900; text-align: center; }
+  .help .h { grid-column: 1 / -1; font-size: 15px; letter-spacing: .2em; color: var(--orange2); margin-top: 8px; text-transform: uppercase; }
+  .back { margin-top: 18px; }
+
+  /* ---------- touch ---------- */
+  .touch { display: none; }
+  body.touch .touch { display: block; }
+  body.touch #keys { display: none; }
+  #joy { position: fixed; left: 26px; bottom: 26px; width: 150px; height: 150px; border-radius: 50%; background: rgba(255, 255, 255, .1); border: 2px solid rgba(255, 255, 255, .3); z-index: 6; pointer-events: auto; }
+  #joy .knob { position: absolute; left: 50%; top: 50%; width: 62px; height: 62px; margin: -31px; border-radius: 50%; background: rgba(255, 255, 255, .55); }
+  #act { position: fixed; right: 30px; bottom: 34px; width: 118px; height: 118px; border-radius: 50%; background: rgba(255, 90, 31, .55); border: 3px solid rgba(255, 220, 200, .7); z-index: 6; pointer-events: auto; font-size: 22px; font-style: italic; font-weight: 900; }
+  #act.on { background: rgba(255, 140, 60, .85); }
+  #tq, #te { position: fixed; bottom: 166px; width: 58px; height: 58px; border-radius: 50%; background: rgba(255, 255, 255, .14); border: 2px solid rgba(255, 255, 255, .35); z-index: 6; pointer-events: auto; font-size: 22px; font-weight: 900; }
+  #tq { right: 120px; } #te { right: 40px; }
+  #tq.on, #te.on { background: rgba(255, 255, 255, .45); }
+  #tPause { position: fixed; top: 92px; right: 22px; width: 50px; height: 50px; border-radius: 12px; background: rgba(0, 0, 0, .3); border: 1px solid rgba(255, 255, 255, .3); z-index: 6; pointer-events: auto; font-size: 22px; font-weight: 900; }
+  @media (max-width: 700px) { .tl .score { font-size: 34px; } .tr .spd { font-size: 40px; } #combo { top: 70px; } #pop .n { font-size: 36px; } #title .wrap { left: 22px; } }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div id="boot">
+  <div>
+    <div class="logo">STEEP</div>
+    <div id="bootBar"><i></i></div>
+    <div id="bootTxt">Loading</div>
+    <div id="bootErr"></div>
+  </div>
+</div>
+
+<div id="title" class="screen">
+  <div class="wrap">
+    <div class="logo">STEEP</div>
+    <div class="tag">Freestyle skiing</div>
+    <div class="menu">
+      <button class="btn main" data-act="ride">Ride <small>start at the summit</small></button>
+      <button class="btn" data-act="drop">Drop in <small>park, pipe, cliffs, powder…</small></button>
+      <button class="btn" data-act="settings">Settings</button>
+      <button class="btn" data-act="help">Controls</button>
+    </div>
+    <div class="foot"><span>Graphics</span><span class="chip q" id="qChip">QUALITY</span><span>·</span><a href="../../">← All games</a></div>
+  </div>
+  <div id="demoTag"><b id="demoName">Double Cork 1080 Mute</b><span>XL Kicker · Steep Park</span></div>
+</div>
+
+<div id="hud">
+  <div class="tl"><div class="lab">Score</div><div class="score" id="hScore">0</div><div class="best" id="hBest"></div></div>
+  <div class="tr"><div class="spd"><span id="hSpd">0</span><small>KM/H</small></div><div class="chips"><span class="chip" id="hCam">DRONE</span><span class="chip q" id="hQ">QUALITY</span></div></div>
+  <div id="combo" style="opacity:0"><div class="names" id="cNames"></div><div class="pts" id="cPts"></div><div class="bar"><i id="cBar"></i></div></div>
+  <div id="pop"><div class="q" id="pQ"></div><div class="n" id="pN"></div><div class="p" id="pP"></div></div>
+  <div id="charge"><div class="lab">JUMP</div><div class="track"><div class="fill" id="chFill"></div></div><div class="trick" id="chTrick"></div></div>
+  <div id="zone"><b id="zName"></b><span id="zSub"></span></div>
+  <div id="toast"></div>
+  <div id="keys">
+    <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> ride · hold <kbd>SPACE</kbd> jump<br>
+    at release: <kbd>W</kbd> frontflip <kbd>S</kbd> backflip <kbd>Q</kbd><kbd>E</kbd> side flip <kbd>A</kbd><kbd>D</kbd> spin<br>
+    air: <kbd>A</kbd><kbd>D</kbd> spin · <kbd>SPACE</kbd> grab · <kbd>T</kbd> drop in · <kbd>C</kbd> camera · <kbd>H</kbd> hide · <kbd>ESC</kbd> menu
+  </div>
+  <div class="touch"><div id="joy"><div class="knob"></div></div><button id="act">JUMP</button><button id="tq">Q</button><button id="te">E</button><button id="tPause">II</button></div>
+</div>
+<div id="fade"></div>
+
+<div id="pause" class="screen menuScr"><div class="box panel">
+  <h2>Paused</h2>
+  <div class="list">
+    <button class="btn main" data-act="resume">Resume</button>
+    <button class="btn" data-act="drop">Drop in <small>T</small></button>
+    <button class="btn" data-act="respawn">Back to last drop <small>R</small></button>
+    <button class="btn" data-act="settings">Settings</button>
+    <button class="btn" data-act="help">Controls</button>
+    <button class="btn" data-act="title">Title screen</button>
+  </div>
+</div></div>
+
+<div id="drop" class="screen menuScr"><div class="box panel">
+  <h2>Drop in</h2>
+  <div class="grid" id="dropGrid"></div>
+  <button class="btn back" data-act="back">Back</button>
+</div></div>
+
+<div id="settings" class="screen menuScr"><div class="box panel">
+  <h2>Settings</h2>
+  <div class="row"><label>Graphics</label><div class="seg" id="sQ"></div></div>
+  <p class="note" id="sQnote">QUALITY: sharp, soft shadows, glow and motion blur. FAST: smooth on most computers. ULTRA FAST: for slow computers and tablets.</p>
+  <div class="row"><label>Outfit</label><div class="seg" id="sOutfit"></div></div>
+  <div class="row"><label>Camera</label><div class="seg" id="sCam"></div></div>
+  <div class="row"><label>Landing help</label><div class="seg" id="sAssist"></div></div>
+  <div class="row"><label>Sound</label><input type="range" id="sSfx" min="0" max="1" step="0.05"></div>
+  <div class="row"><label>Music</label><input type="range" id="sMusic" min="0" max="1" step="0.05"></div>
+  <button class="btn back" data-act="back">Back</button>
+</div></div>
+
+<div id="help" class="screen menuScr"><div class="box panel">
+  <h2>Controls</h2>
+  <div class="help">
+    <div class="h">On the snow</div>
+    <span><kbd>W</kbd></span><span>Forward: push with the poles, tuck when fast</span>
+    <span><kbd>S</kbd></span><span>Brake (snowplough / hockey stop), backwards when stopped</span>
+    <span><kbd>A</kbd> <kbd>D</kbd></span><span>Turn</span>
+    <span><kbd>SPACE</kbd></span><span>Hold to charge the jump, let go to jump</span>
+    <div class="h">Throw a trick (hold as you let go of SPACE)</div>
+    <span><kbd>W</kbd> / <kbd>S</kbd></span><span>Frontflip / backflip</span>
+    <span><kbd>Q</kbd> / <kbd>E</kbd></span><span>Side flip left / right (with a spin: a cork)</span>
+    <span><kbd>A</kbd> / <kbd>D</kbd></span><span>Spin left / right (180 … 1080)</span>
+    <div class="h">In the air</div>
+    <span><kbd>A</kbd> <kbd>D</kbd> <kbd>W</kbd> <kbd>S</kbd> <kbd>Q</kbd> <kbd>E</kbd></span><span>Keep spinning and flipping (let go to finish the turn)</span>
+    <span><kbd>SPACE</kbd></span><span>Grab (hold it longer for a tweaked grab)</span>
+    <div class="h">Other</div>
+    <span><kbd>T</kbd></span><span>Drop in anywhere on the mountain</span>
+    <span><kbd>R</kbd></span><span>Back to the last drop-in spot</span>
+    <span><kbd>C</kbd></span><span>Camera: drone, chase, cinematic</span>
+    <span><kbd>H</kbd></span><span>Hide the screen info</span>
+    <span><kbd>ESC</kbd></span><span>Menu</span>
+  </div>
+  <p class="note">Land with your skis lined up with the slope for a PERFECT landing (x1.5). Chain tricks and rails within a few seconds to grow the combo multiplier. A crash loses the combo.</p>
+  <button class="btn back" data-act="back">Back</button>
+</div></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
