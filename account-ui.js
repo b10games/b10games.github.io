@@ -79,59 +79,62 @@
     check: '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square"/></svg>',
     cloud: '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.2 9.6 4.2 4.2 0 0 0 7 18z" fill="none" stroke="currentColor" stroke-width="2.2"/></svg>',
     plus: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 4v16M4 12h16" stroke="currentColor" stroke-width="3"/></svg>',
-    play: '<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg>'
+    play: '<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg>',
+    friends: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.3-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 010 6.8M18.5 14.8c1.7.8 2.8 2.6 3 5.2"/></svg>'
   };
 
   // ---------- styles ----------
   var css = [
     /* the profile button: big, a glass tile with your bean (in the page's own slot, or top right) */
-    '.acct-btn{position:absolute;top:18px;right:20px;z-index:20;display:flex;flex-direction:row-reverse;align-items:center;justify-content:flex-end;gap:20px;background:rgba(20,17,40,.6);border:1px solid rgba(255,255,255,.12);border-radius:26px;padding:18px 22px;cursor:pointer;color:#f6f4ff;font:800 clamp(22px,2.4vw,32px)/1.08 "Unbounded",system-ui,sans-serif;letter-spacing:-.02em;text-align:left;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease}',
-    '.acct-btn.in-slot{position:relative;top:auto;right:auto;width:100%;min-height:100%}',
-    '.acct-btn:hover{border-color:rgba(255,79,216,.55);box-shadow:0 24px 60px -24px rgba(255,79,216,.6);transform:translateY(-2px)}',
-    '.acct-btn:focus-visible{outline:3px solid #ff4fd8;outline-offset:3px}',
+    '.acct-btn{position:absolute;top:18px;right:20px;z-index:20;display:flex;flex-direction:row-reverse;align-items:center;justify-content:flex-end;gap:20px;background:rgba(20,20,20,.6);border:1px solid rgba(255,255,255,.12);border-radius:26px;padding:18px 22px;cursor:pointer;color:#fff;font:800 clamp(22px,2.4vw,32px)/1.08 "Unbounded",system-ui,sans-serif;letter-spacing:-.02em;text-align:left;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease}',
+    '.acct-btn.in-slot{position:relative;top:auto;right:auto;flex:1;min-width:0}',
+    '.acct-btn.in-slot .acct-ring{width:clamp(76px,7vw,104px);height:clamp(76px,7vw,104px)}',
+    '.acct-btn.in-slot{gap:16px;padding:18px;font-size:clamp(18px,1.55vw,23px)}',
+    '.acct-btn:hover{border-color:rgba(255,255,255,.55);box-shadow:0 24px 60px -30px rgba(255,255,255,.45);transform:translateY(-2px)}',
+    '.acct-btn:focus-visible{outline:3px solid #fff;outline-offset:3px}',
     '.acct-name{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
-    '.acct-name::before{content:"Din profil";display:block;margin-bottom:8px;font:800 11.5px "Manrope",system-ui,sans-serif;letter-spacing:.2em;text-transform:uppercase;color:#ff4fd8}',
-    '.acct-ring{position:relative;flex:none;width:clamp(92px,9vw,124px);height:clamp(92px,9vw,124px);border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 30%,#2a2350,#0d0b1c 70%);color:#fff;box-shadow:0 0 0 3px #0d0b1c,0 0 0 6px transparent;transition:transform .2s ease}',
-    '.acct-ring::before{content:"";position:absolute;inset:-5px;border-radius:50%;padding:3px;background:linear-gradient(120deg,#8b5cf6,#ff4fd8 55%,#ffc53d);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}',
+    '.acct-name::before{content:"Din profil";display:block;margin-bottom:8px;font:800 11.5px "Manrope",system-ui,sans-serif;letter-spacing:.2em;text-transform:uppercase;color:#a3a3a3}',
+    '.acct-ring{position:relative;flex:none;width:clamp(92px,9vw,124px);height:clamp(92px,9vw,124px);border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 30%,#2b2b2b,#080808 70%);color:#fff;box-shadow:0 0 0 3px #000,0 0 0 6px transparent;transition:transform .2s ease}',
+    '.acct-ring::before{content:"";position:absolute;inset:-5px;border-radius:50%;padding:3px;background:#fff;-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}',
     '.acct-ring svg{width:66%;height:66%;display:block;filter:drop-shadow(0 6px 12px rgba(0,0,0,.45))}',
     '.acct-btn:hover .acct-ring{transform:rotate(-6deg) scale(1.04)}',
-    '.acct-badge{position:absolute;top:-6px;right:-6px;min-width:34px;height:34px;padding:0 8px;border-radius:17px;background:#ff3d6e;color:#fff;font:800 16px/30px "Unbounded",sans-serif;font-style:normal;text-align:center;border:2px solid #0d0b1c;box-shadow:0 6px 16px rgba(255,61,110,.5)}',
+    '.acct-badge{position:absolute;top:-6px;right:-6px;min-width:34px;height:34px;padding:0 8px;border-radius:17px;background:#fff;color:#000;font:800 16px/30px "Unbounded",sans-serif;font-style:normal;text-align:center;border:2px solid #000;box-shadow:0 6px 16px rgba(0,0,0,.5)}',
     /* no account: it asks a question instead of a name */
     '.acct-btn.guest .acct-name{white-space:normal;overflow:visible;text-wrap:balance;font-size:.9em}',
-    '.acct-btn.guest .acct-name::before{content:"Ny her?";color:#b6ff3b}',
+    '.acct-btn.guest .acct-name::before{content:"Ny her?";color:#fff}',
     /* the question when the page opens */
-    '.acct-ask{position:fixed;inset:0;z-index:120;background:rgba(5,4,12,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:grid;place-items:center;padding:16px}',
+    '.acct-ask{position:fixed;inset:0;z-index:120;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:grid;place-items:center;padding:16px}',
     '.acct-ask[hidden]{display:none}',
-    '.acct-ask-box{position:relative;width:min(540px,100%);background:linear-gradient(180deg,#171332,#0d0b1c);color:#f6f4ff;border:1px solid rgba(255,255,255,.14);border-radius:30px;box-shadow:0 40px 100px -20px rgba(139,92,246,.55);padding:56px 30px 30px;font-family:"Manrope",system-ui,sans-serif;text-align:center;animation:acctIn .22s cubic-bezier(.2,.9,.3,1.2)}',
+    '.acct-ask-box{position:relative;width:min(540px,100%);background:linear-gradient(180deg,#171717,#050505);color:#fff;border:1px solid rgba(255,255,255,.14);border-radius:30px;box-shadow:0 40px 100px -30px rgba(255,255,255,.22);padding:56px 30px 30px;font-family:"Manrope",system-ui,sans-serif;text-align:center;animation:acctIn .22s cubic-bezier(.2,.9,.3,1.2)}',
     '.acct-ask-x{position:absolute;top:14px;left:14px;width:42px;height:42px;border:1px solid rgba(255,255,255,.16);border-radius:50%;background:rgba(255,255,255,.06);color:#fff;cursor:pointer;display:grid;place-items:center}',
     '.acct-ask-x:hover{background:rgba(255,255,255,.16)}',
-    '.acct-ask-bean{position:relative;width:116px;height:116px;margin:0 auto 20px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 30%,#2a2350,#0d0b1c 70%)}',
-    '.acct-ask-bean::before{content:"";position:absolute;inset:-5px;border-radius:50%;padding:3px;background:linear-gradient(120deg,#8b5cf6,#ff4fd8 55%,#ffc53d);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}',
+    '.acct-ask-bean{position:relative;width:116px;height:116px;margin:0 auto 20px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 30%,#2b2b2b,#080808 70%)}',
+    '.acct-ask-bean::before{content:"";position:absolute;inset:-5px;border-radius:50%;padding:3px;background:#fff;-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}',
     '.acct-ask-bean svg{width:74px;height:74px}',
     '.acct-ask h2{font:800 clamp(24px,5.4vw,34px)/1.08 "Unbounded",sans-serif;letter-spacing:-.02em;margin:0 0 26px;text-wrap:balance}',
     '.acct-ask-row{display:grid;gap:10px}',
     '.acct-ask-row button{height:56px;border-radius:999px;border:1px solid rgba(255,255,255,.16);font:800 15px "Unbounded",sans-serif;letter-spacing:.01em;cursor:pointer;transition:transform .15s ease,box-shadow .2s ease,background .2s}',
     '.acct-ask-row button:hover{transform:translateY(-2px)}',
-    '.acct-ask-row button:focus-visible,.acct-ask-x:focus-visible{outline:3px solid #ff4fd8;outline-offset:3px}',
-    '.acct-ask-make{background:linear-gradient(120deg,#8b5cf6,#ff4fd8 55%,#ffc53d);color:#fff;border-color:transparent !important;box-shadow:0 14px 34px -10px rgba(255,79,216,.7)}',
+    '.acct-ask-row button:focus-visible,.acct-ask-x:focus-visible{outline:3px solid #fff;outline-offset:3px}',
+    '.acct-ask-make{background:#fff;color:#000;border-color:transparent !important;box-shadow:0 14px 34px -14px rgba(255,255,255,.5)}',
     '.acct-ask-login{background:rgba(255,255,255,.08);color:#fff}',
-    '.acct-ask-guest{background:transparent;color:#a7a3c4}',
+    '.acct-ask-guest{background:transparent;color:#a3a3a3}',
     '.acct-badge[hidden]{display:none}',
     /* the account panel */
-    '.acct-back{position:fixed;inset:0;z-index:100;background:rgba(5,4,12,.6);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:none}',
+    '.acct-back{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:none}',
     '.acct-back.on{display:block}',
-    '.acct-box{position:absolute;top:84px;right:20px;width:min(440px,calc(100vw - 32px));max-height:calc(100vh - 104px);overflow:auto;background:linear-gradient(180deg,#171332,#0d0b1c);color:#f6f4ff;border:1px solid rgba(255,255,255,.14);border-radius:26px;box-shadow:0 40px 100px -20px rgba(139,92,246,.5);padding:24px;font-family:"Manrope",system-ui,sans-serif;animation:acctIn .2s cubic-bezier(.2,.9,.3,1.2)}',
+    '.acct-box{position:absolute;top:84px;right:20px;width:min(440px,calc(100vw - 32px));max-height:calc(100vh - 104px);overflow:auto;background:linear-gradient(180deg,#171717,#050505);color:#fff;border:1px solid rgba(255,255,255,.14);border-radius:26px;box-shadow:0 40px 100px -30px rgba(255,255,255,.2);padding:24px;font-family:"Manrope",system-ui,sans-serif;animation:acctIn .2s cubic-bezier(.2,.9,.3,1.2)}',
     '@keyframes acctIn{from{opacity:0;transform:translateY(-10px) scale(.98)}to{opacity:1;transform:none}}',
     '.acct-x{position:absolute;top:14px;right:14px;width:38px;height:38px;border:1px solid rgba(255,255,255,.14);border-radius:50%;background:rgba(255,255,255,.05);cursor:pointer;display:grid;place-items:center;color:#fff}',
     '.acct-x:hover{background:rgba(255,255,255,.16)}',
     '.acct-box h2{font:800 23px/1.1 "Unbounded",sans-serif;letter-spacing:-.02em;margin:0 44px 8px 0}',
-    '.acct-box p{color:#a7a3c4;font-size:14px;line-height:1.5}',
-    '.acct-big{position:relative;width:84px;height:84px;color:#fff;border-radius:50%;display:grid;place-items:center;margin-bottom:14px;background:radial-gradient(circle at 35% 30%,#2a2350,#0d0b1c 70%);box-shadow:0 0 0 2px rgba(255,79,216,.6)}',
+    '.acct-box p{color:#a3a3a3;font-size:14px;line-height:1.5}',
+    '.acct-big{position:relative;width:84px;height:84px;color:#fff;border-radius:50%;display:grid;place-items:center;margin-bottom:14px;background:radial-gradient(circle at 35% 30%,#2b2b2b,#080808 70%);box-shadow:0 0 0 2px rgba(255,255,255,.7)}',
     '.acct-big svg{width:58px;height:58px}',
-    '.acct-field{display:block;margin-top:14px;font:800 11px "Manrope",sans-serif;text-transform:uppercase;letter-spacing:.14em;color:#a7a3c4}',
+    '.acct-field{display:block;margin-top:14px;font:800 11px "Manrope",sans-serif;text-transform:uppercase;letter-spacing:.14em;color:#a3a3a3}',
     '.acct-field input,.acct-add input{display:block;width:100%;margin-top:7px;height:48px;border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:0 14px;font:600 16px "Manrope",sans-serif;background:rgba(255,255,255,.05);color:#fff;outline:0;transition:border-color .15s,box-shadow .15s}',
-    '.acct-field input:focus,.acct-add input:focus{border-color:rgba(139,92,246,.8);box-shadow:0 0 0 4px rgba(139,92,246,.22)}',
-    '.acct-go{margin-top:18px;width:100%;height:52px;border:0;border-radius:999px;background:linear-gradient(120deg,#8b5cf6,#ff4fd8 55%,#ffc53d);color:#fff;font:800 15px "Unbounded",sans-serif;cursor:pointer;box-shadow:0 14px 30px -12px rgba(255,79,216,.7);transition:transform .15s ease}',
+    '.acct-field input:focus,.acct-add input:focus{border-color:rgba(255,255,255,.7);box-shadow:0 0 0 4px rgba(255,255,255,.14)}',
+    '.acct-go{margin-top:18px;width:100%;height:52px;border:0;border-radius:999px;background:#fff;color:#000;font:800 15px "Unbounded",sans-serif;cursor:pointer;box-shadow:0 14px 30px -14px rgba(255,255,255,.45);transition:transform .15s ease}',
     '.acct-go:hover:not(:disabled){transform:translateY(-2px)}',
     '.acct-go:disabled{opacity:.55;cursor:default}',
     '.acct-err{color:#ff8fa3 !important;font-weight:700;min-height:20px;margin-top:10px}',
@@ -141,18 +144,18 @@
     '.acct-head .acct-big{margin:0;flex:none;width:70px;height:70px}',
     '.acct-head .acct-big svg{width:48px;height:48px}',
     '.acct-head h2{margin:0;word-break:break-word}',
-    '.acct-sync{display:flex;align-items:center;gap:6px;font:800 11px "Manrope",sans-serif;text-transform:uppercase;letter-spacing:.08em;color:#a7a3c4;margin-top:6px}',
+    '.acct-sync{display:flex;align-items:center;gap:6px;font:800 11px "Manrope",sans-serif;text-transform:uppercase;letter-spacing:.08em;color:#a3a3a3;margin-top:6px}',
     '.acct-sync.ok{color:#6ee7b7}',
     '.acct-tabs{display:flex;gap:4px;padding:4px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);margin-bottom:16px}',
-    '.acct-tabs button{flex:1;height:40px;border:0;border-radius:999px;background:transparent;font:800 13px "Manrope",sans-serif;cursor:pointer;color:#a7a3c4;display:flex;align-items:center;justify-content:center;gap:6px;transition:background .15s,color .15s}',
-    '.acct-tabs button.on{background:linear-gradient(120deg,#8b5cf6,#ff4fd8);color:#fff}',
-    '.acct-tabs i{font-style:normal;background:#ff3d6e;color:#fff;border-radius:9px;padding:0 6px;font-size:11px;line-height:18px}',
-    '.acct-label{font:800 11px "Manrope",sans-serif;text-transform:uppercase;letter-spacing:.14em;color:#a7a3c4;margin:4px 0 10px}',
+    '.acct-tabs button{flex:1;height:40px;border:0;border-radius:999px;background:transparent;font:800 13px "Manrope",sans-serif;cursor:pointer;color:#a3a3a3;display:flex;align-items:center;justify-content:center;gap:6px;transition:background .15s,color .15s}',
+    '.acct-tabs button.on{background:#fff;color:#000}',
+    '.acct-tabs i{font-style:normal;background:#000;color:#fff;border-radius:9px;padding:0 6px;font-size:11px;line-height:18px}',
+    '.acct-label{font:800 11px "Manrope",sans-serif;text-transform:uppercase;letter-spacing:.14em;color:#a3a3a3;margin:4px 0 10px}',
     '.acct-skins{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px}',
-    '.acct-skin{border:1px solid rgba(255,255,255,.1);border-radius:16px;background:rgba(255,255,255,.04);padding:9px 4px 7px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;font:700 12px "Manrope",sans-serif;color:#f6f4ff;transition:border-color .15s ease,transform .15s ease,background .15s}',
+    '.acct-skin{border:1px solid rgba(255,255,255,.1);border-radius:16px;background:rgba(255,255,255,.04);padding:9px 4px 7px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;font:700 12px "Manrope",sans-serif;color:#fff;transition:border-color .15s ease,transform .15s ease,background .15s}',
     '.acct-skin svg{width:46px;height:46px}',
     '.acct-skin:hover{border-color:rgba(255,255,255,.35);transform:translateY(-2px)}',
-    '.acct-skin.on{border-color:#ff4fd8;background:rgba(255,79,216,.12);box-shadow:0 0 0 3px rgba(255,79,216,.2)}',
+    '.acct-skin.on{border-color:#fff;background:rgba(255,255,255,.1);box-shadow:0 0 0 3px rgba(255,255,255,.18)}',
     '.acct-out{margin-top:18px;width:100%;height:46px;border:1px solid rgba(255,255,255,.16);border-radius:999px;background:rgba(255,255,255,.05);color:#fff;font:800 13px "Manrope",sans-serif;cursor:pointer}',
     '.acct-out:hover{background:rgba(255,255,255,.14)}',
     '.acct-del{margin-top:10px;width:100%;height:40px;border:0;border-radius:999px;background:none;color:#ff8fa3;font:700 12.5px "Manrope",sans-serif;cursor:pointer;text-decoration:underline;text-underline-offset:3px}',
@@ -166,27 +169,51 @@
     '.acct-del-yes:disabled{opacity:.6}',
     '.acct-add{display:flex;gap:8px}',
     '.acct-add input{margin:0;flex:1;min-width:0}',
-    '.acct-add button{flex:none;height:48px;padding:0 16px;border:0;border-radius:14px;background:linear-gradient(120deg,#8b5cf6,#ff4fd8);color:#fff;font:800 13px "Manrope",sans-serif;cursor:pointer;display:flex;align-items:center;gap:6px}',
+    '.acct-add button{flex:none;height:48px;padding:0 16px;border:0;border-radius:14px;background:#fff;color:#000;font:800 13px "Manrope",sans-serif;cursor:pointer;display:flex;align-items:center;gap:6px}',
     '.acct-add button:disabled{opacity:.55}',
     '.acct-list{display:flex;flex-direction:column;gap:8px;margin-top:6px}',
     '.acct-row{display:flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:9px 11px;background:rgba(255,255,255,.04)}',
-    '.acct-row .av{width:42px;height:42px;flex:none;color:#fff;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 30%,#2a2350,#0d0b1c 70%);box-shadow:0 0 0 1.5px rgba(255,255,255,.2)}',
+    '.acct-row .av{width:42px;height:42px;flex:none;color:#fff;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 30%,#2b2b2b,#080808 70%);box-shadow:0 0 0 1.5px rgba(255,255,255,.2)}',
     '.acct-row .av svg{width:29px;height:29px}',
     '.acct-row .who{flex:1;min-width:0}',
     '.acct-row b{display:block;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
-    '.acct-row small{display:flex;align-items:center;gap:6px;color:#a7a3c4;font-size:12.5px;line-height:1.3}',
-    '.acct-row small .d{width:8px;height:8px;border-radius:50%;background:#4b4766;flex:none}',
+    '.acct-row small{display:flex;align-items:center;gap:6px;color:#a3a3a3;font-size:12.5px;line-height:1.3}',
+    '.acct-row small .d{width:8px;height:8px;border-radius:50%;background:#4a4a4a;flex:none}',
     '.acct-row small .d.on{background:#34d399}',
     '.acct-join{flex:none;height:36px;padding:0 14px;border:0;border-radius:999px;background:#10b981;color:#fff;font:800 12px "Manrope",sans-serif;cursor:pointer;display:flex;align-items:center;gap:6px}',
-    '.acct-join:disabled{background:rgba(255,255,255,.06);color:#6f6a8f;cursor:default}',
+    '.acct-join:disabled{background:rgba(255,255,255,.06);color:#6b6b6b;cursor:default}',
     '.acct-join.no{background:rgba(255,255,255,.08);color:#fff}',
-    '.acct-rm{flex:none;width:30px;height:30px;border:0;border-radius:50%;background:none;color:#8a85aa;cursor:pointer;display:grid;place-items:center}',
+    '.acct-rm{flex:none;width:30px;height:30px;border:0;border-radius:50%;background:none;color:#8a8a8a;cursor:pointer;display:grid;place-items:center}',
     '.acct-rm:hover{color:#fff;background:rgba(255,255,255,.08)}',
     '.acct-rm svg{width:15px;height:15px}',
     '.acct-req{background:rgba(255,197,61,.08) !important;border-color:rgba(255,197,61,.35) !important}',
-    '.acct-empty{border:1px dashed rgba(255,255,255,.2);border-radius:16px;padding:14px;text-align:center;color:#a7a3c4;font-size:14px}',
-    '.acct-link{border:0;background:none;color:#ff8ce6;font:inherit;font-weight:800;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:0}',
-    '@media (max-width:640px){.acct-btn{gap:14px;padding:14px 16px}.acct-box{top:16px !important;left:16px;right:16px;width:auto;max-height:calc(100vh - 32px);padding:20px}}'
+    '.acct-empty{border:1px dashed rgba(255,255,255,.2);border-radius:16px;padding:14px;text-align:center;color:#a3a3a3;font-size:14px}',
+    '.acct-link{border:0;background:none;color:#fff;font:inherit;font-weight:800;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:0}',
+    /* the friends button next to the profile: who of your friends is online */
+    '.acct-fbtn{flex:none;width:150px;display:flex;flex-direction:column;justify-content:space-between;gap:10px;padding:16px 16px 14px;border-radius:26px;background:rgba(20,20,20,.6);border:1px solid rgba(255,255,255,.12);color:#fff;cursor:pointer;text-align:left;font-family:"Manrope",system-ui,sans-serif;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease}',
+    '.acct-fbtn:hover{border-color:rgba(255,255,255,.55);box-shadow:0 24px 60px -30px rgba(255,255,255,.45);transform:translateY(-2px)}',
+    '.acct-fbtn:focus-visible{outline:3px solid #fff;outline-offset:3px}',
+    '.acct-ftop{display:flex;align-items:center;justify-content:space-between;gap:8px}',
+    '.acct-fico{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.12)}',
+    '.acct-fico svg{width:22px;height:22px}',
+    '.acct-fbtn.has .acct-fico{background:#fff;color:#000}',
+    '.acct-ftxt b{display:block;font:800 19px/1.1 "Unbounded",sans-serif;letter-spacing:-.01em}',
+    '.acct-ftxt small{display:flex;align-items:center;gap:7px;margin-top:5px;font:700 13px "Manrope",sans-serif;color:#a3a3a3}',
+    '.acct-fbtn.has .acct-ftxt small{color:#fff}',
+    '.acct-ftxt .d{width:9px;height:9px;border-radius:50%;background:#4a4a4a;flex:none}',
+    '.acct-ftxt .d.on{background:#34d399;box-shadow:0 0 0 0 rgba(52,211,153,.55);animation:acctPulse 1.8s infinite}',
+    '@keyframes acctPulse{0%{box-shadow:0 0 0 0 rgba(52,211,153,.55)}100%{box-shadow:0 0 0 8px rgba(52,211,153,0)}}',
+    '.acct-fav{display:flex;align-items:center;padding-left:3px}',
+    '.acct-fav:empty{display:none}',
+    '.acct-fav span{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 30%,#2b2b2b,#080808 70%);box-shadow:0 0 0 2px #000,0 0 0 3.5px #34d399}',
+    '.acct-fav span+span{margin-left:-8px}',
+    '.acct-fav span svg{width:21px;height:21px}',
+    '.acct-fav .more{background:#fff;color:#000;font:800 11px "Unbounded",sans-serif;box-shadow:0 0 0 2px #000}',
+    '.acct-online{display:flex;align-items:center;gap:8px;margin:0 0 14px;padding:10px 14px;border-radius:14px;background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.25);font:700 14px "Manrope",sans-serif}',
+    '.acct-online .d{width:9px;height:9px;border-radius:50%;background:#34d399;flex:none}',
+    '.acct-online.none{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.12);color:#a3a3a3}',
+    '.acct-online.none .d{background:#4a4a4a}',
+    '@media (max-width:640px){.acct-fbtn{width:auto;flex-direction:row;align-items:center;justify-content:flex-start;gap:14px;padding:12px 16px}.acct-fbtn .acct-fav{margin-left:auto}.acct-ftxt small{margin-top:2px}.acct-ftxt b{font-size:17px}.acct-btn{gap:14px;padding:14px 16px}.acct-box{top:16px !important;left:16px;right:16px;width:auto;max-height:calc(100vh - 32px);padding:20px}}'
   ].join('\n');
   var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
 
@@ -202,6 +229,14 @@
   // the page can give the button its own place (a slot), otherwise it sits top right
   var slot = document.getElementById('acctSlot');
   if (slot) { btn.classList.add('in-slot'); slot.appendChild(btn); } else document.body.appendChild(btn);
+  var fbtn = null;
+  if (slot) {
+    fbtn = document.createElement('button'); fbtn.type = 'button'; fbtn.className = 'acct-fbtn';
+    fbtn.setAttribute('aria-haspopup', 'dialog'); fbtn.setAttribute('aria-label', 'Venner');
+    fbtn.innerHTML = '<span class="acct-ftop"><span class="acct-fico">' + ICON.friends + '</span></span>' +
+      '<span class="acct-ftxt"><b>Venner</b><small data-fcount>Henter…</small></span><span class="acct-fav" data-fav></span>';
+    slot.appendChild(fbtn);
+  }
 
   var lastBtn = '';
   function drawButton() {
@@ -229,14 +264,20 @@
 
   var mode = 'create';
   function show(m) {
-    mode = m || 'create';
-    box.style.top = matchMedia('(max-width:640px)').matches ? '' : Math.round(btn.getBoundingClientRect().bottom + 14) + 'px';
+    var from = m && m.nodeType ? m : btn;
+    mode = typeof m === 'string' ? m : 'create';
+    box.style.top = matchMedia('(max-width:640px)').matches ? '' : Math.round(from.getBoundingClientRect().bottom + 14) + 'px';
     open = true; back.classList.add('on'); render(true);
     refresh();
     clearInterval(poll); poll = setInterval(refresh, 15000);
   }
   function hide() { open = false; confirmDel = false; back.classList.remove('on'); clearInterval(poll); btn.focus(); }
   btn.addEventListener('click', function () { if (open) hide(); else show(); });
+  if (fbtn) fbtn.addEventListener('click', function () {
+    if (!A.user) { show('create'); return; }
+    if (open && tab === 'friends') { hide(); return; }
+    tab = 'friends'; if (open) { render(true); refresh(); } else show(fbtn);
+  });
   back.addEventListener('mousedown', function (e) { if (e.target === back) hide(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && open) hide(); });
 
@@ -276,10 +317,44 @@
             '<button type="button" class="acct-join" data-accept="' + esc(r.from) + '">Tilføj</button><button type="button" class="acct-rm" data-decline="' + esc(r.from) + '" aria-label="Nej tak">' + ICON.x + '</button></div>';
         }).join('') + '</div><div style="height:14px"></div>';
       }
-      html += '<div class="acct-label">Dine venner</div><div class="acct-list" data-friends>' + friendRows() + '</div>';
+      html += '<div class="acct-label">Dine venner</div><div data-onsum>' + onlineSummary() + '</div><div class="acct-list" data-friends>' + friendRows() + '</div>';
     }
     box.innerHTML = html;
     if (focus && tab === 'friends') { var f = box.querySelector('[data-add] input'); if (f && matchMedia('(pointer:fine)').matches) f.focus(); }
+  }
+
+  function onlineSummary() {
+    var u = A.user; if (!u || !u.friends.length || !friendData) return '';
+    var on = friendData.filter(function (f) { return f.online; });
+    if (!on.length) return '<div class="acct-online none"><span class="d"></span>Ingen af dine venner er online lige nu</div>';
+    return '<div class="acct-online"><span class="d"></span>' + (on.length === 1 ? esc(on[0].name) + ' er online' : on.length + ' af dine venner er online') + '</div>';
+  }
+  // the friends button: how many friends are online, and their pictures
+  function drawFriends() {
+    if (!fbtn) return;
+    var u = A.user, txt = fbtn.querySelector('[data-fcount]'), av = fbtn.querySelector('[data-fav]');
+    var on = u && friendData ? friendData.filter(function (f) { return f.online; }) : [];
+    fbtn.classList.toggle('has', on.length > 0);
+    av.innerHTML = on.slice(0, 3).map(function (f) { return '<span title="' + esc(f.name) + '">' + bean(f.skin) + '</span>'; }).join('') + (on.length > 3 ? '<span class="more">+' + (on.length - 3) + '</span>' : '');
+    if (!u) txt.innerHTML = 'Log ind for at se dem';
+    else if (!u.friends.length) txt.innerHTML = 'Tilføj en ven';
+    else if (!friendData) txt.innerHTML = 'Henter…';
+    else txt.innerHTML = '<i class="d' + (on.length ? ' on' : '') + '"></i>' + (on.length ? on.length + ' online' : 'Ingen online');
+    fbtn.setAttribute('aria-label', 'Venner' + (u && friendData ? ', ' + on.length + ' online' : ''));
+  }
+  // where friends are, every 30 s (also while the panel is closed, for the button)
+  var fLoading = false;
+  function pollFriends() {
+    if (!fbtn) return;
+    if (!A.user) { friendData = null; drawFriends(); return; }
+    if (fLoading) return; fLoading = true;
+    A.friends().then(function (f) {
+      fLoading = false; friendData = f; drawFriends();
+      if (open && tab === 'friends') {
+        var l = box.querySelector('[data-friends]'), s = box.querySelector('[data-onsum]');
+        if (l) l.innerHTML = friendRows(); if (s) s.innerHTML = onlineSummary();
+      }
+    }, function () { fLoading = false; drawFriends(); });
   }
 
   function friendRows() {
@@ -405,20 +480,21 @@
       A.requests().then(function (r) { reqs = r; }, function () {}),
       open && tab === 'friends' ? A.friends().then(function (f) { friendData = f; }, function () {}) : null
     ]).then(function () {
-      loading = false; updateBadge();
+      loading = false; updateBadge(); drawFriends();
       if (!open) return;
       // Only redraw the parts that changed, so typing and messages are not interrupted.
       var list = box.querySelector('[data-friends]'), a = document.activeElement;
       var typing = a && a.tagName === 'INPUT' && box.contains(a);
       if (wasReqs !== reqs.length && !typing) render();
-      else if (list) list.innerHTML = friendRows();
+      else if (list) { list.innerHTML = friendRows(); var sm = box.querySelector('[data-onsum]'); if (sm) sm.innerHTML = onlineSummary(); }
     });
   }
 
-  var shown = '';
+  var shown = '', lastFk = A.user ? A.user.name + '|' + A.user.friends.join(',') : '-';
   function userKey() { var u = A.user; return u ? u.name + '|' + u.skin + '|' + u.friends.join(',') : '-'; }
   A.on(function (what) {
     drawButton();
+    if (what !== 'status') { var fk = A.user ? A.user.name + '|' + A.user.friends.join(',') : '-'; if (fk !== lastFk) { lastFk = fk; if (!A.user || friendData && A.user.friends.length !== friendData.length) friendData = null; drawFriends(); pollFriends(); } }
     if (!open) return;
     var s = box.querySelector('[data-sync]'); if (s) s.innerHTML = syncText();
     if (what === 'status') return;
@@ -458,4 +534,5 @@
   drawButton();
   refresh();
   setInterval(function () { if (!open) refresh(); }, 60000);
+  if (fbtn) { drawFriends(); pollFriends(); setInterval(pollFriends, 30000); }
 })();
